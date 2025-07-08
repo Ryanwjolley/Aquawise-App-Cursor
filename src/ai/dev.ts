@@ -3,3 +3,4 @@ config();
 
 import '@/ai/flows/generate-conservation-tips.ts';
 import '@/ai/flows/suggest-allocation-changes.ts';
+import '@/ai/flows/predict-allocations.ts';

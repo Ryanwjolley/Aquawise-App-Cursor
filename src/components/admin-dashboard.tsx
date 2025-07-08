@@ -6,17 +6,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { AllocationSuggester } from './allocation-suggester';
-import { addUsageEntry } from '../firestoreService';
+import { AllocationPredictor } from './allocation-predictor';
+import { addUsageEntry, getUsageForDateRange } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from 'react-day-picker';
+import { format, differenceInDays } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const initialUsers = [
-    { name: 'John Farmer', shares: 5, used: 7500 },
-    { name: 'Alice Gardener', shares: 3, used: 6100 },
-    { name: 'Bob Rancher', shares: 10, used: 18500 },
-    { name: 'Cathy Fields', shares: 8, used: 10000 },
-    { name: 'David Croft', shares: 2, used: 4200 },
-    { name: 'Emily Acres', shares: 6, used: 12300 },
+    { name: 'John Farmer', shares: 5, used: 0 },
+    { name: 'Alice Gardener', shares: 3, used: 0 },
+    { name: 'Bob Rancher', shares: 10, used: 0 },
+    { name: 'Cathy Fields', shares: 8, used: 0 },
+    { name: 'David Croft', shares: 2, used: 0 },
+    { name: 'Emily Acres', shares: 6, used: 0 },
 ];
 
 type UserData = {
@@ -34,6 +40,27 @@ export default function AdminDashboard() {
     const [userData, setUserData] = useState<UserData[]>([]);
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [date, setDate] = useState<DateRange | undefined>({
+        from: new Date(2025, 6, 6),
+        to: new Date(2025, 6, 12),
+    });
+
+    useEffect(() => {
+        const fetchUsageData = async () => {
+            if (date?.from && date?.to) {
+                const userIds = initialUsers.map(u => u.name);
+                const usageData = await getUsageForDateRange(userIds, date.from, date.to);
+                
+                const updatedUsers = initialUsers.map(user => ({
+                    ...user,
+                    used: usageData[user.name] || 0,
+                }));
+                setUsers(updatedUsers);
+            }
+        };
+
+        fetchUsageData();
+    }, [date]);
 
     const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -60,17 +87,13 @@ export default function AdminDashboard() {
 
                 for (const line of lines) {
                     if (!line.trim()) continue;
-                    const [name, usedStr, date] = line.split(',');
-                    if (name && usedStr && date) {
+                    const [name, usedStr, dateStr] = line.split(',');
+                    if (name && usedStr && dateStr) {
                         const trimmedName = name.trim();
                         const used = parseInt(usedStr.trim(), 10);
-                        const trimmedDate = date.trim();
+                        const trimmedDate = dateStr.trim();
 
                         if (userMap.has(trimmedName) && !isNaN(used) && trimmedDate) {
-                            const user = userMap.get(trimmedName)!;
-                            user.used = used;
-                            userMap.set(trimmedName, user);
-                            
                             usageEntries.push({ userId: trimmedName, consumption: used, date: trimmedDate });
                             updatesMade++;
                         }
@@ -79,10 +102,19 @@ export default function AdminDashboard() {
                 
                 if (updatesMade > 0) {
                     await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    setUsers(Array.from(userMap.values()));
+                    // Refetch data for current date range to show updates
+                    if (date?.from && date?.to) {
+                         const userIds = initialUsers.map(u => u.name);
+                         const usageData = await getUsageForDateRange(userIds, date.from, date.to);
+                         const updatedUsers = initialUsers.map(user => ({
+                            ...user,
+                            used: usageData[user.name] || 0
+                         }));
+                         setUsers(updatedUsers);
+                    }
                     toast({
                         title: 'Upload Successful',
-                        description: `Updated and logged usage for ${updatesMade} user(s).`,
+                        description: `Logged usage for ${updatesMade} user(s). View data by selecting the appropriate date range.`,
                     });
                 } else {
                      toast({
@@ -109,27 +141,37 @@ export default function AdminDashboard() {
 
     const totalUsers = useMemo(() => users.length, [users]);
     const totalWaterConsumed = useMemo(() => users.reduce((acc, user) => acc + user.used, 0), [users]);
-    const averageUsagePerUser = useMemo(() => totalWaterConsumed / totalUsers, [totalWaterConsumed, totalUsers]);
+    const averageUsagePerUser = useMemo(() => totalUsers > 0 ? totalWaterConsumed / totalUsers : 0, [totalWaterConsumed, totalUsers]);
     
     const totalWeeklyAllocation = useMemo(() => {
         const totalShares = users.reduce((acc, user) => acc + user.shares, 0);
         return totalShares * gallonsPerShare;
     }, [gallonsPerShare, users]);
 
+    const periodDurationInDays = useMemo(() => {
+        if (date?.from && date.to) {
+            return differenceInDays(date.to, date.from) + 1;
+        }
+        return 0;
+    }, [date]);
+
+
     useEffect(() => {
         const data = users.map(user => {
-            const allocation = user.shares * gallonsPerShare;
-            const percentageUsed = allocation > 0 ? Math.round((user.used / allocation) * 100) : 0;
+            // Allocation is weekly, usage is for selected period. Let's adjust allocation based on period length
+            const weeklyAllocation = user.shares * gallonsPerShare;
+            const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
+            const percentageUsed = periodAllocation > 0 ? Math.round((user.used / periodAllocation) * 100) : 0;
             let statusColor = 'bg-green-500';
             if (percentageUsed > 100) {
                 statusColor = 'bg-red-500';
             } else if (percentageUsed > 80) {
                 statusColor = 'bg-yellow-500';
             }
-            return { ...user, allocation, percentageUsed, statusColor };
+            return { ...user, allocation: Math.round(periodAllocation), percentageUsed, statusColor };
         });
         setUserData(data);
-    }, [gallonsPerShare, users]);
+    }, [gallonsPerShare, users, periodDurationInDays]);
     
     return (
         <div>
@@ -138,10 +180,42 @@ export default function AdminDashboard() {
                     <h1 className="text-3xl font-bold text-foreground">Water Master Dashboard</h1>
                     <p className="text-muted-foreground">Manti Irrigation Company</p>
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <CalendarDays className="h-4 w-4" />
-                    <span>Week: July 6 - July 12, 2025</span>
-                </div>
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        id="date"
+                        variant={"outline"}
+                        className={cn(
+                            "w-auto min-w-[240px] justify-start text-left font-normal",
+                            !date && "text-muted-foreground"
+                        )}
+                        >
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        {date?.from ? (
+                            date.to ? (
+                            <>
+                                {format(date.from, "LLL dd, y")} -{" "}
+                                {format(date.to, "LLL dd, y")}
+                            </>
+                            ) : (
+                            format(date.from, "LLL dd, y")
+                            )
+                        ) : (
+                            <span>Pick a date range</span>
+                        )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                        <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={date?.from}
+                        selected={date}
+                        onSelect={setDate}
+                        numberOfMonths={2}
+                        />
+                    </PopoverContent>
+                </Popover>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -155,15 +229,15 @@ export default function AdminDashboard() {
                 </Card>
                 <Card className="rounded-xl shadow-md">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Total Weekly Allocation</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-3xl font-bold">{(totalWeeklyAllocation / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
+                        <p className="text-3xl font-bold">{((totalWeeklyAllocation/7*periodDurationInDays) / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
                     </CardContent>
                 </Card>
                 <Card className="rounded-xl shadow-md">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Total Water Consumed</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-3xl font-bold">{(totalWaterConsumed / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
@@ -187,7 +261,7 @@ export default function AdminDashboard() {
                                 placeholder="e.g. 2000"
                             />
                         </div>
-                        <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
+                        <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 flex-wrap">
                             <Button className="w-full sm:w-auto">
                                 Update Allocations
                             </Button>
@@ -198,6 +272,12 @@ export default function AdminDashboard() {
                                 averageUsagePerUser={averageUsagePerUser}
                                 currentGallonsPerShare={gallonsPerShare}
                                 onSuggestionAccept={(suggestion) => setGallonsPerShare(suggestion)}
+                            />
+                             <AllocationPredictor
+                                usageDataForPeriod={userData.map(u => ({name: u.name, used: u.used, shares: u.shares}))}
+                                periodDurationInDays={periodDurationInDays}
+                                currentGallonsPerShare={gallonsPerShare}
+                                onPredictionAccept={(prediction) => setGallonsPerShare(prediction)}
                             />
                         </div>
                     </div>
