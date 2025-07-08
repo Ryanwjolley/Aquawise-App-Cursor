@@ -34,21 +34,6 @@ export default function AdminDashboard() {
     const [userData, setUserData] = useState<UserData[]>([]);
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [consumption, setConsumption] = useState<number>(0);
-    const adminUserId = "adminUserId";
-
-    const handleAddUsage = async () => {
-        const currentDate = new Date().toISOString().slice(0, 10);
-        const newUsageEntry = { userId: adminUserId, date: currentDate, consumption };
-
-        try {
-            await addUsageEntry(newUsageEntry);
-            toast({ title: "Success", description: "Usage entry added successfully!" });
-        } catch (error) {
-            console.error("Error adding usage entry:", error);
-            toast({ variant: "destructive", title: "Error", description: "Failed to add usage entry." });
-        }
-    };
 
     const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -148,19 +133,6 @@ export default function AdminDashboard() {
     
     return (
         <div>
-            <div>
-                <Input
-                  type="number"
-                  value={consumption}
-                  onChange={(e) => setConsumption(Number(e.target.value))}
-                  placeholder="Enter water usage"
-                  className="inline-block w-auto mr-2"
-                />
-                <Button onClick={handleAddUsage}>
-                  Log Water Usage (Admin)
-                </Button>
-            </div>
-
             <header className="flex flex-col sm:flex-row justify-between sm:items-center my-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Water Master Dashboard</h1>
