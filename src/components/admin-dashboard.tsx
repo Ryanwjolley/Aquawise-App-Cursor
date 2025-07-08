@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const initialUsers = [
@@ -44,6 +44,7 @@ export default function AdminDashboard() {
         from: new Date(2025, 6, 6),
         to: new Date(2025, 6, 12),
     });
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     useEffect(() => {
         const fetchUsageData = async () => {
@@ -61,6 +62,16 @@ export default function AdminDashboard() {
 
         fetchUsageData();
     }, [date]);
+
+    const handleDateSelect = (range: DateRange | undefined) => {
+        if (range?.from) {
+            const fromDate = range.from;
+            const weekStart = startOfWeek(fromDate, { weekStartsOn: 0 }); // Sunday
+            const weekEnd = endOfWeek(fromDate, { weekStartsOn: 0 }); // Saturday
+            setDate({ from: weekStart, to: weekEnd });
+            setIsCalendarOpen(false);
+        }
+    };
 
     const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -180,7 +191,7 @@ export default function AdminDashboard() {
                     <h1 className="text-3xl font-bold text-foreground">Water Master Dashboard</h1>
                     <p className="text-muted-foreground">Manti Irrigation Company</p>
                 </div>
-                 <Popover>
+                 <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                     <PopoverTrigger asChild>
                         <Button
                         id="date"
@@ -211,7 +222,7 @@ export default function AdminDashboard() {
                         mode="range"
                         defaultMonth={date?.from}
                         selected={date}
-                        onSelect={setDate}
+                        onSelect={handleDateSelect}
                         numberOfMonths={2}
                         />
                     </PopoverContent>
