@@ -8,6 +8,7 @@ import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@
 import { AllocationSuggester } from './allocation-suggester';
 import { addUsageEntry } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const initialUsers = [
     { name: 'John Farmer', shares: 5, used: 7500 },
@@ -63,48 +64,53 @@ export default function AdminDashboard() {
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
                 const text = e.target?.result as string;
                 const lines = text.split(/\r\n|\n/).slice(1);
                 
                 const userMap = new Map(users.map(u => [u.name, {...u}]));
+                const usageEntries = [];
                 let updatesMade = 0;
 
-                lines.forEach(line => {
-                    if (!line.trim()) return;
-                    const [name, usedStr] = line.split(',');
-                    if (name && usedStr) {
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    const [name, usedStr, date] = line.split(',');
+                    if (name && usedStr && date) {
                         const trimmedName = name.trim();
                         const used = parseInt(usedStr.trim(), 10);
+                        const trimmedDate = date.trim();
 
-                        if (userMap.has(trimmedName) && !isNaN(used)) {
+                        if (userMap.has(trimmedName) && !isNaN(used) && trimmedDate) {
                             const user = userMap.get(trimmedName)!;
                             user.used = used;
                             userMap.set(trimmedName, user);
+                            
+                            usageEntries.push({ userId: trimmedName, consumption: used, date: trimmedDate });
                             updatesMade++;
                         }
                     }
-                });
+                }
                 
                 if (updatesMade > 0) {
+                    await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
                     setUsers(Array.from(userMap.values()));
                     toast({
                         title: 'Upload Successful',
-                        description: `Updated usage for ${updatesMade} user(s).`,
+                        description: `Updated and logged usage for ${updatesMade} user(s).`,
                     });
                 } else {
                      toast({
                         variant: 'destructive',
                         title: 'No Updates Made',
-                        description: 'CSV data did not match any existing users or was invalid.',
+                        description: 'CSV data did not match any existing users or was invalid. Expected format: name,used,date.',
                     });
                 }
             } catch (error) {
                  toast({
                     variant: 'destructive',
                     title: 'Error Processing File',
-                    description: 'Could not parse the CSV file. Please check the format.',
+                    description: 'Could not parse or upload the CSV file. Please check the format and file content.',
                 });
                 console.error("Error parsing CSV:", error);
             } finally {
@@ -230,10 +236,19 @@ export default function AdminDashboard() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-xl">User Water Management</CardTitle>
                     <div>
-                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload Usage CSV
-                        </Button>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Upload Usage CSV
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Upload a CSV with columns: `name`, `used`, `date` (YYYY-MM-DD).</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                         <input
                             ref={fileInputRef}
                             type="file"
