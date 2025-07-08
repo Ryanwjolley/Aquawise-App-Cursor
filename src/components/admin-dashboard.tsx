@@ -1,14 +1,15 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CalendarDays, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
-import { CalendarDays } from 'lucide-react';
+import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { AllocationSuggester } from './allocation-suggester';
+import { addUsageEntry } from '../firestoreService';
+import { useToast } from '@/hooks/use-toast';
 
-const mockUsers = [
+const initialUsers = [
     { name: 'John Farmer', shares: 5, used: 7500 },
     { name: 'Alice Gardener', shares: 3, used: 6100 },
     { name: 'Bob Rancher', shares: 10, used: 18500 },
@@ -28,19 +29,104 @@ type UserData = {
 
 export default function AdminDashboard() {
     const [gallonsPerShare, setGallonsPerShare] = useState(2000);
+    const [users, setUsers] = useState(initialUsers);
     const [userData, setUserData] = useState<UserData[]>([]);
+    const { toast } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [consumption, setConsumption] = useState<number>(0);
+    const adminUserId = "adminUserId";
 
-    const totalUsers = useMemo(() => mockUsers.length, []);
-    const totalWaterConsumed = useMemo(() => mockUsers.reduce((acc, user) => acc + user.used, 0), []);
+    const handleAddUsage = async () => {
+        const currentDate = new Date().toISOString().slice(0, 10);
+        const newUsageEntry = { userId: adminUserId, date: currentDate, consumption };
+
+        try {
+            await addUsageEntry(newUsageEntry);
+            toast({ title: "Success", description: "Usage entry added successfully!" });
+        } catch (error) {
+            console.error("Error adding usage entry:", error);
+            toast({ variant: "destructive", title: "Error", description: "Failed to add usage entry." });
+        }
+    };
+
+    const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (file.type !== 'text/csv') {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid File Type',
+                description: 'Please upload a valid .csv file.',
+            });
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result as string;
+                const lines = text.split(/\r\n|\n/).slice(1);
+                
+                const userMap = new Map(users.map(u => [u.name, {...u}]));
+                let updatesMade = 0;
+
+                lines.forEach(line => {
+                    if (!line.trim()) return;
+                    const [name, usedStr] = line.split(',');
+                    if (name && usedStr) {
+                        const trimmedName = name.trim();
+                        const used = parseInt(usedStr.trim(), 10);
+
+                        if (userMap.has(trimmedName) && !isNaN(used)) {
+                            const user = userMap.get(trimmedName)!;
+                            user.used = used;
+                            userMap.set(trimmedName, user);
+                            updatesMade++;
+                        }
+                    }
+                });
+                
+                if (updatesMade > 0) {
+                    setUsers(Array.from(userMap.values()));
+                    toast({
+                        title: 'Upload Successful',
+                        description: `Updated usage for ${updatesMade} user(s).`,
+                    });
+                } else {
+                     toast({
+                        variant: 'destructive',
+                        title: 'No Updates Made',
+                        description: 'CSV data did not match any existing users or was invalid.',
+                    });
+                }
+            } catch (error) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Error Processing File',
+                    description: 'Could not parse the CSV file. Please check the format.',
+                });
+                console.error("Error parsing CSV:", error);
+            } finally {
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const totalUsers = useMemo(() => users.length, [users]);
+    const totalWaterConsumed = useMemo(() => users.reduce((acc, user) => acc + user.used, 0), [users]);
     const averageUsagePerUser = useMemo(() => totalWaterConsumed / totalUsers, [totalWaterConsumed, totalUsers]);
     
     const totalWeeklyAllocation = useMemo(() => {
-        const totalShares = mockUsers.reduce((acc, user) => acc + user.shares, 0);
+        const totalShares = users.reduce((acc, user) => acc + user.shares, 0);
         return totalShares * gallonsPerShare;
-    }, [gallonsPerShare]);
+    }, [gallonsPerShare, users]);
 
     useEffect(() => {
-        const data = mockUsers.map(user => {
+        const data = users.map(user => {
             const allocation = user.shares * gallonsPerShare;
             const percentageUsed = allocation > 0 ? Math.round((user.used / allocation) * 100) : 0;
             let statusColor = 'bg-green-500';
@@ -52,11 +138,24 @@ export default function AdminDashboard() {
             return { ...user, allocation, percentageUsed, statusColor };
         });
         setUserData(data);
-    }, [gallonsPerShare]);
+    }, [gallonsPerShare, users]);
     
     return (
         <div>
-            <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
+            <div>
+                <Input
+                  type="number"
+                  value={consumption}
+                  onChange={(e) => setConsumption(Number(e.target.value))}
+                  placeholder="Enter water usage"
+                  className="inline-block w-auto mr-2"
+                />
+                <Button onClick={handleAddUsage}>
+                  Log Water Usage (Admin)
+                </Button>
+            </div>
+
+            <header className="flex flex-col sm:flex-row justify-between sm:items-center my-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Water Master Dashboard</h1>
                     <p className="text-muted-foreground">Manti Irrigation Company</p>
@@ -128,8 +227,22 @@ export default function AdminDashboard() {
             </Card>
 
             <Card className="rounded-xl shadow-md overflow-hidden">
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle className="text-xl">User Water Management</CardTitle>
+                    <div>
+                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload Usage CSV
+                        </Button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            id="csv-upload"
+                            className="hidden"
+                            accept=".csv"
+                            onChange={handleCsvUpload}
+                        />
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div className="w-full overflow-x-auto">
@@ -156,7 +269,6 @@ export default function AdminDashboard() {
                                         <TableCell>{user.used.toLocaleString()}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-3 min-w-[150px]">
-                                                <Progress value={user.percentageUsed} className="w-24 h-2.5" />
                                                 <span className="text-sm font-medium text-muted-foreground">{user.percentageUsed}%</span>
                                             </div>
                                         </TableCell>
