@@ -395,6 +395,7 @@ export default function AdminDashboard() {
                                 <TableRow>
                                     <TableHead className="w-16">Status</TableHead>
                                     <TableHead>User</TableHead>
+                                    <TableHead>Email</TableHead>
                                     <TableHead>Shares</TableHead>
                                     <TableHead>Allocated (gal)</TableHead>
                                     <TableHead>Used (gal)</TableHead>
@@ -409,6 +410,7 @@ export default function AdminDashboard() {
                                             <span className={`h-4 w-4 rounded-full ${user.statusColor} inline-block`} title={`${user.percentageUsed}% used`}></span>
                                         </TableCell>
                                         <TableCell className="font-medium">{user.name}</TableCell>
+                                        <TableCell>{user.email}</TableCell>
                                         <TableCell>{user.shares}</TableCell>
                                         <TableCell>{user.allocation.toLocaleString()}</TableCell>
                                         <TableCell>{user.used.toLocaleString()}</TableCell>

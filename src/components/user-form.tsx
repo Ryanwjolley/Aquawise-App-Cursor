@@ -16,6 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import type { User } from '@/firestoreService';
 import React from 'react';
+import { Label } from './ui/label';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -74,6 +75,10 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
                 </FormItem>
               )}
             />
+            <div className="space-y-2">
+                <Label>Email</Label>
+                <Input value={user?.email || ''} disabled />
+            </div>
             <FormField
               control={form.control}
               name="shares"
