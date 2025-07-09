@@ -45,6 +45,7 @@ export default function AdminDashboard() {
         to: new Date(2025, 6, 12),
     });
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+    const [month, setMonth] = useState<Date>(date?.from ?? new Date());
 
     useEffect(() => {
         const fetchUsageData = async () => {
@@ -69,6 +70,7 @@ export default function AdminDashboard() {
             const weekStart = startOfWeek(fromDate, { weekStartsOn: 0 }); // Sunday
             const weekEnd = endOfWeek(fromDate, { weekStartsOn: 0 }); // Saturday
             setDate({ from: weekStart, to: weekEnd });
+            setMonth(weekStart);
             setIsCalendarOpen(false);
         }
     };
@@ -220,7 +222,8 @@ export default function AdminDashboard() {
                         <Calendar
                         initialFocus
                         mode="range"
-                        defaultMonth={date?.from}
+                        month={month}
+                        onMonthChange={setMonth}
                         selected={date}
                         onSelect={handleDateSelect}
                         numberOfMonths={2}
