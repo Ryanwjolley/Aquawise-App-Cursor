@@ -1,11 +1,16 @@
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "./firebaseConfig";
-import { format } from 'date-fns';
+import { format, eachDayOfInterval } from 'date-fns';
 
 interface UsageData {
   userId: string;
   date: Timestamp;
   consumption: number;
+}
+
+export interface DailyUsage {
+  day: string; // 'Sun', 'Mon', etc.
+  gallons: number;
 }
 
 const addUsageEntry = async (usageEntry: {userId: string, date: string, consumption: number}): Promise<void> => {
@@ -90,4 +95,40 @@ const getWeeklyAllocation = async (weekStartDate: Date): Promise<number | null> 
 };
 
 
-export { addUsageEntry, getUsageForDateRange, setWeeklyAllocation, getWeeklyAllocation };
+const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
+    const q = query(
+        collection(db, "usageData"),
+        where("userId", "==", userId),
+        where("date", ">=", startDate),
+        where("date", "<=", endDate)
+    );
+
+    const usageByDate: Record<string, number> = {}; // "yyyy-MM-dd": gallons
+
+    try {
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            const data = doc.data() as UsageData;
+            const dateKey = format(data.date.toDate(), 'yyyy-MM-dd');
+            if (!usageByDate[dateKey]) {
+                usageByDate[dateKey] = 0;
+            }
+            usageByDate[dateKey] += data.consumption;
+        });
+    } catch (error) {
+        console.error("Error fetching daily usage data: ", error);
+    }
+    
+    const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
+      
+    return daysInInterval.map(day => {
+        const dateKey = format(day, 'yyyy-MM-dd');
+        return {
+          day: format(day, 'EEE'),
+          gallons: usageByDate[dateKey] || 0,
+        };
+    });
+};
+
+
+export { addUsageEntry, getUsageForDateRange, setWeeklyAllocation, getWeeklyAllocation, getDailyUsageForDateRange };
