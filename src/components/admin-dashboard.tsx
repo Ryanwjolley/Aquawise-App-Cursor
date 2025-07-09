@@ -258,6 +258,8 @@ export default function AdminDashboard() {
                         selected={date}
                         onDayClick={handleDayClick}
                         numberOfMonths={2}
+                        onMonthChange={setMonth}
+                        month={month}
                         />
                     </PopoverContent>
                 </Popover>
