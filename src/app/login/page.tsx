@@ -7,6 +7,7 @@ import {
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { auth, db } from '@/firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 import { createUserDocument, getInvite, deleteInvite } from '@/firestoreService';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,7 +37,22 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+
+      const userDocRef = doc(db, 'users', userCredential.user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists() && userDoc.data().status === 'inactive') {
+        await auth.signOut();
+        toast({
+          variant: 'destructive',
+          title: 'Login Failed',
+          description: 'This account has been deactivated. Please contact an administrator.',
+        });
+        setLoading(false);
+        return;
+      }
+      
       router.push('/');
     } catch (error: any) {
       let description = error.message;

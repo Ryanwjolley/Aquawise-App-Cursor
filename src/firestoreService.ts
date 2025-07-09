@@ -19,6 +19,7 @@ export interface User {
   shares: number;
   email: string;
   role: 'admin' | 'customer';
+  status: 'active' | 'inactive';
 }
 
 export interface Invite {
@@ -45,6 +46,7 @@ export const createUserDocument = async (
       email: data.email,
       shares: data.shares,
       role: role,
+      status: 'active',
     });
   } catch (e) {
     console.error('Error creating user document: ', e);
@@ -118,6 +120,16 @@ export const updateUser = async (id: string, user: { name: string; shares: numbe
     await setDoc(userDoc, user, { merge: true });
   } catch (e) {
     console.error("Error updating user: ", e);
+    throw e;
+  }
+};
+
+export const updateUserStatus = async (id: string, status: 'active' | 'inactive'): Promise<void> => {
+  try {
+    const userDoc = doc(db, "users", id);
+    await setDoc(userDoc, { status }, { merge: true });
+  } catch (e) {
+    console.error("Error updating user status: ", e);
     throw e;
   }
 };

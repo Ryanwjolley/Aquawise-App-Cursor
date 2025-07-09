@@ -1,11 +1,11 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarDays, Upload, Edit, UserPlus } from 'lucide-react';
+import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser } from '../firestoreService';
+import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser, updateUserStatus } from '../firestoreService';
 import type { User } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -16,6 +16,8 @@ import { format, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { UserForm } from './user-form';
 import { AllocationSuggester } from './allocation-suggester';
+import { useAuth } from '@/context/auth-context';
+import { Badge } from '@/components/ui/badge';
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
@@ -40,6 +42,7 @@ export default function AdminDashboard() {
     });
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [month, setMonth] = useState<Date>(date?.from ?? new Date());
+    const { user: authUser } = useAuth();
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -197,6 +200,37 @@ export default function AdminDashboard() {
                 variant: 'destructive',
                 title: `${action.charAt(0).toUpperCase() + action.slice(1)} Failed`,
                 description: `Could not ${action} user.`,
+            });
+        }
+    };
+
+    const handleToggleUserStatus = async (userToToggle: User) => {
+        if (userToToggle.id === authUser?.uid) {
+            toast({
+                variant: 'destructive',
+                title: 'Action Forbidden',
+                description: 'You cannot deactivate your own account.',
+            });
+            return;
+        }
+
+        const newStatus = (userToToggle.status ?? 'active') === 'active' ? 'inactive' : 'active';
+        try {
+            await updateUserStatus(userToToggle.id, newStatus);
+            setUsers(currentUsers =>
+              currentUsers.map(u =>
+                u.id === userToToggle.id ? { ...u, status: newStatus } : u
+              )
+            );
+            toast({
+                title: 'User Status Updated',
+                description: `${userToToggle.name} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}.`,
+            });
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Update Failed',
+                description: 'Could not update user status.',
             });
         }
     };
@@ -401,11 +435,12 @@ export default function AdminDashboard() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-16">Status</TableHead>
+                                    <TableHead className="w-16">Usage</TableHead>
                                     <TableHead>User</TableHead>
                                     <TableHead>Email</TableHead>
                                     <TableHead>Role</TableHead>
                                     <TableHead>Shares</TableHead>
+                                    <TableHead>Status</TableHead>
                                     <TableHead>Allocated (gal)</TableHead>
                                     <TableHead>Used (gal)</TableHead>
                                     <TableHead>% Used</TableHead>
@@ -414,7 +449,7 @@ export default function AdminDashboard() {
                             </TableHeader>
                             <TableBody>
                                 {userData.map((user) => (
-                                    <TableRow key={user.id}>
+                                    <TableRow key={user.id} className={user.status === 'inactive' ? 'opacity-50' : ''}>
                                         <TableCell>
                                             <span className={`h-4 w-4 rounded-full ${user.statusColor} inline-block`} title={`${user.percentageUsed}% used`}></span>
                                         </TableCell>
@@ -422,6 +457,11 @@ export default function AdminDashboard() {
                                         <TableCell>{user.email}</TableCell>
                                         <TableCell className="capitalize">{user.role}</TableCell>
                                         <TableCell>{user.shares}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={(user.status ?? 'active') === 'active' ? 'secondary' : 'destructive'}>
+                                                {(user.status ?? 'active') === 'active' ? 'Active' : 'Inactive'}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell>{user.allocation.toLocaleString()}</TableCell>
                                         <TableCell>{user.used.toLocaleString()}</TableCell>
                                         <TableCell>
@@ -430,9 +470,30 @@ export default function AdminDashboard() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <Button variant="ghost" size="icon" onClick={() => { setEditingUser(user); setIsUserFormOpen(true); }}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
+                                            <div className="flex items-center gap-1">
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" onClick={() => { setEditingUser(user); setIsUserFormOpen(true); }}>
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Edit User</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" onClick={() => handleToggleUserStatus(user)} disabled={user.id === authUser?.uid}>
+                                                                {(user.status ?? 'active') === 'active' ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>{(user.status ?? 'active') === 'active' ? 'Deactivate' : 'Activate'} User</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
