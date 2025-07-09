@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { generateConservationTips } from '@/ai/flows/generate-conservation-tips';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, Wand2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from './ui/button';
 
 type ConservationTipsProps = {
     weeklyAllocation: number;
@@ -14,31 +15,32 @@ type ConservationTipsProps = {
 
 export default function ConservationTips({ weeklyAllocation, waterUsed }: ConservationTipsProps) {
     const [tips, setTips] = useState<string[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        async function fetchTips() {
-            if (weeklyAllocation <= 0) return;
-            try {
-                setLoading(true);
-                setError(null);
-                const usagePercentage = (waterUsed / weeklyAllocation) * 100;
-                const result = await generateConservationTips({
-                    weeklyAllocation,
-                    waterUsed,
-                    usagePercentage,
-                });
-                setTips(result.tips);
-            } catch (e) {
-                setError('Could not load conservation tips.');
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
+    async function fetchTips() {
+        if (weeklyAllocation <= 0) {
+            setError('Set a weekly allocation to get tips.');
+            return;
         }
-        fetchTips();
-    }, [weeklyAllocation, waterUsed]);
+        try {
+            setLoading(true);
+            setError(null);
+            setTips([]);
+            const usagePercentage = (waterUsed / weeklyAllocation) * 100;
+            const result = await generateConservationTips({
+                weeklyAllocation,
+                waterUsed,
+                usagePercentage,
+            });
+            setTips(result.tips);
+        } catch (e) {
+            setError('Could not load conservation tips. You may have exceeded your API quota.');
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    }
 
     const usagePercentage = weeklyAllocation > 0 ? Math.round((waterUsed / weeklyAllocation) * 100) : 0;
     
@@ -71,7 +73,14 @@ export default function ConservationTips({ weeklyAllocation, waterUsed }: Conser
                 </Alert>
                 
                 <div className="mt-4 space-y-2">
-                    <h3 className="font-semibold text-foreground/80">AI Conservation Tips:</h3>
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-semibold text-foreground/80">AI Conservation Tips:</h3>
+                      <Button variant="outline" size="sm" onClick={fetchTips} disabled={loading}>
+                          <Wand2 className="mr-2 h-4 w-4" />
+                          {loading ? 'Generating...' : 'Get Tips'}
+                      </Button>
+                    </div>
+
                     {loading && (
                         <div className="space-y-2 pt-2">
                             <Skeleton className="h-4 w-full" />
@@ -79,11 +88,14 @@ export default function ConservationTips({ weeklyAllocation, waterUsed }: Conser
                             <Skeleton className="h-4 w-full" />
                         </div>
                     )}
-                    {error && <p className="text-sm text-destructive">{error}</p>}
+                    {error && <p className="text-sm text-destructive mt-2">{error}</p>}
                     {!loading && !error && tips.length > 0 && (
-                        <ul className="list-disc list-inside space-y-1.5 text-sm text-muted-foreground">
+                        <ul className="list-disc list-inside space-y-1.5 text-sm text-muted-foreground pt-2">
                             {tips.map((tip, index) => <li key={index}>{tip}</li>)}
                         </ul>
+                    )}
+                     {!loading && !error && tips.length === 0 && (
+                         <p className="text-sm text-muted-foreground mt-2">Click "Get Tips" for personalized advice based on your usage.</p>
                     )}
                 </div>
             </CardContent>
