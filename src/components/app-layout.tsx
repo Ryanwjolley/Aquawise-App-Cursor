@@ -43,13 +43,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <SidebarHeader>
             <div className="flex items-center gap-3">
                 <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                     <Droplets className="size-6" />
                 </div>
-                <span className="text-xl font-semibold">AquaWise</span>
+                <span className="text-xl font-semibold group-data-[state=collapsed]:hidden">AquaWise</span>
             </div>
         </SidebarHeader>
         <SidebarContent>
@@ -97,7 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <AvatarImage data-ai-hint="profile picture" src={`https://placehold.co/40x40.png`} alt={userDetails?.name || 'User'} />
                     <AvatarFallback>{getInitials(userDetails?.name || '')}</AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col text-sm overflow-hidden">
+                <div className="flex flex-col text-sm overflow-hidden group-data-[state=collapsed]:hidden">
                     <span className="font-semibold text-foreground truncate">{userDetails?.name}</span>
                     <span className="text-muted-foreground truncate">{userDetails?.email}</span>
                 </div>
@@ -117,7 +117,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-12 items-center border-b bg-background px-4 md:hidden">
+        <header className="flex h-12 items-center border-b bg-background px-4">
             <SidebarTrigger />
         </header>
         <main className="flex-1 overflow-auto bg-muted/30">
