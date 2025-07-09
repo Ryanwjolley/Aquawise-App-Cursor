@@ -14,6 +14,13 @@ import { startOfWeek, endOfWeek, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
@@ -26,6 +33,7 @@ export default function CustomerDashboard() {
   const [month, setMonth] = useState<Date>(date?.from ?? new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [weeklyAllocation, setWeeklyAllocation] = useState(0);
@@ -34,11 +42,12 @@ export default function CustomerDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchInitialUser = async () => {
+    const fetchUsers = async () => {
         try {
             const users = await getUsers();
+            setAllUsers(users);
             if (users.length > 0) {
-                setCurrentUser(users[0]); // For demo purposes, use the first user
+                setCurrentUser(users[0]);
             } else {
                 setLoading(false);
             }
@@ -48,9 +57,10 @@ export default function CustomerDashboard() {
               title: 'Data Fetch Failed',
               description: 'Could not load user data.',
           });
+          setLoading(false);
         }
     }
-    fetchInitialUser();
+    fetchUsers();
   }, [toast]);
 
   useEffect(() => {
@@ -83,7 +93,9 @@ export default function CustomerDashboard() {
         }
     };
     
-    fetchWeeklyData();
+    if (currentUser) {
+      fetchWeeklyData();
+    }
   }, [date, toast, currentUser]);
   
   const handleDayClick = (day: Date) => {
@@ -92,6 +104,13 @@ export default function CustomerDashboard() {
     setDate({ from: weekStart, to: weekEnd });
     setMonth(weekStart);
     setIsCalendarOpen(false);
+  };
+
+  const handleUserChange = (userId: string) => {
+    const selectedUser = allUsers.find(user => user.id === userId);
+    if (selectedUser) {
+      setCurrentUser(selectedUser);
+    }
   };
 
   const remaining = weeklyAllocation - waterUsed;
@@ -113,43 +132,59 @@ export default function CustomerDashboard() {
           <h1 className="text-3xl font-bold text-foreground">Welcome, {currentUser?.name || 'User'}</h1>
           <p className="text-muted-foreground">Here's your weekly water usage summary.</p>
         </div>
-        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                id="date"
-                variant={"outline"}
-                className={cn(
-                    "w-auto min-w-[240px] justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                )}
-                >
-                <CalendarDays className="mr-2 h-4 w-4" />
-                {date?.from ? (
-                    date.to ? (
-                    <>
-                        {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-                    </>
-                    ) : (
-                    format(date.from, "LLL dd, y")
-                    )
-                ) : (
-                    <span>Pick a date range</span>
-                )}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                selected={date}
-                onDayClick={handleDayClick}
-                onMonthChange={setMonth}
-                month={month}
-                numberOfMonths={2}
-                />
-            </PopoverContent>
-        </Popover>
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          {allUsers.length > 1 && (
+            <Select onValueChange={handleUserChange} value={currentUser?.id}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Select User" />
+              </SelectTrigger>
+              <SelectContent>
+                {allUsers.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                  <Button
+                  id="date"
+                  variant={"outline"}
+                  className={cn(
+                      "w-auto min-w-[240px] justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                  )}
+                  >
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  {date?.from ? (
+                      date.to ? (
+                      <>
+                          {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                      </>
+                      ) : (
+                      format(date.from, "LLL dd, y")
+                      )
+                  ) : (
+                      <span>Pick a date range</span>
+                  )}
+                  </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={date?.from}
+                  selected={date}
+                  onDayClick={handleDayClick}
+                  onMonthChange={setMonth}
+                  month={month}
+                  numberOfMonths={2}
+                  />
+              </PopoverContent>
+          </Popover>
+        </div>
       </header>
         
       {loading ? (
