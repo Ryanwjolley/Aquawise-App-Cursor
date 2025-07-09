@@ -104,8 +104,6 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
     }
 
     try {
-        // Use a single 'in' query for efficiency. Note Firestore 'in' has a limit of 30 items.
-        // For larger user sets, this would need batching. For this app, it's fine.
         const q = query(
           usageCollection,
           where("userId", "in", userIds),
@@ -164,8 +162,6 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
       gallons: 0,
     }));
 
-    // Firestore `in` query is limited to 10 items.
-    // For a weekly view (7 days), we can query per day. This is more efficient than querying the whole range and sorting in JS.
     try {
         const q = query(
             usageCollection,
@@ -178,7 +174,6 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
         querySnapshot.forEach((doc) => {
             const data = doc.data() as UsageData;
             const docDate = data.date.toDate();
-            // Find the corresponding day in our pre-built array
             const dayIndex = daysInInterval.findIndex(intervalDay => format(intervalDay, 'yyyy-MM-dd') === format(docDate, 'yyyy-MM-dd'));
 
             if (dayIndex !== -1) {
