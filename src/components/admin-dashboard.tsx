@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { AllocationSuggester } from './allocation-suggester';
-import { AllocationPredictor } from './allocation-predictor';
 import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, addUser, updateUser } from '../firestoreService';
 import type { User } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
@@ -355,12 +354,6 @@ export default function AdminDashboard() {
                                 averageUsagePerUser={averageUsagePerUser}
                                 currentGallonsPerShare={gallonsPerShare}
                                 onSuggestionAccept={(suggestion) => setGallonsPerShare(suggestion)}
-                            />
-                             <AllocationPredictor
-                                usageDataForPeriod={userData.map(u => ({name: u.name, used: u.used, shares: u.shares}))}
-                                periodDurationInDays={periodDurationInDays}
-                                currentGallonsPerShare={gallonsPerShare}
-                                onPredictionAccept={(prediction) => setGallonsPerShare(prediction)}
                             />
                         </div>
                     </div>
