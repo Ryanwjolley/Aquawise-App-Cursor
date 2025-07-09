@@ -185,7 +185,8 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
           usageCollection,
           where("userId", "in", userIds),
           where("date", ">=", startDate),
-          where("date", "<=", endDate)
+          where("date", "<=", endDate),
+          orderBy("date")
         );
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
@@ -244,7 +245,8 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
             usageCollection,
             where("userId", "==", userId),
             where("date", ">=", startDate),
-            where("date", "<=", endDate)
+            where("date", "<=", endDate),
+            orderBy("date")
         );
         
         const querySnapshot = await getDocs(q);
