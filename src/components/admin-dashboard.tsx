@@ -1,12 +1,12 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarDays, Upload, Edit } from 'lucide-react';
+import { CalendarDays, Upload, Edit, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { AllocationSuggester } from './allocation-suggester';
-import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, addUser, updateUser } from '../firestoreService';
+import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser } from '../firestoreService';
 import type { User } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -16,6 +16,7 @@ import type { DateRange } from 'react-day-picker';
 import { format, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { UserForm } from './user-form';
+import { useAuth } from '@/context/auth-context';
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
@@ -27,6 +28,7 @@ type UserData = User & {
 }
 
 export default function AdminDashboard() {
+    const { logout } = useAuth();
     const [gallonsPerShare, setGallonsPerShare] = useState(DEFAULT_GALLONS_PER_SHARE);
     const [users, setUsers] = useState<User[]>([]);
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
@@ -184,12 +186,9 @@ export default function AdminDashboard() {
             if (editingUser) {
                 await updateUser(editingUser.id, formData);
                 toast({ title: 'User Updated', description: `Updated details for ${formData.name}.` });
-            } else {
-                await addUser(formData);
-                toast({ title: 'User Added', description: `${formData.name} has been added.` });
+                const fetchedUsers = await getUsers();
+                setUsers(fetchedUsers);
             }
-            const fetchedUsers = await getUsers();
-            setUsers(fetchedUsers);
             setEditingUser(null);
         } catch (error) {
             toast({
@@ -254,12 +253,13 @@ export default function AdminDashboard() {
     }, [gallonsPerShare, users, date, periodDurationInDays]);
     
     return (
-        <div>
+        <div className="p-4 sm:p-6 lg:p-8">
             <header className="flex flex-col sm:flex-row justify-between sm:items-center my-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Water Master Dashboard</h1>
                     <p className="text-muted-foreground">Manti Irrigation Company</p>
                 </div>
+                <div className="flex items-center gap-4">
                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                     <PopoverTrigger asChild>
                         <Button
@@ -298,6 +298,8 @@ export default function AdminDashboard() {
                         />
                     </PopoverContent>
                 </Popover>
+                <Button variant="outline" onClick={logout}><LogOut className="mr-2 h-4 w-4" /> Logout</Button>
+                </div>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -366,9 +368,6 @@ export default function AdminDashboard() {
                         <CardTitle className="text-xl">User Water Management</CardTitle>
                     </div>
                     <div className='flex items-center gap-2'>
-                        <Button onClick={() => { setEditingUser(null); setIsUserFormOpen(true); }}>
-                            Add User
-                        </Button>
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>

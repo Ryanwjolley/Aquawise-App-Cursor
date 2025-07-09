@@ -14,13 +14,46 @@ export interface DailyUsage {
 }
 
 export interface User {
-  id: string;
+  id: string; // This will be the Firebase Auth UID
   name: string;
   shares: number;
+  email: string;
+  role: 'admin' | 'customer';
 }
 
 const usersCollection = collection(db, "users");
 const usageCollection = collection(db, "usageData");
+
+export const createUserDocument = async (
+  uid: string,
+  data: { name: string; email: string }
+): Promise<void> => {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    await setDoc(userDocRef, {
+      ...data,
+      shares: 0, // Default shares
+      role: 'customer', // Default role
+    });
+  } catch (e) {
+    console.error('Error creating user document: ', e);
+    throw e;
+  }
+};
+
+export const getUser = async (uid: string): Promise<User | null> => {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+      return { id: userDoc.id, ...userDoc.data() } as User;
+    }
+    return null;
+  } catch (e) {
+    console.error("Error getting user: ", e);
+    throw e;
+  }
+};
 
 export const getUsers = async (): Promise<User[]> => {
   try {
@@ -28,16 +61,6 @@ export const getUsers = async (): Promise<User[]> => {
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
   } catch (e) {
     console.error("Error getting users: ", e);
-    throw e;
-  }
-};
-
-export const addUser = async (user: { name: string; shares: number }): Promise<string> => {
-  try {
-    const docRef = await addDoc(usersCollection, user);
-    return docRef.id;
-  } catch (e) {
-    console.error("Error adding user: ", e);
     throw e;
   }
 };
@@ -73,22 +96,22 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
         return usageMap;
     }
 
-    const q = query(
-        usageCollection,
-        where("date", ">=", startDate),
-        where("date", "<=", endDate)
-    );
-
-    const userIdsSet = new Set(userIds);
-
     try {
+      for (const userId of userIds) {
+        const q = query(
+          usageCollection,
+          where("userId", "==", userId),
+          where("date", ">=", startDate),
+          where("date", "<=", endDate)
+        );
         const querySnapshot = await getDocs(q);
+        let totalConsumption = 0;
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-            if (userIdsSet.has(data.userId)) {
-                usageMap[data.userId] = (usageMap[data.userId] || 0) + data.consumption;
-            }
+            totalConsumption += data.consumption;
         });
+        usageMap[userId] = totalConsumption;
+      }
     } catch (error) {
         console.error("Error fetching usage data: ", error);
     }
@@ -127,6 +150,7 @@ export const getWeeklyAllocation = async (weekStartDate: Date): Promise<number |
 export const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
     const q = query(
         usageCollection,
+        where("userId", "==", userId),
         where("date", ">=", startDate),
         where("date", "<=", endDate)
     );
@@ -137,13 +161,11 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             const data = doc.data() as UsageData;
-            if (data.userId === userId) {
-                const dateKey = format(data.date.toDate(), 'yyyy-MM-dd');
-                if (!usageByDate[dateKey]) {
-                    usageByDate[dateKey] = 0;
-                }
-                usageByDate[dateKey] += data.consumption;
+            const dateKey = format(data.date.toDate(), 'yyyy-MM-dd');
+            if (!usageByDate[dateKey]) {
+                usageByDate[dateKey] = 0;
             }
+            usageByDate[dateKey] += data.consumption;
         });
     } catch (error) {
         console.error("Error fetching daily usage data: ", error);

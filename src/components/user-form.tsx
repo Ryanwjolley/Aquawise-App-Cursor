@@ -54,9 +54,9 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{user?.id ? 'Edit User' : 'Add New User'}</DialogTitle>
+          <DialogTitle>Edit User</DialogTitle>
           <DialogDescription>
-            {user?.id ? 'Update the details for this user.' : 'Enter the details for the new user.'}
+            Update the details for this user.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -91,7 +91,7 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Save</Button>
+              <Button type="submit">Save Changes</Button>
             </DialogFooter>
           </form>
         </Form>

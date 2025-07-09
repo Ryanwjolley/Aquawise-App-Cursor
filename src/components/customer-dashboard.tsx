@@ -1,11 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplets, LineChart, Scale, CalendarDays } from 'lucide-react';
+import { Droplets, LineChart, Scale, CalendarDays, LogOut } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
 import ConservationTips from './conservation-tips';
-import { getWeeklyAllocation, getDailyUsageForDateRange, DailyUsage, getUsers, User } from '@/firestoreService';
+import { getWeeklyAllocation, getDailyUsageForDateRange, DailyUsage, User } from '@/firestoreService';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -14,18 +14,13 @@ import { startOfWeek, endOfWeek, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { useAuth } from '@/context/auth-context';
 
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
 export default function CustomerDashboard() {
+  const { userDetails, loading: authLoading, logout } = useAuth();
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
     to: endOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
@@ -33,8 +28,6 @@ export default function CustomerDashboard() {
   const [month, setMonth] = useState<Date>(date?.from ?? new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [weeklyAllocation, setWeeklyAllocation] = useState(0);
   const [waterUsed, setWaterUsed] = useState(0);
@@ -42,38 +35,16 @@ export default function CustomerDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchUsers = async () => {
-        try {
-            const users = await getUsers();
-            setAllUsers(users);
-            if (users.length > 0) {
-                setCurrentUser(users[0]);
-            } else {
-                setLoading(false);
-            }
-        } catch (error) {
-            toast({
-              variant: 'destructive',
-              title: 'Data Fetch Failed',
-              description: 'Could not load user data.',
-          });
-          setLoading(false);
-        }
-    }
-    fetchUsers();
-  }, [toast]);
-
-  useEffect(() => {
     const fetchWeeklyData = async () => {
-        if (!date?.from || !date?.to || !currentUser) return;
+        if (!date?.from || !date?.to || !userDetails) return;
         setLoading(true);
 
         try {
             const allocationPerShare = await getWeeklyAllocation(date.from);
-            const totalAllocation = (allocationPerShare ?? DEFAULT_GALLONS_PER_SHARE) * currentUser.shares;
+            const totalAllocation = (allocationPerShare ?? DEFAULT_GALLONS_PER_SHARE) * userDetails.shares;
             setWeeklyAllocation(totalAllocation);
 
-            const dailyData = await getDailyUsageForDateRange(currentUser.id, date.from, date.to);
+            const dailyData = await getDailyUsageForDateRange(userDetails.id, date.from, date.to);
             setDailyUsage(dailyData);
             
             const totalUsed = dailyData.reduce((acc, day) => acc + day.gallons, 0);
@@ -85,7 +56,7 @@ export default function CustomerDashboard() {
                 title: 'Data Fetch Failed',
                 description: 'Could not fetch your weekly usage data.',
             });
-            setWeeklyAllocation(DEFAULT_GALLONS_PER_SHARE * (currentUser?.shares || 0));
+            setWeeklyAllocation(DEFAULT_GALLONS_PER_SHARE * (userDetails?.shares || 0));
             setWaterUsed(0);
             setDailyUsage([]);
         } finally {
@@ -93,10 +64,10 @@ export default function CustomerDashboard() {
         }
     };
     
-    if (currentUser) {
+    if (userDetails) {
       fetchWeeklyData();
     }
-  }, [date, toast, currentUser]);
+  }, [date, toast, userDetails]);
   
   const handleDayClick = (day: Date) => {
     const weekStart = startOfWeek(day, { weekStartsOn: 0 });
@@ -106,47 +77,34 @@ export default function CustomerDashboard() {
     setIsCalendarOpen(false);
   };
 
-  const handleUserChange = (userId: string) => {
-    const selectedUser = allUsers.find(user => user.id === userId);
-    if (selectedUser) {
-      setCurrentUser(selectedUser);
-    }
-  };
-
   const remaining = weeklyAllocation - waterUsed;
   const usagePercentage = weeklyAllocation > 0 ? Math.round((waterUsed / weeklyAllocation) * 100) : 0;
 
-  if (!currentUser && !loading) {
+  if (authLoading) {
       return (
+          <div className="flex flex-col items-center justify-center h-full p-8">
+              <Skeleton className="w-full max-w-4xl h-96" />
+          </div>
+      );
+  }
+
+  if (!userDetails) {
+       return (
           <div className="flex flex-col items-center justify-center h-full">
-              <h1 className="text-2xl font-bold text-foreground">No Users Found</h1>
-              <p className="text-muted-foreground">Please add a user in the Admin Dashboard to see customer data.</p>
+              <h1 className="text-2xl font-bold text-foreground">User not found</h1>
+              <p className="text-muted-foreground">Please contact support.</p>
           </div>
       );
   }
 
   return (
-    <div>
+    <div className="p-4 sm:p-6 lg:p-8">
       <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Welcome, {currentUser?.name || 'User'}</h1>
+          <h1 className="text-3xl font-bold text-foreground">Welcome, {userDetails?.name || 'User'}</h1>
           <p className="text-muted-foreground">Here's your weekly water usage summary.</p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          {allUsers.length > 1 && (
-            <Select onValueChange={handleUserChange} value={currentUser?.id}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Select User" />
-              </SelectTrigger>
-              <SelectContent>
-                {allUsers.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
           <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
               <PopoverTrigger asChild>
                   <Button
@@ -184,6 +142,7 @@ export default function CustomerDashboard() {
                   />
               </PopoverContent>
           </Popover>
+          <Button variant="outline" onClick={logout}><LogOut className="mr-2 h-4 w-4" /> Logout</Button>
         </div>
       </header>
         
