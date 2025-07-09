@@ -98,8 +98,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <AvatarFallback>{getInitials(userDetails?.name || '')}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col text-sm overflow-hidden group-data-[state=collapsed]:hidden">
-                    <span className="font-semibold text-foreground truncate">{userDetails?.name}</span>
-                    <span className="text-muted-foreground truncate">{userDetails?.email}</span>
+                    <span className="font-semibold text-sidebar-foreground truncate">{userDetails?.name}</span>
+                    <span className="text-sidebar-foreground/70 truncate">{userDetails?.email}</span>
                 </div>
                 <TooltipProvider>
                     <Tooltip>
