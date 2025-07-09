@@ -1,11 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplets, LineChart, Scale, CalendarDays, LogOut } from 'lucide-react';
+import { Droplets, LineChart, Scale, CalendarDays, LogOut, Users, Shield } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
 import ConservationTips from './conservation-tips';
-import { getWeeklyAllocation, getDailyUsageForDateRange, DailyUsage, User } from '@/firestoreService';
+import { getWeeklyAllocation, getDailyUsageForDateRange, DailyUsage, User, getUsers } from '@/firestoreService';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -15,12 +15,15 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useRouter } from 'next/navigation';
 
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
 export default function CustomerDashboard() {
   const { userDetails, loading: authLoading, logout } = useAuth();
+  const router = useRouter();
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
     to: endOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
@@ -28,6 +31,9 @@ export default function CustomerDashboard() {
   const [month, setMonth] = useState<Date>(date?.from ?? new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [weeklyAllocation, setWeeklyAllocation] = useState(0);
   const [waterUsed, setWaterUsed] = useState(0);
@@ -35,16 +41,42 @@ export default function CustomerDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
+    const initializeUser = async () => {
+        if (userDetails) {
+            if (userDetails.role === 'admin') {
+                const allUsers = await getUsers();
+                const customerUsers = allUsers.filter(u => u.role !== 'admin');
+                setUsers(customerUsers);
+                if (customerUsers.length > 0) {
+                    setSelectedUser(customerUsers[0]);
+                }
+            } else {
+                setSelectedUser(userDetails);
+            }
+        }
+    };
+    initializeUser();
+  }, [userDetails]);
+
+
+  useEffect(() => {
     const fetchWeeklyData = async () => {
-        if (!date?.from || !date?.to || !userDetails) return;
+        if (!date?.from || !date?.to || !selectedUser) {
+          setLoading(false);
+          setDailyUsage([]);
+          setWaterUsed(0);
+          setWeeklyAllocation(0);
+          return;
+        };
+
         setLoading(true);
 
         try {
             const allocationPerShare = await getWeeklyAllocation(date.from);
-            const totalAllocation = (allocationPerShare ?? DEFAULT_GALLONS_PER_SHARE) * userDetails.shares;
+            const totalAllocation = (allocationPerShare ?? DEFAULT_GALLONS_PER_SHARE) * selectedUser.shares;
             setWeeklyAllocation(totalAllocation);
 
-            const dailyData = await getDailyUsageForDateRange(userDetails.id, date.from, date.to);
+            const dailyData = await getDailyUsageForDateRange(selectedUser.id, date.from, date.to);
             setDailyUsage(dailyData);
             
             const totalUsed = dailyData.reduce((acc, day) => acc + day.gallons, 0);
@@ -56,7 +88,7 @@ export default function CustomerDashboard() {
                 title: 'Data Fetch Failed',
                 description: 'Could not fetch your weekly usage data.',
             });
-            setWeeklyAllocation(DEFAULT_GALLONS_PER_SHARE * (userDetails?.shares || 0));
+            setWeeklyAllocation(DEFAULT_GALLONS_PER_SHARE * (selectedUser?.shares || 0));
             setWaterUsed(0);
             setDailyUsage([]);
         } finally {
@@ -64,10 +96,13 @@ export default function CustomerDashboard() {
         }
     };
     
-    if (userDetails) {
+    if (selectedUser) {
       fetchWeeklyData();
+    } else if (userDetails?.role === 'admin' && users.length === 0){
+        // Admin view, but no customers yet
+        setLoading(false);
     }
-  }, [date, toast, userDetails]);
+  }, [date, toast, selectedUser, userDetails, users]);
   
   const handleDayClick = (day: Date) => {
     const weekStart = startOfWeek(day, { weekStartsOn: 0 });
@@ -76,13 +111,28 @@ export default function CustomerDashboard() {
     setMonth(weekStart);
     setIsCalendarOpen(false);
   };
+  
+  const handleUserChange = (userId: string) => {
+      const user = users.find(u => u.id === userId);
+      if (user) {
+          setSelectedUser(user);
+      }
+  };
 
   const remaining = weeklyAllocation - waterUsed;
   const usagePercentage = weeklyAllocation > 0 ? Math.round((waterUsed / weeklyAllocation) * 100) : 0;
+  
+  const welcomeMessage = userDetails?.role === 'admin' 
+    ? selectedUser ? `Viewing as: ${selectedUser.name}` : 'Customer View'
+    : `Welcome, ${userDetails?.name || 'User'}`;
+  const subMessage = userDetails?.role === 'admin' 
+    ? selectedUser ? 'Select a user to view their weekly summary.' : 'There are no customers to display.'
+    : "Here's your weekly water usage summary.";
+
 
   if (authLoading) {
       return (
-          <div className="flex flex-col items-center justify-center h-full p-8">
+          <div className="flex flex-col items-center justify-center h-screen p-8">
               <Skeleton className="w-full max-w-4xl h-96" />
           </div>
       );
@@ -90,7 +140,7 @@ export default function CustomerDashboard() {
 
   if (!userDetails) {
        return (
-          <div className="flex flex-col items-center justify-center h-full">
+          <div className="flex flex-col items-center justify-center h-screen">
               <h1 className="text-2xl font-bold text-foreground">User not found</h1>
               <p className="text-muted-foreground">Please contact support.</p>
           </div>
@@ -101,10 +151,25 @@ export default function CustomerDashboard() {
     <div className="p-4 sm:p-6 lg:p-8">
       <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Welcome, {userDetails?.name || 'User'}</h1>
-          <p className="text-muted-foreground">Here's your weekly water usage summary.</p>
+          <h1 className="text-3xl font-bold text-foreground">{welcomeMessage}</h1>
+          <p className="text-muted-foreground">{subMessage}</p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4">
+          {userDetails.role === 'admin' && users.length > 0 && (
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <Select onValueChange={handleUserChange} value={selectedUser?.id}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                        <SelectValue placeholder="Select a user" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {users.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+          )}
           <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
               <PopoverTrigger asChild>
                   <Button
@@ -142,6 +207,9 @@ export default function CustomerDashboard() {
                   />
               </PopoverContent>
           </Popover>
+          {userDetails.role === 'admin' && (
+              <Button variant="outline" onClick={() => router.push('/admin')}><Shield className="mr-2 h-4 w-4" />Admin Dashboard</Button>
+          )}
           <Button variant="outline" onClick={logout}><LogOut className="mr-2 h-4 w-4" /> Logout</Button>
         </div>
       </header>
