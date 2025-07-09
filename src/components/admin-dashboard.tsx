@@ -15,6 +15,7 @@ import type { DateRange } from 'react-day-picker';
 import { format, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { UserForm } from './user-form';
+import { AllocationSuggester } from './allocation-suggester';
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
