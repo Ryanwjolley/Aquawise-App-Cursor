@@ -40,10 +40,14 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       router.push('/');
     } catch (error: any) {
+      let description = error.message;
+      if (error.code === 'auth/configuration-not-found') {
+        description = 'Email/Password sign-in is not enabled. Please enable it in your Firebase project console.';
+      }
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: error.message,
+        description,
       });
       setLoading(false);
     }
@@ -72,10 +76,14 @@ export default function LoginPage() {
       });
       router.push('/');
     } catch (error: any) {
+      let description = error.message;
+      if (error.code === 'auth/configuration-not-found') {
+        description = 'Email/Password sign-in is not enabled. Please enable it in your Firebase project console.';
+      }
       toast({
         variant: 'destructive',
         title: 'Sign Up Failed',
-        description: error.message,
+        description,
       });
       setLoading(false);
     }
