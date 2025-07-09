@@ -23,6 +23,7 @@ const addUsageEntry = async (usageEntry: {userId: string, date: string, consumpt
 
 const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate: Date): Promise<Record<string, number>> => {
     const usageMap: Record<string, number> = {};
+    const userIdsSet = new Set(userIds);
     userIds.forEach(id => (usageMap[id] = 0));
 
     if (userIds.length === 0) {
@@ -31,7 +32,6 @@ const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate:
 
     const q = query(
         collection(db, "usageData"),
-        where("userId", "in", userIds),
         where("date", ">=", startDate),
         where("date", "<=", endDate)
     );
@@ -40,7 +40,7 @@ const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate:
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-            if (usageMap[data.userId] !== undefined) {
+            if (userIdsSet.has(data.userId)) {
                 usageMap[data.userId] += data.consumption;
             }
         });
