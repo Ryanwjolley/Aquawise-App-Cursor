@@ -112,7 +112,7 @@ export const getUsers = async (): Promise<User[]> => {
   }
 };
 
-export const updateUser = async (id: string, user: { name: string; shares: number }): Promise<void> => {
+export const updateUser = async (id: string, user: { name: string; shares: number; role: 'admin' | 'customer' }): Promise<void> => {
   try {
     const userDoc = doc(db, "users", id);
     await setDoc(userDoc, user, { merge: true });

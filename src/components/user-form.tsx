@@ -12,15 +12,18 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { User } from '@/firestoreService';
 import React from 'react';
+import { useAuth } from '@/context/auth-context';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email address.' }),
   shares: z.coerce.number().int().min(0, { message: 'Shares must be a positive number.' }),
+  role: z.enum(['admin', 'customer']),
 });
 
 type UserFormProps = {
@@ -32,6 +35,8 @@ type UserFormProps = {
 
 export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) {
   const isEditMode = !!user;
+  const { user: authUser } = useAuth();
+  const isSelf = authUser?.uid === user?.id;
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -39,6 +44,7 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
       name: '',
       email: '',
       shares: 0,
+      role: 'customer',
     },
   });
 
@@ -48,6 +54,7 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
         name: user?.name || '',
         email: user?.email || '',
         shares: user?.shares || 0,
+        role: user?.role || 'customer',
       });
     }
   }, [user, form, isOpen]);
@@ -105,6 +112,28 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
                   <FormControl>
                     <Input type="number" placeholder="e.g. 5" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Role</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={!isEditMode || isSelf}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="customer">Customer</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {isSelf && isEditMode && <FormDescription>You cannot change your own role.</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}

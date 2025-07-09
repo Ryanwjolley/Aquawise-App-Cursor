@@ -179,10 +179,10 @@ export default function AdminDashboard() {
         }
     };
     
-    const handleFormSave = async (formData: { name: string; email: string; shares: number }) => {
+    const handleFormSave = async (formData: { name: string; email: string; shares: number; role: 'admin' | 'customer' }) => {
         try {
             if (editingUser) {
-                await updateUser(editingUser.id, {name: formData.name, shares: formData.shares});
+                await updateUser(editingUser.id, {name: formData.name, shares: formData.shares, role: formData.role});
                 toast({ title: 'User Updated', description: `Updated details for ${formData.name}.` });
                 const fetchedUsers = await getUsers();
                 setUsers(fetchedUsers);
@@ -404,6 +404,7 @@ export default function AdminDashboard() {
                                     <TableHead className="w-16">Status</TableHead>
                                     <TableHead>User</TableHead>
                                     <TableHead>Email</TableHead>
+                                    <TableHead>Role</TableHead>
                                     <TableHead>Shares</TableHead>
                                     <TableHead>Allocated (gal)</TableHead>
                                     <TableHead>Used (gal)</TableHead>
@@ -419,6 +420,7 @@ export default function AdminDashboard() {
                                         </TableCell>
                                         <TableCell className="font-medium">{user.name}</TableCell>
                                         <TableCell>{user.email}</TableCell>
+                                        <TableCell className="capitalize">{user.role}</TableCell>
                                         <TableCell>{user.shares}</TableCell>
                                         <TableCell>{user.allocation.toLocaleString()}</TableCell>
                                         <TableCell>{user.used.toLocaleString()}</TableCell>
