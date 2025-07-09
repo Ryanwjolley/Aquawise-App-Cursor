@@ -127,7 +127,6 @@ export const getWeeklyAllocation = async (weekStartDate: Date): Promise<number |
 export const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
     const q = query(
         usageCollection,
-        where("userId", "==", userId),
         where("date", ">=", startDate),
         where("date", "<=", endDate)
     );
@@ -138,11 +137,13 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             const data = doc.data() as UsageData;
-            const dateKey = format(data.date.toDate(), 'yyyy-MM-dd');
-            if (!usageByDate[dateKey]) {
-                usageByDate[dateKey] = 0;
+            if (data.userId === userId) {
+                const dateKey = format(data.date.toDate(), 'yyyy-MM-dd');
+                if (!usageByDate[dateKey]) {
+                    usageByDate[dateKey] = 0;
+                }
+                usageByDate[dateKey] += data.consumption;
             }
-            usageByDate[dateKey] += data.consumption;
         });
     } catch (error) {
         console.error("Error fetching daily usage data: ", error);
