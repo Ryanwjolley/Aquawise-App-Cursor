@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import { format, eachDayOfInterval } from 'date-fns';
 
@@ -30,10 +30,13 @@ export const createUserDocument = async (
 ): Promise<void> => {
   try {
     const userDocRef = doc(db, 'users', uid);
+    // Assign 'admin' role if the email matches, otherwise 'customer'
+    const role = data.email.toLowerCase() === 'admin@aquawise.com' ? 'admin' : 'customer';
+
     await setDoc(userDocRef, {
       ...data,
-      shares: 0, // Default shares
-      role: 'customer', // Default role
+      shares: role === 'admin' ? 0 : 5, // Admins don't have shares, customers start with 5.
+      role: role,
     });
   } catch (e) {
     console.error('Error creating user document: ', e);
@@ -57,7 +60,8 @@ export const getUser = async (uid: string): Promise<User | null> => {
 
 export const getUsers = async (): Promise<User[]> => {
   try {
-    const querySnapshot = await getDocs(query(usersCollection));
+    const q = query(usersCollection, orderBy('name'));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
   } catch (e) {
     console.error("Error getting users: ", e);
@@ -77,9 +81,11 @@ export const updateUser = async (id: string, user: { name: string; shares: numbe
 
 export const addUsageEntry = async (usageEntry: {userId: string, date: string, consumption: number}): Promise<void> => {
   try {
+    // Ensure date is treated as UTC to avoid timezone issues
+    const date = new Date(usageEntry.date + 'T00:00:00Z');
     const dataWithTimestamp: UsageData = {
         ...usageEntry,
-        date: Timestamp.fromDate(new Date(usageEntry.date))
+        date: Timestamp.fromDate(date)
     };
     await addDoc(usageCollection, dataWithTimestamp);
   } catch (e) {
@@ -87,6 +93,7 @@ export const addUsageEntry = async (usageEntry: {userId: string, date: string, c
     throw e;
   }
 };
+
 
 export const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate: Date): Promise<Record<string, number>> => {
     const usageMap: Record<string, number> = {};
@@ -97,23 +104,24 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
     }
 
     try {
-      for (const userId of userIds) {
+        // Use a single 'in' query for efficiency. Note Firestore 'in' has a limit of 30 items.
+        // For larger user sets, this would need batching. For this app, it's fine.
         const q = query(
           usageCollection,
-          where("userId", "==", userId),
+          where("userId", "in", userIds),
           where("date", ">=", startDate),
           where("date", "<=", endDate)
         );
         const querySnapshot = await getDocs(q);
-        let totalConsumption = 0;
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-            totalConsumption += data.consumption;
+            const userId = data.userId;
+            if (usageMap[userId] !== undefined) {
+                usageMap[userId] += data.consumption;
+            }
         });
-        usageMap[userId] = totalConsumption;
-      }
     } catch (error) {
-        console.error("Error fetching usage data: ", error);
+        console.error("Error fetching usage data for range: ", error);
     }
     
     return usageMap;
@@ -140,7 +148,8 @@ export const getWeeklyAllocation = async (weekStartDate: Date): Promise<number |
     } else {
       return null;
     }
-  } catch (e) {
+  } catch (e)
+  {
     console.error("Error getting weekly allocation: ", e);
     throw e;
   }
@@ -148,36 +157,37 @@ export const getWeeklyAllocation = async (weekStartDate: Date): Promise<number |
 
 
 export const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
-    const q = query(
-        usageCollection,
-        where("userId", "==", userId),
-        where("date", ">=", startDate),
-        where("date", "<=", endDate)
-    );
+    
+    const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
+    const dailyUsageData: DailyUsage[] = daysInInterval.map(day => ({
+      day: format(day, 'EEE'),
+      gallons: 0,
+    }));
 
-    const usageByDate: Record<string, number> = {}; // "yyyy-MM-dd": gallons
-
+    // Firestore `in` query is limited to 10 items.
+    // For a weekly view (7 days), we can query per day. This is more efficient than querying the whole range and sorting in JS.
     try {
+        const q = query(
+            usageCollection,
+            where("userId", "==", userId),
+            where("date", ">=", startDate),
+            where("date", "<=", endDate)
+        );
+        
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             const data = doc.data() as UsageData;
-            const dateKey = format(data.date.toDate(), 'yyyy-MM-dd');
-            if (!usageByDate[dateKey]) {
-                usageByDate[dateKey] = 0;
+            const docDate = data.date.toDate();
+            // Find the corresponding day in our pre-built array
+            const dayIndex = daysInInterval.findIndex(intervalDay => format(intervalDay, 'yyyy-MM-dd') === format(docDate, 'yyyy-MM-dd'));
+
+            if (dayIndex !== -1) {
+                dailyUsageData[dayIndex].gallons += data.consumption;
             }
-            usageByDate[dateKey] += data.consumption;
         });
     } catch (error) {
         console.error("Error fetching daily usage data: ", error);
     }
-    
-    const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
       
-    return daysInInterval.map(day => {
-        const dateKey = format(day, 'yyyy-MM-dd');
-        return {
-          day: format(day, 'EEE'),
-          gallons: usageByDate[dateKey] || 0,
-        };
-    });
+    return dailyUsageData;
 };

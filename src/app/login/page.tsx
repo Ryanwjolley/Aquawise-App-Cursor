@@ -139,6 +139,9 @@ export default function LoginPage() {
                 <CardDescription>
                   Enter your information to create a new account.
                 </CardDescription>
+                <CardDescription className="text-xs text-muted-foreground pt-2">
+                  To create an admin account, sign up with the email <code className="font-bold text-foreground">admin@aquawise.com</code>.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
