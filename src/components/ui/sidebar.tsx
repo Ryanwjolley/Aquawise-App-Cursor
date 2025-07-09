@@ -141,7 +141,7 @@ const SidebarProvider = React.forwardRef<
               } as React.CSSProperties
             }
             className={cn(
-              "group/sidebar-wrapper flex min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
+              "group/sidebar-wrapper min-h-svh w-full has-[[data-variant=inset]]:bg-sidebar",
               className
             )}
             ref={ref}
@@ -216,7 +216,7 @@ const Sidebar = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "group peer hidden shrink-0 text-sidebar-foreground md:block",
+          "group peer hidden text-sidebar-foreground md:block",
           className
         )}
         data-state={state}
@@ -224,17 +224,6 @@ const Sidebar = React.forwardRef<
         data-variant={variant}
         data-side={side}
       >
-        {/* This is what handles the sidebar gap on desktop */}
-        <div
-          className={cn(
-            "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear",
-            "group-data-[collapsible=offcanvas]:w-0",
-            "group-data-[side=right]:rotate-180",
-            variant === "floating" || variant === "inset"
-              ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4))]"
-              : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]"
-          )}
-        />
         <div
           className={cn(
             "duration-200 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-linear md:flex",
@@ -325,7 +314,13 @@ const SidebarInset = React.forwardRef<
     <main
       ref={ref}
       className={cn(
-        "relative flex min-h-svh flex-1 flex-col bg-background",
+        "relative flex min-h-svh flex-col bg-background",
+        // The peer selectors will add margin based on the state of the sibling `Sidebar` component.
+        "md:transition-[margin] md:ease-linear md:duration-200",
+        "peer-data-[state=expanded]:peer-data-[side=left]:md:ml-[var(--sidebar-width)]",
+        "peer-data-[state=expanded]:peer-data-[side=right]:md:mr-[var(--sidebar-width)]",
+        "peer-data-[state=collapsed]:peer-data-[collapsible=icon]:peer-data-[side=left]:md:ml-[var(--sidebar-width-icon)]",
+        "peer-data-[state=collapsed]:peer-data-[collapsible=icon]:peer-data-[side=right]:md:mr-[var(--sidebar-width-icon)]",
         "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
         className
       )}
