@@ -1,12 +1,11 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarDays, Upload, Edit } from 'lucide-react';
+import { CalendarDays, Upload, Edit, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { AllocationSuggester } from './allocation-suggester';
-import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser } from '../firestoreService';
+import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser } from '../firestoreService';
 import type { User } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -179,20 +178,24 @@ export default function AdminDashboard() {
         }
     };
     
-    const handleSaveUser = async (formData: { name: string; shares: number }) => {
+    const handleFormSave = async (formData: { name: string; email: string; shares: number }) => {
         try {
             if (editingUser) {
-                await updateUser(editingUser.id, formData);
+                await updateUser(editingUser.id, {name: formData.name, shares: formData.shares});
                 toast({ title: 'User Updated', description: `Updated details for ${formData.name}.` });
                 const fetchedUsers = await getUsers();
                 setUsers(fetchedUsers);
+            } else {
+                await inviteUser(formData);
+                toast({ title: 'User Invited', description: `An invitation has been created for ${formData.email}.` });
             }
             setEditingUser(null);
         } catch (error) {
-            toast({
+            const action = editingUser ? 'save' : 'invite';
+             toast({
                 variant: 'destructive',
-                title: 'Save Failed',
-                description: 'Could not save user data.',
+                title: `${action.charAt(0).toUpperCase() + action.slice(1)} Failed`,
+                description: `Could not ${action} user.`,
             });
         }
     };
@@ -365,6 +368,10 @@ export default function AdminDashboard() {
                         <CardTitle className="text-xl">User Water Management</CardTitle>
                     </div>
                     <div className='flex items-center gap-2'>
+                        <Button variant="outline" onClick={() => { setEditingUser(null); setIsUserFormOpen(true); }}>
+                           <UserPlus className="mr-2 h-4 w-4" />
+                           Invite User
+                        </Button>
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -440,7 +447,7 @@ export default function AdminDashboard() {
                         setEditingUser(null);
                     }
                 }}
-                onSave={handleSaveUser}
+                onSave={handleFormSave}
                 user={editingUser}
             />
         </div>

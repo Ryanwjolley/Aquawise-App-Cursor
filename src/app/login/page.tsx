@@ -7,7 +7,7 @@ import {
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { auth, db } from '@/firebaseConfig';
-import { createUserDocument } from '@/firestoreService';
+import { createUserDocument, getInvite, deleteInvite } from '@/firestoreService';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -26,7 +26,6 @@ import { Droplets } from 'lucide-react';
 export default function LoginPage() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,21 +63,42 @@ export default function LoginPage() {
         return;
     }
     setLoading(true);
+
     try {
+      const invite = await getInvite(signupEmail);
+
+      if (!invite) {
+        toast({
+          variant: 'destructive',
+          title: 'Sign Up Failed',
+          description: 'This email has not been invited. Please contact an administrator.',
+        });
+        setLoading(false);
+        return;
+      }
+      
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         signupEmail,
         signupPassword
       );
+      
       await createUserDocument(userCredential.user.uid, {
-        name: signupName,
+        name: invite.name,
         email: signupEmail,
+        shares: invite.shares,
       });
+
+      await deleteInvite(invite.id);
+      
       router.push('/');
-    } catch (error: any) {
+    } catch (error: any)
+    {
       let description = error.message;
       if (error.code === 'auth/configuration-not-found') {
         description = 'Email/Password sign-in is not enabled. Please enable it in your Firebase project console.';
+      } else if (error.code === 'auth/email-already-in-use') {
+        description = 'An account with this email already exists.';
       }
       toast({
         variant: 'destructive',
@@ -143,25 +163,12 @@ export default function LoginPage() {
           <Card>
             <form onSubmit={handleSignUp}>
               <CardHeader>
-                <CardTitle>Create an Account</CardTitle>
+                <CardTitle>Complete Registration</CardTitle>
                 <CardDescription>
-                  Enter your information to create a new account.
-                </CardDescription>
-                <CardDescription className="text-xs text-muted-foreground pt-2">
-                  To create an admin account, sign up with the email <code className="font-bold text-foreground">admin@aquawise.com</code>.
+                  You must be invited by an administrator to create an account.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
-                  <Input
-                    id="signup-name"
-                    placeholder="Jane Doe"
-                    value={signupName}
-                    onChange={(e) => setSignupName(e.target.value)}
-                    required
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input

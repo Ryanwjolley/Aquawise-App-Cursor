@@ -16,10 +16,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import type { User } from '@/firestoreService';
 import React from 'react';
-import { Label } from './ui/label';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
   shares: z.coerce.number().int().min(0, { message: 'Shares must be a positive number.' }),
 });
 
@@ -31,19 +31,25 @@ type UserFormProps = {
 };
 
 export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) {
+  const isEditMode = !!user;
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: user?.name || '',
-      shares: user?.shares || 0,
+      name: '',
+      email: '',
+      shares: 0,
     },
   });
 
   React.useEffect(() => {
-    form.reset({
-      name: user?.name || '',
-      shares: user?.shares || 0,
-    });
+    if (isOpen) {
+      form.reset({
+        name: user?.name || '',
+        email: user?.email || '',
+        shares: user?.shares || 0,
+      });
+    }
   }, [user, form, isOpen]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
@@ -55,9 +61,11 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit User</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Edit User' : 'Invite User'}</DialogTitle>
           <DialogDescription>
-            Update the details for this user.
+            {isEditMode
+              ? "Update the details for this user."
+              : "Invite a new user by providing their details. They will be able to sign up after being invited."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -67,7 +75,7 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>User Name</FormLabel>
+                  <FormLabel>Full Name</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g. Jane Doe" {...field} />
                   </FormControl>
@@ -75,10 +83,19 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
                 </FormItem>
               )}
             />
-            <div className="space-y-2">
-                <Label>Email</Label>
-                <Input value={user?.email || ''} disabled />
-            </div>
+             <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. user@example.com" {...field} disabled={isEditMode} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="shares"
@@ -96,7 +113,7 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Save Changes</Button>
+              <Button type="submit">{isEditMode ? 'Save Changes' : 'Send Invite'}</Button>
             </DialogFooter>
           </form>
         </Form>

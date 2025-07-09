@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import { format, eachDayOfInterval } from 'date-fns';
 
@@ -21,21 +21,29 @@ export interface User {
   role: 'admin' | 'customer';
 }
 
+export interface Invite {
+  id: string;
+  name: string;
+  email: string;
+  shares: number;
+}
+
 const usersCollection = collection(db, "users");
 const usageCollection = collection(db, "usageData");
+const invitesCollection = collection(db, "invites");
 
 export const createUserDocument = async (
   uid: string,
-  data: { name: string; email: string }
+  data: { name: string; email: string; shares: number }
 ): Promise<void> => {
   try {
     const userDocRef = doc(db, 'users', uid);
-    // Assign 'admin' role if the email matches, otherwise 'customer'
     const role = data.email.toLowerCase() === 'admin@aquawise.com' ? 'admin' : 'customer';
 
     await setDoc(userDocRef, {
-      ...data,
-      shares: role === 'admin' ? 0 : 5, // Admins don't have shares, customers start with 5.
+      name: data.name,
+      email: data.email,
+      shares: data.shares,
       role: role,
     });
   } catch (e) {
@@ -43,6 +51,41 @@ export const createUserDocument = async (
     throw e;
   }
 };
+
+export const inviteUser = async (data: {name: string, email: string, shares: number}): Promise<void> => {
+  try {
+    await addDoc(invitesCollection, data);
+  } catch (e) {
+    console.error('Error inviting user: ', e);
+    throw e;
+  }
+};
+
+export const getInvite = async (email: string): Promise<Invite | null> => {
+  try {
+    const q = query(invitesCollection, where("email", "==", email), limit(1));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return { id: doc.id, ...doc.data() } as Invite;
+    }
+    return null;
+  } catch (e) {
+    console.error("Error getting invite: ", e);
+    throw e;
+  }
+};
+
+export const deleteInvite = async (id: string): Promise<void> => {
+  try {
+    const inviteDoc = doc(db, "invites", id);
+    await deleteDoc(inviteDoc);
+  } catch (e) {
+    console.error("Error deleting invite: ", e);
+    throw e;
+  }
+};
+
 
 export const getUser = async (uid: string): Promise<User | null> => {
   try {
