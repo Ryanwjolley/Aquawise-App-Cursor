@@ -1,11 +1,11 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2 } from 'lucide-react';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser, updateUserStatus } from '../firestoreService';
+import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser } from '../firestoreService';
 import type { User } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,6 +18,16 @@ import { UserForm } from './user-form';
 import { AllocationSuggester } from './allocation-suggester';
 import { useAuth } from '@/context/auth-context';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
@@ -33,6 +43,7 @@ export default function AdminDashboard() {
     const [users, setUsers] = useState<User[]>([]);
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [userData, setUserData] = useState<UserData[]>([]);
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -232,6 +243,28 @@ export default function AdminDashboard() {
                 title: 'Update Failed',
                 description: 'Could not update user status.',
             });
+        }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!userToDelete) return;
+    
+        try {
+            await deleteUser(userToDelete.id);
+            toast({
+                title: 'User Deleted',
+                description: `${userToDelete.name} has been successfully deleted.`,
+            });
+            const fetchedUsers = await getUsers();
+            setUsers(fetchedUsers);
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Deletion Failed',
+                description: error.message || 'Could not delete user.',
+            });
+        } finally {
+            setUserToDelete(null);
         }
     };
 
@@ -492,6 +525,16 @@ export default function AdminDashboard() {
                                                             <p>{(user.status ?? 'active') === 'active' ? 'Deactivate' : 'Activate'} User</p>
                                                         </TooltipContent>
                                                     </Tooltip>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={user.id === authUser?.uid}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Delete User</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 </TooltipProvider>
                                             </div>
                                         </TableCell>
@@ -514,6 +557,24 @@ export default function AdminDashboard() {
                 onSave={handleFormSave}
                 user={editingUser}
             />
+
+            <AlertDialog open={!!userToDelete} onOpenChange={(isOpen) => !isOpen && setUserToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the user account for <span className="font-bold">{userToDelete?.name}</span> from the user list.
+                            You can only delete users who have no water usage history.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmDelete} className={buttonVariants({ variant: "destructive" })}>
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

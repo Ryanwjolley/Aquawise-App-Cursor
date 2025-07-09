@@ -134,6 +134,28 @@ export const updateUserStatus = async (id: string, status: 'active' | 'inactive'
   }
 };
 
+export const deleteUser = async (userId: string): Promise<void> => {
+  try {
+    // Check for usage history first
+    const usageQuery = query(usageCollection, where("userId", "==", userId), limit(1));
+    const usageSnapshot = await getDocs(usageQuery);
+
+    if (!usageSnapshot.empty) {
+      throw new Error("Cannot delete a user with usage history. Please deactivate them instead.");
+    }
+
+    // If no usage history, delete the user document from Firestore
+    const userDocRef = doc(db, 'users', userId);
+    await deleteDoc(userDocRef);
+    
+    // Note: This does not delete the user from Firebase Authentication.
+    // That requires admin privileges and a secure backend environment.
+  } catch (e) {
+    console.error("Error deleting user: ", e);
+    throw e; // re-throw to be caught by the component
+  }
+};
+
 export const addUsageEntry = async (usageEntry: {userId: string, date: string, consumption: number}): Promise<void> => {
   try {
     // Ensure date is treated as UTC to avoid timezone issues
