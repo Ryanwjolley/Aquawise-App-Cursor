@@ -1,5 +1,6 @@
-import { collection, addDoc, query, where, getDocs, Timestamp } from "firebase/firestore";
-import { db } from "./firebaseConfig"; // Assuming firebaseConfig.ts is in the same directory
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc } from "firebase/firestore";
+import { db } from "./firebaseConfig";
+import { format } from 'date-fns';
 
 interface UsageData {
   userId: string;
@@ -51,5 +52,42 @@ const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate:
     return usageMap;
 }
 
+/**
+ * Sets the gallons per share for a specific week. The week is identified by its start date.
+ * @param weekStartDate - The start date of the week (Sunday).
+ * @param gallons - The number of gallons per share to set.
+ */
+const setWeeklyAllocation = async (weekStartDate: Date, gallons: number): Promise<void> => {
+  const weekId = format(weekStartDate, 'yyyy-MM-dd');
+  try {
+    const docRef = doc(db, "weeklyAllocations", weekId);
+    await setDoc(docRef, { gallonsPerShare: gallons });
+  } catch (e) {
+    console.error("Error setting weekly allocation: ", e);
+    throw e;
+  }
+};
 
-export { addUsageEntry, getUsageForDateRange };
+/**
+ * Gets the gallons per share for a specific week.
+ * @param weekStartDate - The start date of the week (Sunday).
+ * @returns The gallons per share for the week, or null if not set.
+ */
+const getWeeklyAllocation = async (weekStartDate: Date): Promise<number | null> => {
+  const weekId = format(weekStartDate, 'yyyy-MM-dd');
+  try {
+    const docRef = doc(db, "weeklyAllocations", weekId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data().gallonsPerShare;
+    } else {
+      return null;
+    }
+  } catch (e) {
+    console.error("Error getting weekly allocation: ", e);
+    throw e; // Re-throw to be handled by caller
+  }
+};
+
+
+export { addUsageEntry, getUsageForDateRange, setWeeklyAllocation, getWeeklyAllocation };

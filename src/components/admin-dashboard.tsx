@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { AllocationSuggester } from './allocation-suggester';
 import { AllocationPredictor } from './allocation-predictor';
-import { addUsageEntry, getUsageForDateRange } from '../firestoreService';
+import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -25,6 +25,8 @@ const initialUsers = [
     { name: 'Emily Acres', shares: 6, used: 0 },
 ];
 
+const DEFAULT_GALLONS_PER_SHARE = 2000;
+
 type UserData = {
     name: string;
     shares: number;
@@ -35,20 +37,20 @@ type UserData = {
 }
 
 export default function AdminDashboard() {
-    const [gallonsPerShare, setGallonsPerShare] = useState(2000);
+    const [gallonsPerShare, setGallonsPerShare] = useState(DEFAULT_GALLONS_PER_SHARE);
     const [users, setUsers] = useState(initialUsers);
     const [userData, setUserData] = useState<UserData[]>([]);
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [date, setDate] = useState<DateRange | undefined>({
-        from: new Date(2025, 6, 6),
-        to: new Date(2025, 6, 12),
+        from: startOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
+        to: endOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
     });
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [month, setMonth] = useState<Date>(date?.from ?? new Date());
 
     useEffect(() => {
-        const fetchUsageData = async () => {
+        const fetchDataForWeek = async () => {
             if (date?.from && date?.to) {
                 const userIds = initialUsers.map(u => u.name);
                 const usageData = await getUsageForDateRange(userIds, date.from, date.to);
@@ -58,17 +60,28 @@ export default function AdminDashboard() {
                     used: usageData[user.name] || 0,
                 }));
                 setUsers(updatedUsers);
+
+                try {
+                    const allocation = await getWeeklyAllocation(date.from);
+                    setGallonsPerShare(allocation ?? DEFAULT_GALLONS_PER_SHARE);
+                } catch (error) {
+                     toast({
+                        variant: 'destructive',
+                        title: 'Fetch Failed',
+                        description: 'Could not fetch weekly allocation data.',
+                    });
+                    setGallonsPerShare(DEFAULT_GALLONS_PER_SHARE);
+                }
             }
         };
 
-        fetchUsageData();
-    }, [date]);
+        fetchDataForWeek();
+    }, [date, toast]);
 
     const handleDayClick = (day: Date) => {
-        const weekStart = startOfWeek(day, { weekStartsOn: 0 }); // Sunday
-        const weekEnd = endOfWeek(day, { weekStartsOn: 0 }); // Saturday
+        const weekStart = startOfWeek(day, { weekStartsOn: 0 });
+        const weekEnd = endOfWeek(day, { weekStartsOn: 0 });
         setDate({ from: weekStart, to: weekEnd });
-        setMonth(weekStart);
         setIsCalendarOpen(false);
     };
 
@@ -112,7 +125,6 @@ export default function AdminDashboard() {
                 
                 if (updatesMade > 0) {
                     await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    // Refetch data for current date range to show updates
                     if (date?.from && date?.to) {
                          const userIds = initialUsers.map(u => u.name);
                          const usageData = await getUsageForDateRange(userIds, date.from, date.to);
@@ -149,6 +161,30 @@ export default function AdminDashboard() {
         reader.readAsText(file);
     };
 
+    const handleUpdateAllocation = async () => {
+        if (!date?.from) {
+            toast({
+                variant: 'destructive',
+                title: 'No Date Selected',
+                description: 'Please select a week to update the allocation.',
+            });
+            return;
+        }
+        try {
+            await setWeeklyAllocation(date.from, gallonsPerShare);
+            toast({
+                title: 'Allocation Updated',
+                description: `Set gallons per share to ${gallonsPerShare.toLocaleString()} for the selected week.`,
+            });
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Update Failed',
+                description: 'Could not save the weekly allocation.',
+            });
+        }
+    };
+
     const totalUsers = useMemo(() => users.length, [users]);
     const totalWaterConsumed = useMemo(() => users.reduce((acc, user) => acc + user.used, 0), [users]);
     const averageUsagePerUser = useMemo(() => totalUsers > 0 ? totalWaterConsumed / totalUsers : 0, [totalWaterConsumed, totalUsers]);
@@ -162,13 +198,12 @@ export default function AdminDashboard() {
         if (date?.from && date.to) {
             return differenceInDays(date.to, date.from) + 1;
         }
-        return 0;
+        return 7;
     }, [date]);
 
 
     useEffect(() => {
         const data = users.map(user => {
-            // Allocation is weekly, usage is for selected period. Let's adjust allocation based on period length
             const weeklyAllocation = user.shares * gallonsPerShare;
             const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
             const percentageUsed = periodAllocation > 0 ? Math.round((user.used / periodAllocation) * 100) : 0;
@@ -219,8 +254,7 @@ export default function AdminDashboard() {
                         <Calendar
                         initialFocus
                         mode="range"
-                        month={month}
-                        onMonthChange={setMonth}
+                        defaultMonth={date?.from}
                         selected={date}
                         onDayClick={handleDayClick}
                         numberOfMonths={2}
@@ -273,7 +307,7 @@ export default function AdminDashboard() {
                             />
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 flex-wrap">
-                            <Button className="w-full sm:w-auto">
+                            <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation}>
                                 Update Allocations
                             </Button>
                             <AllocationSuggester
