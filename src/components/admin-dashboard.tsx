@@ -1,13 +1,14 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarDays, Upload } from 'lucide-react';
+import { CalendarDays, Upload, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { AllocationSuggester } from './allocation-suggester';
 import { AllocationPredictor } from './allocation-predictor';
-import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation } from '../firestoreService';
+import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, addUser, updateUser } from '../firestoreService';
+import type { User } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -15,21 +16,11 @@ import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { format, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 import { cn } from '@/lib/utils';
-
-const initialUsers = [
-    { name: 'John Farmer', shares: 5, used: 0 },
-    { name: 'Alice Gardener', shares: 3, used: 0 },
-    { name: 'Bob Rancher', shares: 10, used: 0 },
-    { name: 'Cathy Fields', shares: 8, used: 0 },
-    { name: 'David Croft', shares: 2, used: 0 },
-    { name: 'Emily Acres', shares: 6, used: 0 },
-];
+import { UserForm } from './user-form';
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
-type UserData = {
-    name: string;
-    shares: number;
+type UserData = User & {
     used: number;
     allocation: number;
     percentageUsed: number;
@@ -38,7 +29,9 @@ type UserData = {
 
 export default function AdminDashboard() {
     const [gallonsPerShare, setGallonsPerShare] = useState(DEFAULT_GALLONS_PER_SHARE);
-    const [users, setUsers] = useState(initialUsers);
+    const [users, setUsers] = useState<User[]>([]);
+    const [isUserFormOpen, setIsUserFormOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
     const [userData, setUserData] = useState<UserData[]>([]);
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,17 +43,24 @@ export default function AdminDashboard() {
     const [month, setMonth] = useState<Date>(date?.from ?? new Date());
 
     useEffect(() => {
-        const fetchDataForWeek = async () => {
-            if (date?.from && date?.to) {
-                const userIds = initialUsers.map(u => u.name);
-                const usageData = await getUsageForDateRange(userIds, date.from, date.to);
-                
-                const updatedUsers = initialUsers.map(user => ({
-                    ...user,
-                    used: usageData[user.name] || 0,
-                }));
-                setUsers(updatedUsers);
+        const fetchUsers = async () => {
+            try {
+                const fetchedUsers = await getUsers();
+                setUsers(fetchedUsers);
+            } catch (error) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Failed to Fetch Users',
+                    description: 'Could not load user data from the database.',
+                });
+            }
+        };
+        fetchUsers();
+    }, [toast]);
 
+    useEffect(() => {
+        const fetchDataForWeek = async () => {
+            if (date?.from && users.length > 0) {
                 try {
                     const allocation = await getWeeklyAllocation(date.from);
                     setGallonsPerShare(allocation ?? DEFAULT_GALLONS_PER_SHARE);
@@ -76,12 +76,13 @@ export default function AdminDashboard() {
         };
 
         fetchDataForWeek();
-    }, [date, toast]);
+    }, [date, users, toast]);
 
     const handleDayClick = (day: Date) => {
         const weekStart = startOfWeek(day, { weekStartsOn: 0 });
         const weekEnd = endOfWeek(day, { weekStartsOn: 0 });
         setDate({ from: weekStart, to: weekEnd });
+        setMonth(weekStart);
         setIsCalendarOpen(false);
     };
 
@@ -104,7 +105,7 @@ export default function AdminDashboard() {
                 const text = e.target?.result as string;
                 const lines = text.split(/\r\n|\n/).slice(1);
                 
-                const userMap = new Map(users.map(u => [u.name, {...u}]));
+                const userNameToIdMap = new Map(users.map(u => [u.name, u.id]));
                 const usageEntries = [];
                 let updatesMade = 0;
 
@@ -116,8 +117,9 @@ export default function AdminDashboard() {
                         const used = parseInt(usedStr.trim(), 10);
                         const trimmedDate = dateStr.trim();
 
-                        if (userMap.has(trimmedName) && !isNaN(used) && trimmedDate) {
-                            usageEntries.push({ userId: trimmedName, consumption: used, date: trimmedDate });
+                        if (userNameToIdMap.has(trimmedName) && !isNaN(used) && trimmedDate) {
+                            const userId = userNameToIdMap.get(trimmedName)!;
+                            usageEntries.push({ userId: userId, consumption: used, date: trimmedDate });
                             updatesMade++;
                         }
                     }
@@ -125,15 +127,8 @@ export default function AdminDashboard() {
                 
                 if (updatesMade > 0) {
                     await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    if (date?.from && date?.to) {
-                         const userIds = initialUsers.map(u => u.name);
-                         const usageData = await getUsageForDateRange(userIds, date.from, date.to);
-                         const updatedUsers = initialUsers.map(user => ({
-                            ...user,
-                            used: usageData[user.name] || 0
-                         }));
-                         setUsers(updatedUsers);
-                    }
+                    const updatedUsers = await getUsers();
+                    setUsers(updatedUsers);
                     toast({
                         title: 'Upload Successful',
                         description: `Logged usage for ${updatesMade} user(s). View data by selecting the appropriate date range.`,
@@ -184,9 +179,31 @@ export default function AdminDashboard() {
             });
         }
     };
+    
+    const handleSaveUser = async (formData: { name: string; shares: number }) => {
+        try {
+            if (editingUser) {
+                await updateUser(editingUser.id, formData);
+                toast({ title: 'User Updated', description: `Updated details for ${formData.name}.` });
+            } else {
+                await addUser(formData);
+                toast({ title: 'User Added', description: `${formData.name} has been added.` });
+            }
+            const fetchedUsers = await getUsers();
+            setUsers(fetchedUsers);
+            setEditingUser(null);
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Save Failed',
+                description: 'Could not save user data.',
+            });
+        }
+    };
+
 
     const totalUsers = useMemo(() => users.length, [users]);
-    const totalWaterConsumed = useMemo(() => users.reduce((acc, user) => acc + user.used, 0), [users]);
+    const totalWaterConsumed = useMemo(() => userData.reduce((acc, user) => acc + user.used, 0), [userData]);
     const averageUsagePerUser = useMemo(() => totalUsers > 0 ? totalWaterConsumed / totalUsers : 0, [totalWaterConsumed, totalUsers]);
     
     const totalWeeklyAllocation = useMemo(() => {
@@ -203,20 +220,39 @@ export default function AdminDashboard() {
 
 
     useEffect(() => {
-        const data = users.map(user => {
-            const weeklyAllocation = user.shares * gallonsPerShare;
-            const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
-            const percentageUsed = periodAllocation > 0 ? Math.round((user.used / periodAllocation) * 100) : 0;
-            let statusColor = 'bg-green-500';
-            if (percentageUsed > 100) {
-                statusColor = 'bg-red-500';
-            } else if (percentageUsed > 80) {
-                statusColor = 'bg-yellow-500';
+        const calculateUserData = async () => {
+             if (!date?.from || !date?.to || users.length === 0) {
+                setUserData(users.map(u => ({
+                    ...u,
+                    used: 0,
+                    allocation: 0,
+                    percentageUsed: 0,
+                    statusColor: 'bg-green-500',
+                })));
+                return;
             }
-            return { ...user, allocation: Math.round(periodAllocation), percentageUsed, statusColor };
-        });
-        setUserData(data);
-    }, [gallonsPerShare, users, periodDurationInDays]);
+
+            const userIds = users.map(u => u.id);
+            const usageDataById = await getUsageForDateRange(userIds, date.from, date.to);
+
+            const data = users.map(user => {
+                const used = usageDataById[user.id] || 0;
+                const weeklyAllocation = user.shares * gallonsPerShare;
+                const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
+                const percentageUsed = periodAllocation > 0 ? Math.round((used / periodAllocation) * 100) : 0;
+                let statusColor = 'bg-green-500';
+                if (percentageUsed > 100) {
+                    statusColor = 'bg-red-500';
+                } else if (percentageUsed > 80) {
+                    statusColor = 'bg-yellow-500';
+                }
+                return { ...user, used, allocation: Math.round(periodAllocation), percentageUsed, statusColor };
+            });
+            setUserData(data);
+        }
+        calculateUserData();
+
+    }, [gallonsPerShare, users, date, periodDurationInDays]);
     
     return (
         <div>
@@ -333,8 +369,13 @@ export default function AdminDashboard() {
 
             <Card className="rounded-xl shadow-md overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-xl">User Water Management</CardTitle>
                     <div>
+                        <CardTitle className="text-xl">User Water Management</CardTitle>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                        <Button onClick={() => { setEditingUser(null); setIsUserFormOpen(true); }}>
+                            Add User
+                        </Button>
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -369,11 +410,12 @@ export default function AdminDashboard() {
                                     <TableHead>Allocated (gal)</TableHead>
                                     <TableHead>Used (gal)</TableHead>
                                     <TableHead>% Used</TableHead>
+                                    <TableHead>Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {userData.map((user) => (
-                                    <TableRow key={user.name}>
+                                    <TableRow key={user.id}>
                                         <TableCell>
                                             <span className={`h-4 w-4 rounded-full ${user.statusColor} inline-block`} title={`${user.percentageUsed}% used`}></span>
                                         </TableCell>
@@ -386,6 +428,11 @@ export default function AdminDashboard() {
                                                 <span className="text-sm font-medium text-muted-foreground">{user.percentageUsed}%</span>
                                             </div>
                                         </TableCell>
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" onClick={() => { setEditingUser(user); setIsUserFormOpen(true); }}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -393,6 +440,18 @@ export default function AdminDashboard() {
                     </div>
                 </CardContent>
             </Card>
+
+            <UserForm
+                isOpen={isUserFormOpen}
+                onOpenChange={(isOpen) => {
+                    setIsUserFormOpen(isOpen);
+                    if (!isOpen) {
+                        setEditingUser(null);
+                    }
+                }}
+                onSave={handleSaveUser}
+                user={editingUser}
+            />
         </div>
     );
 }

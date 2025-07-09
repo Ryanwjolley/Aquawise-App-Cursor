@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import { format, eachDayOfInterval } from 'date-fns';
 
@@ -13,23 +13,60 @@ export interface DailyUsage {
   gallons: number;
 }
 
-const addUsageEntry = async (usageEntry: {userId: string, date: string, consumption: number}): Promise<void> => {
+export interface User {
+  id: string;
+  name: string;
+  shares: number;
+}
+
+const usersCollection = collection(db, "users");
+const usageCollection = collection(db, "usageData");
+
+export const getUsers = async (): Promise<User[]> => {
+  try {
+    const querySnapshot = await getDocs(query(usersCollection));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+  } catch (e) {
+    console.error("Error getting users: ", e);
+    throw e;
+  }
+};
+
+export const addUser = async (user: { name: string; shares: number }): Promise<string> => {
+  try {
+    const docRef = await addDoc(usersCollection, user);
+    return docRef.id;
+  } catch (e) {
+    console.error("Error adding user: ", e);
+    throw e;
+  }
+};
+
+export const updateUser = async (id: string, user: { name: string; shares: number }): Promise<void> => {
+  try {
+    const userDoc = doc(db, "users", id);
+    await setDoc(userDoc, user, { merge: true });
+  } catch (e) {
+    console.error("Error updating user: ", e);
+    throw e;
+  }
+};
+
+export const addUsageEntry = async (usageEntry: {userId: string, date: string, consumption: number}): Promise<void> => {
   try {
     const dataWithTimestamp: UsageData = {
         ...usageEntry,
         date: Timestamp.fromDate(new Date(usageEntry.date))
     };
-    const docRef = await addDoc(collection(db, "usageData"), dataWithTimestamp);
-    console.log("Document written with ID: ", docRef.id);
+    await addDoc(usageCollection, dataWithTimestamp);
   } catch (e) {
     console.error("Error adding document: ", e);
-    throw e; // Re-throw the error for handling in the calling code
+    throw e;
   }
 };
 
-const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate: Date): Promise<Record<string, number>> => {
+export const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate: Date): Promise<Record<string, number>> => {
     const usageMap: Record<string, number> = {};
-    const userIdsSet = new Set(userIds);
     userIds.forEach(id => (usageMap[id] = 0));
 
     if (userIds.length === 0) {
@@ -37,17 +74,19 @@ const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate:
     }
 
     const q = query(
-        collection(db, "usageData"),
+        usageCollection,
         where("date", ">=", startDate),
         where("date", "<=", endDate)
     );
+
+    const userIdsSet = new Set(userIds);
 
     try {
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             const data = doc.data();
             if (userIdsSet.has(data.userId)) {
-                usageMap[data.userId] += data.consumption;
+                usageMap[data.userId] = (usageMap[data.userId] || 0) + data.consumption;
             }
         });
     } catch (error) {
@@ -57,12 +96,7 @@ const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate:
     return usageMap;
 }
 
-/**
- * Sets the gallons per share for a specific week. The week is identified by its start date.
- * @param weekStartDate - The start date of the week (Sunday).
- * @param gallons - The number of gallons per share to set.
- */
-const setWeeklyAllocation = async (weekStartDate: Date, gallons: number): Promise<void> => {
+export const setWeeklyAllocation = async (weekStartDate: Date, gallons: number): Promise<void> => {
   const weekId = format(weekStartDate, 'yyyy-MM-dd');
   try {
     const docRef = doc(db, "weeklyAllocations", weekId);
@@ -73,12 +107,7 @@ const setWeeklyAllocation = async (weekStartDate: Date, gallons: number): Promis
   }
 };
 
-/**
- * Gets the gallons per share for a specific week.
- * @param weekStartDate - The start date of the week (Sunday).
- * @returns The gallons per share for the week, or null if not set.
- */
-const getWeeklyAllocation = async (weekStartDate: Date): Promise<number | null> => {
+export const getWeeklyAllocation = async (weekStartDate: Date): Promise<number | null> => {
   const weekId = format(weekStartDate, 'yyyy-MM-dd');
   try {
     const docRef = doc(db, "weeklyAllocations", weekId);
@@ -90,14 +119,14 @@ const getWeeklyAllocation = async (weekStartDate: Date): Promise<number | null> 
     }
   } catch (e) {
     console.error("Error getting weekly allocation: ", e);
-    throw e; // Re-throw to be handled by caller
+    throw e;
   }
 };
 
 
-const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
+export const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
     const q = query(
-        collection(db, "usageData"),
+        usageCollection,
         where("userId", "==", userId),
         where("date", ">=", startDate),
         where("date", "<=", endDate)
@@ -129,6 +158,3 @@ const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDat
         };
     });
 };
-
-
-export { addUsageEntry, getUsageForDateRange, setWeeklyAllocation, getWeeklyAllocation, getDailyUsageForDateRange };

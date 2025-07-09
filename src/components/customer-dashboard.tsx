@@ -5,7 +5,7 @@ import { Droplets, LineChart, Scale, CalendarDays } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
 import ConservationTips from './conservation-tips';
-import { getWeeklyAllocation, getDailyUsageForDateRange, DailyUsage } from '@/firestoreService';
+import { getWeeklyAllocation, getDailyUsageForDateRange, DailyUsage, getUsers, User } from '@/firestoreService';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -17,7 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
-const currentUser = { name: 'John Farmer', shares: 5 };
 
 export default function CustomerDashboard() {
   const [date, setDate] = useState<DateRange | undefined>({
@@ -27,6 +26,7 @@ export default function CustomerDashboard() {
   const [month, setMonth] = useState<Date>(date?.from ?? new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [weeklyAllocation, setWeeklyAllocation] = useState(0);
   const [waterUsed, setWaterUsed] = useState(0);
@@ -34,8 +34,28 @@ export default function CustomerDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
+    const fetchInitialUser = async () => {
+        try {
+            const users = await getUsers();
+            if (users.length > 0) {
+                setCurrentUser(users[0]); // For demo purposes, use the first user
+            } else {
+                setLoading(false);
+            }
+        } catch (error) {
+            toast({
+              variant: 'destructive',
+              title: 'Data Fetch Failed',
+              description: 'Could not load user data.',
+          });
+        }
+    }
+    fetchInitialUser();
+  }, [toast]);
+
+  useEffect(() => {
     const fetchWeeklyData = async () => {
-        if (!date?.from || !date?.to) return;
+        if (!date?.from || !date?.to || !currentUser) return;
         setLoading(true);
 
         try {
@@ -43,7 +63,7 @@ export default function CustomerDashboard() {
             const totalAllocation = (allocationPerShare ?? DEFAULT_GALLONS_PER_SHARE) * currentUser.shares;
             setWeeklyAllocation(totalAllocation);
 
-            const dailyData = await getDailyUsageForDateRange(currentUser.name, date.from, date.to);
+            const dailyData = await getDailyUsageForDateRange(currentUser.id, date.from, date.to);
             setDailyUsage(dailyData);
             
             const totalUsed = dailyData.reduce((acc, day) => acc + day.gallons, 0);
@@ -55,7 +75,7 @@ export default function CustomerDashboard() {
                 title: 'Data Fetch Failed',
                 description: 'Could not fetch your weekly usage data.',
             });
-            setWeeklyAllocation(DEFAULT_GALLONS_PER_SHARE * currentUser.shares);
+            setWeeklyAllocation(DEFAULT_GALLONS_PER_SHARE * (currentUser?.shares || 0));
             setWaterUsed(0);
             setDailyUsage([]);
         } finally {
@@ -64,7 +84,7 @@ export default function CustomerDashboard() {
     };
     
     fetchWeeklyData();
-  }, [date, toast]);
+  }, [date, toast, currentUser]);
   
   const handleDayClick = (day: Date) => {
     const weekStart = startOfWeek(day, { weekStartsOn: 0 });
@@ -77,11 +97,20 @@ export default function CustomerDashboard() {
   const remaining = weeklyAllocation - waterUsed;
   const usagePercentage = weeklyAllocation > 0 ? Math.round((waterUsed / weeklyAllocation) * 100) : 0;
 
+  if (!currentUser && !loading) {
+      return (
+          <div className="flex flex-col items-center justify-center h-full">
+              <h1 className="text-2xl font-bold text-foreground">No Users Found</h1>
+              <p className="text-muted-foreground">Please add a user in the Admin Dashboard to see customer data.</p>
+          </div>
+      );
+  }
+
   return (
     <div>
       <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Welcome, {currentUser.name}</h1>
+          <h1 className="text-3xl font-bold text-foreground">Welcome, {currentUser?.name || 'User'}</h1>
           <p className="text-muted-foreground">Here's your weekly water usage summary.</p>
         </div>
         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
@@ -125,9 +154,9 @@ export default function CustomerDashboard() {
         
       {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[44px] w-full" /></CardContent></Card>
-              <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[44px] w-full" /></CardContent></Card>
-              <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[44px] w-full" /></CardContent></Card>
+              <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[88px] w-full" /></CardContent></Card>
+              <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[88px] w-full" /></CardContent></Card>
+              <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[88px] w-full" /></CardContent></Card>
           </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
