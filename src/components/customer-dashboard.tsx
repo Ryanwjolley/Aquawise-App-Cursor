@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplets, LineChart, Scale, CalendarDays, LogOut, Users, Shield } from 'lucide-react';
+import { Droplets, LineChart, Scale, CalendarDays, Users } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
 import ConservationTips from './conservation-tips';
@@ -16,14 +16,12 @@ import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useRouter } from 'next/navigation';
 
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
 export default function CustomerDashboard() {
-  const { userDetails, loading: authLoading, logout } = useAuth();
-  const router = useRouter();
+  const { userDetails, loading: authLoading } = useAuth();
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
     to: endOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
@@ -44,11 +42,19 @@ export default function CustomerDashboard() {
     const initializeUser = async () => {
         if (userDetails) {
             if (userDetails.role === 'admin') {
-                const allUsers = await getUsers();
-                const customerUsers = allUsers.filter(u => u.role !== 'admin');
-                setUsers(customerUsers);
-                if (customerUsers.length > 0) {
-                    setSelectedUser(customerUsers[0]);
+                try {
+                    const allUsers = await getUsers();
+                    const customerUsers = allUsers.filter(u => u.role !== 'admin');
+                    setUsers(customerUsers);
+                    if (customerUsers.length > 0) {
+                        setSelectedUser(customerUsers[0]);
+                    }
+                } catch (error) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Failed to fetch users',
+                        description: 'Could not load customer list.',
+                    });
                 }
             } else {
                 setSelectedUser(userDetails);
@@ -56,7 +62,7 @@ export default function CustomerDashboard() {
         }
     };
     initializeUser();
-  }, [userDetails]);
+  }, [userDetails, toast]);
 
 
   useEffect(() => {
@@ -207,10 +213,6 @@ export default function CustomerDashboard() {
                   />
               </PopoverContent>
           </Popover>
-          {userDetails.role === 'admin' && (
-              <Button variant="outline" onClick={() => router.push('/admin')}><Shield className="mr-2 h-4 w-4" />Admin Dashboard</Button>
-          )}
-          <Button variant="outline" onClick={logout}><LogOut className="mr-2 h-4 w-4" /> Logout</Button>
         </div>
       </header>
         

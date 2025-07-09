@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarDays, Upload, Edit, LogOut, Eye } from 'lucide-react';
+import { CalendarDays, Upload, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
@@ -16,8 +16,6 @@ import type { DateRange } from 'react-day-picker';
 import { format, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { UserForm } from './user-form';
-import { useAuth } from '@/context/auth-context';
-import { useRouter } from 'next/navigation';
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
@@ -29,8 +27,6 @@ type UserData = User & {
 }
 
 export default function AdminDashboard() {
-    const { logout } = useAuth();
-    const router = useRouter();
     const [gallonsPerShare, setGallonsPerShare] = useState(DEFAULT_GALLONS_PER_SHARE);
     const [users, setUsers] = useState<User[]>([]);
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
@@ -256,13 +252,12 @@ export default function AdminDashboard() {
     
     return (
         <div className="p-4 sm:p-6 lg:p-8">
-            <header className="flex flex-col sm:flex-row justify-between sm:items-center my-8 gap-4">
+            <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Water Master Dashboard</h1>
                     <p className="text-muted-foreground">Manti Irrigation Company</p>
                 </div>
                 <div className="flex items-center gap-4">
-                 <Button variant="outline" onClick={() => router.push('/dashboard')}><Eye className="mr-2 h-4 w-4"/>View Customer Dashboard</Button>
                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                     <PopoverTrigger asChild>
                         <Button
@@ -301,7 +296,6 @@ export default function AdminDashboard() {
                         />
                     </PopoverContent>
                 </Popover>
-                <Button variant="outline" onClick={logout}><LogOut className="mr-2 h-4 w-4" /> Logout</Button>
                 </div>
             </header>
 

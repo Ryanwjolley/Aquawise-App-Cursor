@@ -2,8 +2,8 @@
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Droplets } from 'lucide-react';
+import AppLayout from '@/components/app-layout';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, userDetails, loading } = useAuth();
@@ -31,5 +31,5 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  return <>{children}</>;
+  return <AppLayout>{children}</AppLayout>;
 }
