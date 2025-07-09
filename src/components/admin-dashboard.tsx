@@ -64,15 +64,12 @@ export default function AdminDashboard() {
         fetchUsageData();
     }, [date]);
 
-    const handleDateSelect = (range: DateRange | undefined) => {
-        if (range?.from) {
-            const fromDate = range.from;
-            const weekStart = startOfWeek(fromDate, { weekStartsOn: 0 }); // Sunday
-            const weekEnd = endOfWeek(fromDate, { weekStartsOn: 0 }); // Saturday
-            setDate({ from: weekStart, to: weekEnd });
-            setMonth(weekStart);
-            setIsCalendarOpen(false);
-        }
+    const handleDayClick = (day: Date) => {
+        const weekStart = startOfWeek(day, { weekStartsOn: 0 }); // Sunday
+        const weekEnd = endOfWeek(day, { weekStartsOn: 0 }); // Saturday
+        setDate({ from: weekStart, to: weekEnd });
+        setMonth(weekStart);
+        setIsCalendarOpen(false);
     };
 
     const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,7 +222,7 @@ export default function AdminDashboard() {
                         month={month}
                         onMonthChange={setMonth}
                         selected={date}
-                        onSelect={handleDateSelect}
+                        onDayClick={handleDayClick}
                         numberOfMonths={2}
                         />
                     </PopoverContent>
