@@ -5,7 +5,7 @@ import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2 } from '
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite } from '../firestoreService';
+import { getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -524,7 +524,7 @@ export default function AdminDashboard() {
                                         <TableCell>{user.shares}</TableCell>
                                         <TableCell>
                                             <Badge variant={getBadgeVariant(user.status)}>
-                                                {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                                                {(user.status ?? 'active').charAt(0).toUpperCase() + (user.status ?? 'active').slice(1)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>{user.allocation.toLocaleString()}</TableCell>
@@ -617,3 +617,5 @@ export default function AdminDashboard() {
         </div>
     );
 }
+
+    
