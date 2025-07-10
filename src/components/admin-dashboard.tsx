@@ -1,12 +1,12 @@
 'use client';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { addUsageEntry, getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser } from '../firestoreService';
-import type { User } from '../firestoreService';
+import { getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite } from '../firestoreService';
+import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -40,9 +40,9 @@ type UserData = User & {
 
 export default function AdminDashboard() {
     const [gallonsPerShare, setGallonsPerShare] = useState(DEFAULT_GALLONS_PER_SHARE);
-    const [users, setUsers] = useState<User[]>([]);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [userData, setUserData] = useState<UserData[]>([]);
     const { toast } = useToast();
@@ -54,26 +54,39 @@ export default function AdminDashboard() {
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [month, setMonth] = useState<Date>(date?.from ?? new Date());
     const { user: authUser } = useAuth();
+    
+    const fetchAllUsersAndInvites = useCallback(async () => {
+        try {
+            const [fetchedUsers, fetchedInvites] = await Promise.all([getUsers(), getInvites()]);
+            
+            const invitedUsers: User[] = fetchedInvites.map(invite => ({
+                id: invite.id,
+                name: invite.name,
+                email: invite.email,
+                shares: invite.shares,
+                role: 'customer', 
+                status: 'invited',
+            }));
 
-    useEffect(() => {
-        const fetchUsers = async () => {
-            try {
-                const fetchedUsers = await getUsers();
-                setUsers(fetchedUsers);
-            } catch (error) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Failed to Fetch Users',
-                    description: 'Could not load user data from the database.',
-                });
-            }
-        };
-        fetchUsers();
+            const combinedUsers = [...fetchedUsers, ...invitedUsers].sort((a, b) => a.name.localeCompare(b.name));
+            setAllUsers(combinedUsers);
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Failed to Fetch Data',
+                description: 'Could not load user and invitation data from the database.',
+            });
+        }
     }, [toast]);
 
     useEffect(() => {
+        fetchAllUsersAndInvites();
+    }, [fetchAllUsersAndInvites]);
+
+
+    useEffect(() => {
         const fetchDataForWeek = async () => {
-            if (date?.from && users.length > 0) {
+            if (date?.from && allUsers.length > 0) {
                 try {
                     const allocation = await getWeeklyAllocation(date.from);
                     setGallonsPerShare(allocation ?? DEFAULT_GALLONS_PER_SHARE);
@@ -89,7 +102,7 @@ export default function AdminDashboard() {
         };
 
         fetchDataForWeek();
-    }, [date, users, toast]);
+    }, [date, allUsers, toast]);
 
     const handleDayClick = (day: Date) => {
         const weekStart = startOfWeek(day, { weekStartsOn: 0 });
@@ -118,7 +131,7 @@ export default function AdminDashboard() {
                 const text = e.target?.result as string;
                 const lines = text.split(/\r\n|\n/).slice(1);
                 
-                const userNameToIdMap = new Map(users.map(u => [u.name, u.id]));
+                const userNameToIdMap = new Map(allUsers.filter(u => u.status !== 'invited').map(u => [u.name, u.id]));
                 const usageEntries = [];
                 let updatesMade = 0;
 
@@ -140,8 +153,7 @@ export default function AdminDashboard() {
                 
                 if (updatesMade > 0) {
                     await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    const updatedUsers = await getUsers();
-                    setUsers(updatedUsers);
+                    fetchAllUsersAndInvites();
                     toast({
                         title: 'Upload Successful',
                         description: `Logged usage for ${updatesMade} user(s). View data by selecting the appropriate date range.`,
@@ -195,18 +207,17 @@ export default function AdminDashboard() {
     
     const handleFormSave = async (formData: { name: string; email: string; shares: number; role: 'admin' | 'customer' }) => {
         try {
-            if (editingUser) {
-                await updateUser(editingUser.id, {name: formData.name, shares: formData.shares, role: formData.role});
+            if (editingUser && editingUser.status !== 'invited') {
+                await updateUser(editingUser.id!, {name: formData.name, shares: formData.shares, role: formData.role});
                 toast({ title: 'User Updated', description: `Updated details for ${formData.name}.` });
-                const fetchedUsers = await getUsers();
-                setUsers(fetchedUsers);
             } else {
                 await inviteUser(formData);
                 toast({ title: 'User Invited', description: `An invitation has been created for ${formData.email}.` });
             }
+            fetchAllUsersAndInvites();
             setEditingUser(null);
         } catch (error) {
-            const action = editingUser ? 'save' : 'invite';
+            const action = editingUser && editingUser.status !== 'invited' ? 'save' : 'invite';
              toast({
                 variant: 'destructive',
                 title: `${action.charAt(0).toUpperCase() + action.slice(1)} Failed`,
@@ -228,11 +239,7 @@ export default function AdminDashboard() {
         const newStatus = (userToToggle.status ?? 'active') === 'active' ? 'inactive' : 'active';
         try {
             await updateUserStatus(userToToggle.id, newStatus);
-            setUsers(currentUsers =>
-              currentUsers.map(u =>
-                u.id === userToToggle.id ? { ...u, status: newStatus } : u
-              )
-            );
+            fetchAllUsersAndInvites();
             toast({
                 title: 'User Status Updated',
                 description: `${userToToggle.name} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}.`,
@@ -250,18 +257,25 @@ export default function AdminDashboard() {
         if (!userToDelete) return;
     
         try {
-            await deleteUser(userToDelete.id);
-            toast({
-                title: 'User Deleted',
-                description: `${userToDelete.name} has been successfully deleted.`,
-            });
-            const fetchedUsers = await getUsers();
-            setUsers(fetchedUsers);
+            if (userToDelete.status === 'invited') {
+                await deleteInvite(userToDelete.id);
+                 toast({
+                    title: 'Invitation Deleted',
+                    description: `The invitation for ${userToDelete.name} has been deleted.`,
+                });
+            } else {
+                await deleteUser(userToDelete.id);
+                toast({
+                    title: 'User Deleted',
+                    description: `${userToDelete.name} has been successfully deleted.`,
+                });
+            }
+            fetchAllUsersAndInvites();
         } catch (error: any) {
             toast({
                 variant: 'destructive',
                 title: 'Deletion Failed',
-                description: error.message || 'Could not delete user.',
+                description: error.message || 'Could not perform delete action.',
             });
         } finally {
             setUserToDelete(null);
@@ -269,14 +283,14 @@ export default function AdminDashboard() {
     };
 
 
-    const totalUsers = useMemo(() => users.length, [users]);
+    const totalUsers = useMemo(() => allUsers.filter(u => u.status !== 'invited').length, [allUsers]);
     const totalWaterConsumed = useMemo(() => userData.reduce((acc, user) => acc + user.used, 0), [userData]);
     const averageUsagePerUser = useMemo(() => totalUsers > 0 ? totalWaterConsumed / totalUsers : 0, [totalWaterConsumed, totalUsers]);
     
     const totalWeeklyAllocation = useMemo(() => {
-        const totalShares = users.reduce((acc, user) => acc + user.shares, 0);
+        const totalShares = allUsers.filter(u => u.status !== 'invited').reduce((acc, user) => acc + user.shares, 0);
         return totalShares * gallonsPerShare;
-    }, [gallonsPerShare, users]);
+    }, [gallonsPerShare, allUsers]);
 
     const periodDurationInDays = useMemo(() => {
         if (date?.from && date.to) {
@@ -288,21 +302,26 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         const calculateUserData = async () => {
-             if (!date?.from || !date?.to || users.length === 0) {
-                setUserData(users.map(u => ({
+             if (!date?.from || !date?.to || allUsers.length === 0) {
+                setUserData(allUsers.map(u => ({
                     ...u,
                     used: 0,
                     allocation: 0,
                     percentageUsed: 0,
-                    statusColor: 'bg-green-500',
+                    statusColor: 'bg-gray-400',
                 })));
                 return;
             }
 
-            const userIds = users.map(u => u.id);
+            const registeredUsers = allUsers.filter(u => u.status !== 'invited');
+            const userIds = registeredUsers.map(u => u.id);
             const usageDataById = await getUsageForDateRange(userIds, date.from, date.to);
 
-            const data = users.map(user => {
+            const data = allUsers.map(user => {
+                if (user.status === 'invited') {
+                    return { ...user, used: 0, allocation: 0, percentageUsed: 0, statusColor: 'bg-gray-400' };
+                }
+
                 const used = usageDataById[user.id] || 0;
                 const weeklyAllocation = user.shares * gallonsPerShare;
                 const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
@@ -319,8 +338,21 @@ export default function AdminDashboard() {
         }
         calculateUserData();
 
-    }, [gallonsPerShare, users, date, periodDurationInDays]);
+    }, [gallonsPerShare, allUsers, date, periodDurationInDays]);
     
+    const getBadgeVariant = (status?: 'active' | 'inactive' | 'invited') => {
+        switch (status) {
+            case 'active':
+                return 'secondary';
+            case 'inactive':
+                return 'destructive';
+            case 'invited':
+                return 'default';
+            default:
+                return 'secondary';
+        }
+    };
+
     return (
         <div className="p-4 sm:p-6 lg:p-8">
             <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
@@ -491,8 +523,8 @@ export default function AdminDashboard() {
                                         <TableCell className="capitalize">{user.role}</TableCell>
                                         <TableCell>{user.shares}</TableCell>
                                         <TableCell>
-                                            <Badge variant={(user.status ?? 'active') === 'active' ? 'secondary' : 'destructive'}>
-                                                {(user.status ?? 'active') === 'active' ? 'Active' : 'Inactive'}
+                                            <Badge variant={getBadgeVariant(user.status)}>
+                                                {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>{user.allocation.toLocaleString()}</TableCell>
@@ -505,6 +537,8 @@ export default function AdminDashboard() {
                                         <TableCell>
                                             <div className="flex items-center gap-1">
                                                 <TooltipProvider>
+                                                {user.status !== 'invited' && (
+                                                    <>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <Button variant="ghost" size="icon" onClick={() => { setEditingUser(user); setIsUserFormOpen(true); }}>
@@ -525,6 +559,8 @@ export default function AdminDashboard() {
                                                             <p>{(user.status ?? 'active') === 'active' ? 'Deactivate' : 'Activate'} User</p>
                                                         </TooltipContent>
                                                     </Tooltip>
+                                                    </>
+                                                )}
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={user.id === authUser?.uid}>
@@ -532,7 +568,7 @@ export default function AdminDashboard() {
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
-                                                            <p>Delete User</p>
+                                                            <p>{user.status === 'invited' ? 'Delete Invitation' : 'Delete User'}</p>
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 </TooltipProvider>
@@ -563,8 +599,11 @@ export default function AdminDashboard() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the user account for <span className="font-bold">{userToDelete?.name}</span> from the user list.
-                            You can only delete users who have no water usage history.
+                            {userToDelete?.status === 'invited' ? (
+                                <>This will permanently delete the invitation for <span className="font-bold">{userToDelete?.name}</span>. They will not be able to sign up.</>
+                            ) : (
+                                <>This action cannot be undone. This will permanently delete the user account for <span className="font-bold">{userToDelete?.name}</span> from the user list. You can only delete users who have no water usage history.</>
+                            )}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

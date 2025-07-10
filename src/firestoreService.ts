@@ -19,7 +19,7 @@ export interface User {
   shares: number;
   email: string;
   role: 'admin' | 'customer';
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'invited';
 }
 
 export interface Invite {
@@ -77,6 +77,17 @@ export const getInvite = async (email: string): Promise<Invite | null> => {
     throw e;
   }
 };
+
+export const getInvites = async (): Promise<Invite[]> => {
+  try {
+    const querySnapshot = await getDocs(invitesCollection);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invite));
+  } catch (e) {
+    console.error("Error getting invites: ", e);
+    throw e;
+  }
+};
+
 
 export const deleteInvite = async (id: string): Promise<void> => {
   try {
