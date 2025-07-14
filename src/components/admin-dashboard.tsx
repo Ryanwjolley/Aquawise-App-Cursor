@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { UserForm } from './user-form';
 import { useAuth } from '@/context/auth-context';
@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from './ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const DEFAULT_TOTAL_ALLOCATION = 5000000;
 
@@ -68,7 +69,7 @@ export default function AdminDashboard() {
 
         try {
             const fetchedUsers = await getUsers();
-            const userIds = fetchedUsers.map(u => u.id);
+            const userIds = fetchedUsers.filter(u => u.status === 'active').map(u => u.id);
 
             const [fetchedInvites, allocation, usageDataById] = await Promise.all([
                 getInvites(),
@@ -80,7 +81,7 @@ export default function AdminDashboard() {
             setTotalAllocation(currentTotalAllocation);
             
             const allUsersAndInvites = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
-            const totalSystemShares = fetchedUsers.reduce((acc, user) => acc + (user.shares || 0), 0);
+            const totalSystemShares = fetchedUsers.filter(u => u.status === 'active').reduce((acc, user) => acc + (user.shares || 0), 0);
             
             const processedUserData = allUsersAndInvites.map(userOrInvite => {
                 const userStatus = 'status' in userOrInvite ? userOrInvite.status : 'invited';
@@ -369,7 +370,7 @@ export default function AdminDashboard() {
         totalWaterConsumed,
         activeUsers,
     } = useMemo(() => {
-        const activeUsers = userData.filter(u => u.status === 'active') as User[];
+        const activeUsers = userData.filter(u => u.status === 'active');
         const totalWaterConsumed = userData.reduce((acc, user) => acc + user.used, 0);
         return {
             totalWaterConsumed,
@@ -433,223 +434,236 @@ export default function AdminDashboard() {
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {loading ? (
-                    <>
-                        <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
-                        <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
-                        <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
-                    </>
-                ) : (
-                    <>
-                    <Card className="rounded-xl shadow-md">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-3xl font-bold">{activeUsers.length}</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="rounded-xl shadow-md">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-3xl font-bold">{(totalAllocation / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
-                        </CardContent>
-                    </Card>
-                    <Card className="rounded-xl shadow-md">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-3xl font-bold">{(totalWaterConsumed / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
-                        </CardContent>
-                    </Card>
-                    </>
-                )}
-            </div>
-
-            <Card className="mb-8 rounded-xl shadow-md">
-                <CardHeader>
-                    <CardTitle className="text-xl">Allocation Management</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col sm:flex-row items-end gap-4">
-                        <div className="flex-grow w-full">
-                            <label htmlFor="total-allocation" className="block text-sm font-medium text-foreground mb-1">Total Allocation for Period (Gallons)</label>
-                             {loading ? <Skeleton className="h-10 w-full" /> : 
-                                <Input
-                                    type="number"
-                                    id="total-allocation"
-                                    value={totalAllocation}
-                                    onChange={(e) => setTotalAllocation(Number(e.target.value))}
-                                    placeholder="e.g. 5000000"
+            <Tabs defaultValue="users">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="users">User Management</TabsTrigger>
+                    <TabsTrigger value="water">Water Management</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="users">
+                    <Card className="rounded-xl shadow-md overflow-hidden">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle className="text-xl">User & Water Management</CardTitle>
+                            </div>
+                            <div className='flex items-center gap-2'>
+                                <Button variant="outline" onClick={() => { setEditingUser(null); setIsUserFormOpen(true); }}>
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Invite User
+                                </Button>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="outline" onClick={() => userFileInputRef.current?.click()}>
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Upload Users
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Upload a CSV with columns: `name`, `email`, `role`, `shares`.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="outline" onClick={() => usageFileInputRef.current?.click()}>
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Upload Usage
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Upload a CSV with columns: `name`, `used`, `date` (YYYY-MM-DD).</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <input
+                                    ref={usageFileInputRef}
+                                    type="file"
+                                    id="csv-upload"
+                                    className="hidden"
+                                    accept=".csv"
+                                    onChange={handleUsageCsvUpload}
                                 />
-                             }
-                        </div>
-                        <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 flex-wrap">
-                            <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation} disabled={loading}>
-                                Update Allocation
-                            </Button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className="rounded-xl shadow-md overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle className="text-xl">User Water Management</CardTitle>
-                    </div>
-                    <div className='flex items-center gap-2'>
-                        <Button variant="outline" onClick={() => { setEditingUser(null); setIsUserFormOpen(true); }}>
-                           <UserPlus className="mr-2 h-4 w-4" />
-                           Invite User
-                        </Button>
-                        <TooltipProvider>
-                             <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" onClick={() => userFileInputRef.current?.click()}>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Upload Users
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Upload a CSV with columns: `name`, `email`, `role`, `shares`.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" onClick={() => usageFileInputRef.current?.click()}>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Upload Usage
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Upload a CSV with columns: `name`, `used`, `date` (YYYY-MM-DD).</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                        <input
-                            ref={usageFileInputRef}
-                            type="file"
-                            id="csv-upload"
-                            className="hidden"
-                            accept=".csv"
-                            onChange={handleUsageCsvUpload}
-                        />
-                         <input
-                            ref={userFileInputRef}
-                            type="file"
-                            id="user-csv-upload"
-                            className="hidden"
-                            accept=".csv"
-                            onChange={handleUserCsvUpload}
-                        />
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="w-full overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-16">Usage</TableHead>
-                                    <TableHead>User</TableHead>
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead>Shares</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Allocated (gal)</TableHead>
-                                    <TableHead>Used (gal)</TableHead>
-                                    <TableHead>% Used</TableHead>
-                                    <TableHead>Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    Array.from({length: 5}).map((_, i) => (
-                                        <TableRow key={`skeleton-${i}`}>
-                                            <TableCell><Skeleton className="h-4 w-4 rounded-full" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-40" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                                            <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                                <input
+                                    ref={userFileInputRef}
+                                    type="file"
+                                    id="user-csv-upload"
+                                    className="hidden"
+                                    accept=".csv"
+                                    onChange={handleUserCsvUpload}
+                                />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="w-full overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-16">Usage</TableHead>
+                                            <TableHead>User</TableHead>
+                                            <TableHead>Email</TableHead>
+                                            <TableHead>Role</TableHead>
+                                            <TableHead>Shares</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Allocated (gal)</TableHead>
+                                            <TableHead>Used (gal)</TableHead>
+                                            <TableHead>% Used</TableHead>
+                                            <TableHead>Actions</TableHead>
                                         </TableRow>
-                                    ))
-                                ) : userData.map((user) => (
-                                    <TableRow key={user.id} className={(user.status ?? 'active') === 'inactive' ? 'opacity-50' : ''}>
-                                        <TableCell>
-                                            <span className={`h-4 w-4 rounded-full ${user.statusColor} inline-block`} title={`${user.percentageUsed}% used`}></span>
-                                        </TableCell>
-                                        <TableCell className="font-medium">{user.name}</TableCell>
-                                        <TableCell>{user.email}</TableCell>
-                                        <TableCell className="capitalize">{user.role}</TableCell>
-                                        <TableCell>{user.shares}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={getBadgeVariant((user as User).status ?? 'invited')}>
-                                                {((user as User).status ?? 'invited').charAt(0).toUpperCase() + ((user as User).status ?? 'invited').slice(1)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{user.allocation.toLocaleString()}</TableCell>
-                                        <TableCell>{user.used.toLocaleString()}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3 min-w-[150px]">
-                                                <span className="text-sm font-medium text-muted-foreground">{user.percentageUsed}%</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-1">
-                                                <TooltipProvider>
-                                                {user.status !== 'invited' && (
-                                                    <>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button variant="ghost" size="icon" onClick={() => { setEditingUser(user); setIsUserFormOpen(true); }}>
-                                                                <Edit className="h-4 w-4" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Edit User</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button variant="ghost" size="icon" onClick={() => handleToggleUserStatus(user as User)} disabled={user.id === authUser?.uid}>
-                                                                {(user.status ?? 'active') === 'active' ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>{(user.status ?? 'active') === 'active' ? 'Deactivate' : 'Activate'} User</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                    </>
-                                                )}
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={user.id === authUser?.uid}>
-                                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>{user.status === 'invited' ? 'Delete Invitation' : 'Delete User'}</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loading ? (
+                                            Array.from({length: 5}).map((_, i) => (
+                                                <TableRow key={`skeleton-${i}`}>
+                                                    <TableCell><Skeleton className="h-4 w-4 rounded-full" /></TableCell>
+                                                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                                    <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                                                    <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                                                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                                                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                                                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                                                    <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : userData.map((user) => (
+                                            <TableRow key={user.id} className={(user.status ?? 'active') === 'inactive' ? 'opacity-50' : ''}>
+                                                <TableCell>
+                                                    <span className={`h-4 w-4 rounded-full ${user.statusColor} inline-block`} title={`${user.percentageUsed}% used`}></span>
+                                                </TableCell>
+                                                <TableCell className="font-medium">{user.name}</TableCell>
+                                                <TableCell>{user.email}</TableCell>
+                                                <TableCell className="capitalize">{user.role}</TableCell>
+                                                <TableCell>{user.shares}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant={getBadgeVariant((user as User).status ?? 'invited')}>
+                                                        {((user as User).status ?? 'invited').charAt(0).toUpperCase() + ((user as User).status ?? 'invited').slice(1)}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>{user.allocation.toLocaleString()}</TableCell>
+                                                <TableCell>{user.used.toLocaleString()}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-3 min-w-[150px]">
+                                                        <span className="text-sm font-medium text-muted-foreground">{user.percentageUsed}%</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1">
+                                                        <TooltipProvider>
+                                                        {user.status !== 'invited' && (
+                                                            <>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" onClick={() => { setEditingUser(user); setIsUserFormOpen(true); }}>
+                                                                        <Edit className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Edit User</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" onClick={() => handleToggleUserStatus(user as User)} disabled={user.id === authUser?.uid}>
+                                                                        {(user.status ?? 'active') === 'active' ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{(user.status ?? 'active') === 'active' ? 'Deactivate' : 'Activate'} User</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                            </>
+                                                        )}
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={user.id === authUser?.uid}>
+                                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{user.status === 'invited' ? 'Delete Invitation' : 'Delete User'}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="water">
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {loading ? (
+                                <>
+                                    <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+                                    <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+                                    <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+                                </>
+                            ) : (
+                                <>
+                                <Card className="rounded-xl shadow-md">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-3xl font-bold">{activeUsers.length}</p>
+                                    </CardContent>
+                                </Card>
+                                <Card className="rounded-xl shadow-md">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-3xl font-bold">{(totalAllocation / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
+                                    </CardContent>
+                                </Card>
+                                <Card className="rounded-xl shadow-md">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-3xl font-bold">{(totalWaterConsumed / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
+                                    </CardContent>
+                                </Card>
+                                </>
+                            )}
+                        </div>
+
+                        <Card className="rounded-xl shadow-md">
+                            <CardHeader>
+                                <CardTitle className="text-xl">Allocation Management</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex flex-col sm:flex-row items-end gap-4">
+                                    <div className="flex-grow w-full">
+                                        <label htmlFor="total-allocation" className="block text-sm font-medium text-foreground mb-1">Total Allocation for Period (Gallons)</label>
+                                        {loading ? <Skeleton className="h-10 w-full" /> : 
+                                            <Input
+                                                type="number"
+                                                id="total-allocation"
+                                                value={totalAllocation}
+                                                onChange={(e) => setTotalAllocation(Number(e.target.value))}
+                                                placeholder="e.g. 5000000"
+                                            />
+                                        }
+                                    </div>
+                                    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 flex-wrap">
+                                        <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation} disabled={loading}>
+                                            Update Allocation
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
-                </CardContent>
-            </Card>
+                </TabsContent>
+            </Tabs>
 
             <UserForm
                 isOpen={isUserFormOpen}
@@ -685,5 +699,6 @@ export default function AdminDashboard() {
             </AlertDialog>
         </div>
     );
+}
 
     
