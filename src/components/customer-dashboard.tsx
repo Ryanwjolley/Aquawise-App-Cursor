@@ -5,13 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Droplets, LineChart, Scale, CalendarDays, Users } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
-import ConservationTips from './conservation-tips';
 import { getAllocationForDate, getDailyUsageForDateRange, DailyUsage, User, getUsers, getInvites } from '@/firestoreService';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { startOfWeek, endOfWeek, format, startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -287,9 +286,10 @@ export default function CustomerDashboard() {
                     )}
                 </CardContent>
             </Card>
-             {loading ? <Skeleton className="h-56 rounded-xl" /> : <ConservationTips weeklyAllocation={totalPeriodAllocation} waterUsed={waterUsed} />}
         </div>
       </div>
     </div>
   );
 }
+
+    

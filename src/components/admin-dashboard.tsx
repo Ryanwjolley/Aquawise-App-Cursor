@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -13,10 +13,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { format, differenceInDays, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { UserForm } from './user-form';
-import { AllocationSuggester } from './allocation-suggester';
 import { useAuth } from '@/context/auth-context';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -30,7 +29,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from './ui/skeleton';
-import { AllocationPredictor } from './allocation-predictor';
 
 const DEFAULT_TOTAL_ALLOCATION = 5000000;
 
@@ -58,20 +56,6 @@ export default function AdminDashboard() {
     });
     const { user: authUser } = useAuth();
     
-    const periodDurationInDays = useMemo(() => {
-        if (date?.from && date.to) {
-            return differenceInDays(date.to, date.from) + 1;
-        }
-        return 0;
-    }, [date]);
-
-    const { totalShares, activeUsers } = useMemo(() => {
-        const activeUsers = userData.filter(u => u.status === 'active') as User[];
-        const totalShares = activeUsers.reduce((acc, user) => acc + user.shares, 0);
-        return { totalShares, activeUsers };
-    }, [userData]);
-
-
     const fetchDashboardData = useCallback(async () => {
         if (!date?.from) {
             setLoading(false);
@@ -313,21 +297,15 @@ export default function AdminDashboard() {
 
     const {
         totalWaterConsumed,
-        averageUsagePerUser,
+        activeUsers,
     } = useMemo(() => {
+        const activeUsers = userData.filter(u => u.status === 'active') as User[];
         const totalWaterConsumed = userData.reduce((acc, user) => acc + user.used, 0);
-        const averageUsagePerUser = activeUsers.length > 0 ? totalWaterConsumed / activeUsers.length : 0;
-        
         return {
             totalWaterConsumed,
-            averageUsagePerUser,
+            activeUsers,
         };
-    }, [userData, activeUsers]);
-
-    // Dummy props for suggester/predictor until they are refactored
-    const gallonsPerShare = totalShares > 0 ? totalAllocation / totalShares : 0;
-    const totalWeeklyAllocation = (totalAllocation / periodDurationInDays) * 7;
-
+    }, [userData]);
 
     const getBadgeVariant = (status?: 'active' | 'inactive' | 'invited') => {
         switch (status) {
@@ -444,20 +422,6 @@ export default function AdminDashboard() {
                             <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation} disabled={loading}>
                                 Update Allocation
                             </Button>
-                            <AllocationSuggester
-                                totalUsers={activeUsers.length}
-                                totalWeeklyAllocation={totalWeeklyAllocation}
-                                totalWaterConsumed={totalWaterConsumed}
-                                averageUsagePerUser={averageUsagePerUser}
-                                currentGallonsPerShare={gallonsPerShare}
-                                onSuggestionAccept={(suggestion) => setTotalAllocation(suggestion * totalShares)}
-                            />
-                            <AllocationPredictor
-                                usageDataForPeriod={userData.filter(u => u.status !== 'invited').map(u => ({name: u.name, used: u.used, shares: u.shares}))}
-                                periodDurationInDays={periodDurationInDays}
-                                currentGallonsPerShare={gallonsPerShare}
-                                onPredictionAccept={(prediction) => setTotalAllocation(prediction * totalShares)}
-                            />
                         </div>
                     </div>
                 </CardContent>
@@ -632,4 +596,5 @@ export default function AdminDashboard() {
             </AlertDialog>
         </div>
     );
-}
+
+    
