@@ -35,7 +35,7 @@ import { AllocationPredictor } from './allocation-predictor';
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
-type UserData = User & {
+type UserData = (User | Invite) & {
     used: number;
     allocation: number;
     percentageUsed: number;
@@ -44,13 +44,12 @@ type UserData = User & {
 
 export default function AdminDashboard() {
     const [gallonsPerShare, setGallonsPerShare] = useState(DEFAULT_GALLONS_PER_SHARE);
-    const [allUsersAndInvites, setAllUsersAndInvites] = useState<(User | Invite)[]>([]);
     const [userData, setUserData] = useState<UserData[]>([]);
     const [loading, setLoading] = useState(true);
     
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
-    const [userToDelete, setUserToDelete] = useState<User | null>(null);
+    const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
     
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,85 +61,76 @@ export default function AdminDashboard() {
     const [month, setMonth] = useState<Date>(date?.from ?? new Date());
     const { user: authUser } = useAuth();
     
-    const fetchInitialData = useCallback(async () => {
-        try {
-            const [fetchedUsers, fetchedInvites] = await Promise.all([getUsers(), getInvites()]);
-            const combined = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
-            setAllUsersAndInvites(combined);
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Failed to Fetch Users',
-                description: 'Could not load user and invitation data.',
-            });
-        }
-    }, [toast]);
-    
-    useEffect(() => {
-        fetchInitialData();
-    }, [fetchInitialData]);
-
     const periodDurationInDays = useMemo(() => {
         if (date?.from && date.to) {
             return differenceInDays(date.to, date.from) + 1;
         }
         return 7;
     }, [date]);
-    
-    const registeredUsers = useMemo(() => allUsersAndInvites.filter(u => u.status !== 'invited') as User[], [allUsersAndInvites]);
-    const userNameToIdMap = useMemo(() => new Map(registeredUsers.map(u => [u.name, u.id])), [registeredUsers]);
-    
-    useEffect(() => {
-        const calculateUserData = async () => {
-            if (!date?.from || !date.to || allUsersAndInvites.length === 0) {
-                setLoading(false);
-                setUserData([]);
-                return;
-            }
-            setLoading(true);
 
-            try {
-                const userIds = registeredUsers.map(u => u.id);
-
-                const [allocation, usageDataById] = await Promise.all([
-                    getWeeklyAllocation(date.from),
-                    getUsageForDateRange(userIds, date.from, date.to)
-                ]);
-
-                const currentGallonsPerShare = allocation ?? DEFAULT_GALLONS_PER_SHARE;
-                setGallonsPerShare(currentGallonsPerShare);
-
-                const data = allUsersAndInvites.map(user => {
-                    if (user.status === 'invited') {
-                        return { ...user, used: 0, allocation: 0, percentageUsed: 0, statusColor: 'bg-gray-400' } as UserData;
-                    }
-
-                    const used = usageDataById[user.id] || 0;
-                    const weeklyAllocation = user.shares * currentGallonsPerShare;
-                    const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
-                    const percentageUsed = periodAllocation > 0 ? Math.round((used / periodAllocation) * 100) : 0;
-                    
-                    let statusColor = 'bg-green-500';
-                    if (percentageUsed > 100) statusColor = 'bg-red-500';
-                    else if (percentageUsed > 80) statusColor = 'bg-yellow-500';
-
-                    return { ...user, used, allocation: Math.round(periodAllocation), percentageUsed, statusColor } as UserData;
-                });
-                setUserData(data);
-
-            } catch(error) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Data Fetch Failed',
-                    description: 'Could not load dashboard data for the selected period.',
-                });
-            } finally {
-                setLoading(false);
-            }
+    const fetchDashboardData = useCallback(async () => {
+        if (!date?.from || !date.to) {
+            setLoading(false);
+            setUserData([]);
+            return;
         }
-        calculateUserData();
+        setLoading(true);
 
-    }, [allUsersAndInvites, date, periodDurationInDays, registeredUsers, toast]);
+        try {
+            const [fetchedUsers, fetchedInvites, allocation, usageDataById] = await Promise.all([
+                getUsers(),
+                getInvites(),
+                getWeeklyAllocation(date.from),
+                getUsageForDateRange( (await getUsers()).map(u => u.id), date.from, date.to)
+            ]);
+
+            const currentGallonsPerShare = allocation ?? DEFAULT_GALLONS_PER_SHARE;
+            setGallonsPerShare(currentGallonsPerShare);
+            
+            const combinedUsersAndInvites = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
+
+            const processedUserData = combinedUsersAndInvites.map(user => {
+                const userStatus = 'status' in user ? user.status : 'invited';
+
+                if (userStatus === 'invited') {
+                    return { ...user, used: 0, allocation: 0, percentageUsed: 0, statusColor: 'bg-gray-400' } as UserData;
+                }
+
+                const registeredUser = user as User;
+                const used = usageDataById[registeredUser.id] || 0;
+                const weeklyAllocation = registeredUser.shares * currentGallonsPerShare;
+                const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
+                const percentageUsed = periodAllocation > 0 ? Math.round((used / periodAllocation) * 100) : 0;
+                
+                let statusColor = 'bg-green-500';
+                if (percentageUsed > 100) statusColor = 'bg-red-500';
+                else if (percentageUsed > 80) statusColor = 'bg-yellow-500';
+
+                return { ...registeredUser, used, allocation: Math.round(periodAllocation), percentageUsed, statusColor } as UserData;
+            });
+
+            setUserData(processedUserData);
+
+        } catch(error) {
+            toast({
+                variant: 'destructive',
+                title: 'Data Fetch Failed',
+                description: 'Could not load dashboard data for the selected period.',
+            });
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    }, [date, periodDurationInDays, toast]);
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
+    
+    const userNameToIdMap = useMemo(() => {
+        const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
+        return new Map(registeredUsers.map(u => [u.name, u.id]));
+    }, [userData]);
     
     const handleDayClick = (day: Date) => {
         const weekStart = startOfWeek(day, { weekStartsOn: 0 });
@@ -190,7 +180,7 @@ export default function AdminDashboard() {
                 
                 if (updatesMade > 0) {
                     await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    fetchInitialData();
+                    fetchDashboardData();
                     toast({
                         title: 'Upload Successful',
                         description: `Logged usage for ${updatesMade} user(s). View data by selecting the appropriate date range.`,
@@ -229,6 +219,7 @@ export default function AdminDashboard() {
         }
         try {
             await setWeeklyAllocation(date.from, gallonsPerShare);
+            fetchDashboardData();
             toast({
                 title: 'Allocation Updated',
                 description: `Set gallons per share to ${gallonsPerShare.toLocaleString()} for the selected week.`,
@@ -251,7 +242,7 @@ export default function AdminDashboard() {
                 await inviteUser(formData);
                 toast({ title: 'User Invited', description: `An invitation has been created for ${formData.email}.` });
             }
-            fetchInitialData();
+            fetchDashboardData();
             setEditingUser(null);
         } catch (error) {
             const action = editingUser && editingUser.status !== 'invited' ? 'save' : 'invite';
@@ -276,7 +267,7 @@ export default function AdminDashboard() {
         const newStatus = (userToToggle.status ?? 'active') === 'active' ? 'inactive' : 'active';
         try {
             await updateUserStatus(userToToggle.id, newStatus);
-            fetchInitialData();
+            fetchDashboardData();
             toast({
                 title: 'User Status Updated',
                 description: `${userToToggle.name} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}.`,
@@ -307,7 +298,7 @@ export default function AdminDashboard() {
                     description: `${userToDelete.name} has been successfully deleted.`,
                 });
             }
-            fetchInitialData();
+            fetchDashboardData();
         } catch (error: any) {
             toast({
                 variant: 'destructive',
@@ -318,13 +309,33 @@ export default function AdminDashboard() {
             setUserToDelete(null);
         }
     };
-    
-    const totalUsers = useMemo(() => registeredUsers.length, [registeredUsers]);
-    const totalWaterConsumed = useMemo(() => userData.reduce((acc, user) => acc + user.used, 0), [userData]);
-    const averageUsagePerUser = useMemo(() => totalUsers > 0 ? totalWaterConsumed / totalUsers : 0, [totalWaterConsumed, totalUsers]);
-    const totalShares = useMemo(() => registeredUsers.reduce((acc, user) => acc + user.shares, 0), [registeredUsers]);
-    const totalWeeklyAllocation = useMemo(() => totalShares * gallonsPerShare, [totalShares, gallonsPerShare]);
-    const totalPeriodAllocation = useMemo(() => (totalWeeklyAllocation / 7) * periodDurationInDays, [totalWeeklyAllocation, periodDurationInDays]);
+
+    const {
+        totalUsers,
+        totalWaterConsumed,
+        averageUsagePerUser,
+        totalShares,
+        totalWeeklyAllocation,
+        totalPeriodAllocation
+    } = useMemo(() => {
+        const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
+        const totalUsers = registeredUsers.length;
+        const totalWaterConsumed = userData.reduce((acc, user) => acc + user.used, 0);
+        const averageUsagePerUser = totalUsers > 0 ? totalWaterConsumed / totalUsers : 0;
+        const totalShares = registeredUsers.reduce((acc, user) => acc + user.shares, 0);
+        const totalWeeklyAllocation = totalShares * gallonsPerShare;
+        const totalPeriodAllocation = (totalWeeklyAllocation / 7) * periodDurationInDays;
+
+        return {
+            totalUsers,
+            totalWaterConsumed,
+            averageUsagePerUser,
+            totalShares,
+            totalWeeklyAllocation,
+            totalPeriodAllocation
+        };
+    }, [userData, gallonsPerShare, periodDurationInDays]);
+
 
     const getBadgeVariant = (status?: 'active' | 'inactive' | 'invited') => {
         switch (status) {
@@ -452,7 +463,7 @@ export default function AdminDashboard() {
                                 onSuggestionAccept={(suggestion) => setGallonsPerShare(suggestion)}
                             />
                             <AllocationPredictor
-                                usageDataForPeriod={userData.map(u => ({name: u.name, used: u.used, shares: u.shares}))}
+                                usageDataForPeriod={userData.filter(u => u.status !== 'invited').map(u => ({name: u.name, used: u.used, shares: u.shares}))}
                                 periodDurationInDays={periodDurationInDays}
                                 currentGallonsPerShare={gallonsPerShare}
                                 onPredictionAccept={(prediction) => setGallonsPerShare(prediction)}
@@ -566,7 +577,7 @@ export default function AdminDashboard() {
                                                     </Tooltip>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <Button variant="ghost" size="icon" onClick={() => handleToggleUserStatus(user)} disabled={user.id === authUser?.uid}>
+                                                            <Button variant="ghost" size="icon" onClick={() => handleToggleUserStatus(user as User)} disabled={user.id === authUser?.uid}>
                                                                 {(user.status ?? 'active') === 'active' ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                                                             </Button>
                                                         </TooltipTrigger>
