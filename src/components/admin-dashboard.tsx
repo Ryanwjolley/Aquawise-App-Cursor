@@ -216,11 +216,17 @@ export default function AdminDashboard() {
                 const userInvites = [];
                 for (const line of lines) {
                     if (!line.trim()) continue;
-                    const [name, email, sharesStr] = line.split(',');
-                    if (name && email && sharesStr) {
+                    const [name, email, role, sharesStr] = line.split(',');
+                    if (name && email && role && sharesStr) {
                         const shares = parseInt(sharesStr.trim(), 10);
-                        if (!isNaN(shares)) {
-                            userInvites.push({ name: name.trim(), email: email.trim(), shares, role: 'customer' });
+                        const trimmedRole = role.trim().toLowerCase();
+                        if (!isNaN(shares) && (trimmedRole === 'admin' || trimmedRole === 'customer')) {
+                            userInvites.push({ 
+                                name: name.trim(), 
+                                email: email.trim(), 
+                                shares, 
+                                role: trimmedRole as 'admin' | 'customer' 
+                            });
                         }
                     }
                 }
@@ -236,7 +242,7 @@ export default function AdminDashboard() {
                      toast({
                         variant: 'destructive',
                         title: 'No Invites Sent',
-                        description: 'CSV data was invalid or empty. Expected format: name,email,shares.',
+                        description: 'CSV data was invalid or empty. Expected format: name,email,role,shares.',
                     });
                 }
             } catch (error) {
@@ -508,7 +514,7 @@ export default function AdminDashboard() {
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Upload a CSV with columns: `name`, `email`, `shares`.</p>
+                                    <p>Upload a CSV with columns: `name`, `email`, `role`, `shares`.</p>
                                 </TooltipContent>
                             </Tooltip>
                             <Tooltip>
