@@ -84,21 +84,33 @@ export default function AdminDashboard() {
         }
     }, [toast]);
 
+    const fetchAllTimeAllocations = useCallback(async () => {
+        try {
+            const fetchedAllocations = await getAllocations();
+            setAllTimeAllocations(fetchedAllocations);
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Allocation Fetch Failed',
+                description: 'Could not load the list of allocations.',
+            });
+        }
+    }, [toast]);
+
     const fetchWaterData = useCallback(async () => {
+        if (!date?.from || !date.to) {
+            setTotalWaterConsumed(0);
+            setTotalPeriodAllocation(0);
+            setAllocations([]);
+            return;
+        }
+        
         let usersToFetch = userData.filter(u => u.status !== 'invited') as User[];
-        if (usersToFetch.length === 0 && userData.length > 0) {
-             usersToFetch = userData.filter(u => u.status !== 'invited') as User[];
-        } else if (usersToFetch.length === 0 && !loading) {
+        if (usersToFetch.length === 0 && !loading) {
             const fetchedData = await fetchUserData();
             usersToFetch = fetchedData.filter(u => u.status !== 'invited') as User[];
         }
 
-        if (!date?.from || !date.to) {
-            setTotalWaterConsumed(0);
-            setTotalPeriodAllocation(0);
-            return;
-        }
-        
         setWaterDataLoading(true);
         try {
             const userIds = usersToFetch.filter(u => u.status === 'active').map(u => u.id);
@@ -108,6 +120,7 @@ export default function AdminDashboard() {
                 userIds.length > 0 ? getUsageForDateRange(userIds, date.from, date.to) : Promise.resolve({}),
             ]);
             
+            setAllocations(periodAllocations);
             const totalAllocation = periodAllocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
             setTotalPeriodAllocation(totalAllocation);
 
@@ -126,39 +139,23 @@ export default function AdminDashboard() {
         }
     }, [date, toast, userData, loading, fetchUserData]);
 
-    const fetchAllocations = useCallback(async () => {
-        try {
-            const fetchedAllocations = await getAllocations();
-            setAllocations(fetchedAllocations);
-            setAllTimeAllocations(fetchedAllocations);
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Allocation Fetch Failed',
-                description: 'Could not load the list of allocations.',
-            });
-        }
-    }, [toast]);
-
-
     useEffect(() => {
         fetchUserData();
-        fetchAllocations();
-    }, [fetchUserData, fetchAllocations]);
+        fetchAllTimeAllocations();
+    }, [fetchUserData, fetchAllTimeAllocations]);
     
     useEffect(() => {
         const activeTab = document.querySelector('[data-state="active"]')?.getAttribute('data-value');
         if (activeTab === 'water') {
             fetchWaterData();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [date]);
+    }, [date, fetchWaterData]);
 
 
     const onTabChange = async (tab: string) => {
         if (tab === 'water') {
             await fetchWaterData();
-            await fetchAllocations();
+            await fetchAllTimeAllocations();
         }
     }
     
@@ -310,7 +307,7 @@ export default function AdminDashboard() {
                 await setAllocation(data);
                 toast({ title: 'Allocation Created', description: `Successfully created new allocation period.` });
             }
-            fetchAllocations();
+            fetchAllTimeAllocations();
             fetchWaterData();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the allocation.' });
@@ -320,7 +317,7 @@ export default function AdminDashboard() {
 
     const handleAllocationSave = (data: AllocationData) => {
         // --- OVERLAP VALIDATION ---
-        const otherAllocations = allocations.filter(alloc => alloc.id !== data.id);
+        const otherAllocations = allTimeAllocations.filter(alloc => alloc.id !== data.id);
         const hasOverlap = otherAllocations.some(alloc => 
             data.startDate < alloc.endDate && data.endDate > alloc.startDate
         );
@@ -441,7 +438,7 @@ export default function AdminDashboard() {
                 title: 'Allocation Deleted',
                 description: `The allocation period has been successfully deleted.`,
             });
-            fetchAllocations();
+            fetchAllTimeAllocations();
             fetchWaterData();
         } catch (error) {
             toast({
