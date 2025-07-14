@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +29,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Skeleton } from './ui/skeleton';
+import { AllocationPredictor } from './allocation-predictor';
+
 
 const DEFAULT_GALLONS_PER_SHARE = 2000;
 
@@ -40,11 +44,14 @@ type UserData = User & {
 
 export default function AdminDashboard() {
     const [gallonsPerShare, setGallonsPerShare] = useState(DEFAULT_GALLONS_PER_SHARE);
-    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [allUsersAndInvites, setAllUsersAndInvites] = useState<(User | Invite)[]>([]);
+    const [userData, setUserData] = useState<UserData[]>([]);
+    const [loading, setLoading] = useState(true);
+    
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
-    const [userData, setUserData] = useState<UserData[]>([]);
+    
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [date, setDate] = useState<DateRange | undefined>({
@@ -55,55 +62,86 @@ export default function AdminDashboard() {
     const [month, setMonth] = useState<Date>(date?.from ?? new Date());
     const { user: authUser } = useAuth();
     
-    const fetchAllUsersAndInvites = useCallback(async () => {
+    const fetchInitialData = useCallback(async () => {
         try {
             const [fetchedUsers, fetchedInvites] = await Promise.all([getUsers(), getInvites()]);
-            
-            const invitedUsers: User[] = fetchedInvites.map(invite => ({
-                id: invite.id,
-                name: invite.name,
-                email: invite.email,
-                shares: invite.shares,
-                role: 'customer', 
-                status: 'invited',
-            }));
-
-            const combinedUsers = [...fetchedUsers, ...invitedUsers].sort((a, b) => a.name.localeCompare(b.name));
-            setAllUsers(combinedUsers);
+            const combined = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
+            setAllUsersAndInvites(combined);
         } catch (error) {
             toast({
                 variant: 'destructive',
-                title: 'Failed to Fetch Data',
-                description: 'Could not load user and invitation data from the database.',
+                title: 'Failed to Fetch Users',
+                description: 'Could not load user and invitation data.',
             });
         }
     }, [toast]);
-
+    
     useEffect(() => {
-        fetchAllUsersAndInvites();
-    }, [fetchAllUsersAndInvites]);
+        fetchInitialData();
+    }, [fetchInitialData]);
 
-
+    const periodDurationInDays = useMemo(() => {
+        if (date?.from && date.to) {
+            return differenceInDays(date.to, date.from) + 1;
+        }
+        return 7;
+    }, [date]);
+    
+    const registeredUsers = useMemo(() => allUsersAndInvites.filter(u => u.status !== 'invited') as User[], [allUsersAndInvites]);
+    const userNameToIdMap = useMemo(() => new Map(registeredUsers.map(u => [u.name, u.id])), [registeredUsers]);
+    
     useEffect(() => {
-        const fetchDataForWeek = async () => {
-            if (date?.from && allUsers.length > 0) {
-                try {
-                    const allocation = await getWeeklyAllocation(date.from);
-                    setGallonsPerShare(allocation ?? DEFAULT_GALLONS_PER_SHARE);
-                } catch (error) {
-                     toast({
-                        variant: 'destructive',
-                        title: 'Fetch Failed',
-                        description: 'Could not fetch weekly allocation data.',
-                    });
-                    setGallonsPerShare(DEFAULT_GALLONS_PER_SHARE);
-                }
+        const calculateUserData = async () => {
+            if (!date?.from || !date.to || allUsersAndInvites.length === 0) {
+                setLoading(false);
+                setUserData([]);
+                return;
             }
-        };
+            setLoading(true);
 
-        fetchDataForWeek();
-    }, [date, allUsers, toast]);
+            try {
+                const userIds = registeredUsers.map(u => u.id);
 
+                const [allocation, usageDataById] = await Promise.all([
+                    getWeeklyAllocation(date.from),
+                    getUsageForDateRange(userIds, date.from, date.to)
+                ]);
+
+                const currentGallonsPerShare = allocation ?? DEFAULT_GALLONS_PER_SHARE;
+                setGallonsPerShare(currentGallonsPerShare);
+
+                const data = allUsersAndInvites.map(user => {
+                    if (user.status === 'invited') {
+                        return { ...user, used: 0, allocation: 0, percentageUsed: 0, statusColor: 'bg-gray-400' } as UserData;
+                    }
+
+                    const used = usageDataById[user.id] || 0;
+                    const weeklyAllocation = user.shares * currentGallonsPerShare;
+                    const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
+                    const percentageUsed = periodAllocation > 0 ? Math.round((used / periodAllocation) * 100) : 0;
+                    
+                    let statusColor = 'bg-green-500';
+                    if (percentageUsed > 100) statusColor = 'bg-red-500';
+                    else if (percentageUsed > 80) statusColor = 'bg-yellow-500';
+
+                    return { ...user, used, allocation: Math.round(periodAllocation), percentageUsed, statusColor } as UserData;
+                });
+                setUserData(data);
+
+            } catch(error) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Data Fetch Failed',
+                    description: 'Could not load dashboard data for the selected period.',
+                });
+            } finally {
+                setLoading(false);
+            }
+        }
+        calculateUserData();
+
+    }, [allUsersAndInvites, date, periodDurationInDays, registeredUsers, toast]);
+    
     const handleDayClick = (day: Date) => {
         const weekStart = startOfWeek(day, { weekStartsOn: 0 });
         const weekEnd = endOfWeek(day, { weekStartsOn: 0 });
@@ -131,7 +169,6 @@ export default function AdminDashboard() {
                 const text = e.target?.result as string;
                 const lines = text.split(/\r\n|\n/).slice(1);
                 
-                const userNameToIdMap = new Map(allUsers.filter(u => u.status !== 'invited').map(u => [u.name, u.id]));
                 const usageEntries = [];
                 let updatesMade = 0;
 
@@ -142,9 +179,9 @@ export default function AdminDashboard() {
                         const trimmedName = name.trim();
                         const used = parseInt(usedStr.trim(), 10);
                         const trimmedDate = dateStr.trim();
+                        const userId = userNameToIdMap.get(trimmedName);
 
-                        if (userNameToIdMap.has(trimmedName) && !isNaN(used) && trimmedDate) {
-                            const userId = userNameToIdMap.get(trimmedName)!;
+                        if (userId && !isNaN(used) && trimmedDate) {
                             usageEntries.push({ userId: userId, consumption: used, date: trimmedDate });
                             updatesMade++;
                         }
@@ -153,7 +190,7 @@ export default function AdminDashboard() {
                 
                 if (updatesMade > 0) {
                     await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    fetchAllUsersAndInvites();
+                    fetchInitialData();
                     toast({
                         title: 'Upload Successful',
                         description: `Logged usage for ${updatesMade} user(s). View data by selecting the appropriate date range.`,
@@ -214,7 +251,7 @@ export default function AdminDashboard() {
                 await inviteUser(formData);
                 toast({ title: 'User Invited', description: `An invitation has been created for ${formData.email}.` });
             }
-            fetchAllUsersAndInvites();
+            fetchInitialData();
             setEditingUser(null);
         } catch (error) {
             const action = editingUser && editingUser.status !== 'invited' ? 'save' : 'invite';
@@ -239,7 +276,7 @@ export default function AdminDashboard() {
         const newStatus = (userToToggle.status ?? 'active') === 'active' ? 'inactive' : 'active';
         try {
             await updateUserStatus(userToToggle.id, newStatus);
-            fetchAllUsersAndInvites();
+            fetchInitialData();
             toast({
                 title: 'User Status Updated',
                 description: `${userToToggle.name} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}.`,
@@ -270,7 +307,7 @@ export default function AdminDashboard() {
                     description: `${userToDelete.name} has been successfully deleted.`,
                 });
             }
-            fetchAllUsersAndInvites();
+            fetchInitialData();
         } catch (error: any) {
             toast({
                 variant: 'destructive',
@@ -281,75 +318,20 @@ export default function AdminDashboard() {
             setUserToDelete(null);
         }
     };
-
-
-    const totalUsers = useMemo(() => allUsers.filter(u => u.status !== 'invited').length, [allUsers]);
+    
+    const totalUsers = useMemo(() => registeredUsers.length, [registeredUsers]);
     const totalWaterConsumed = useMemo(() => userData.reduce((acc, user) => acc + user.used, 0), [userData]);
     const averageUsagePerUser = useMemo(() => totalUsers > 0 ? totalWaterConsumed / totalUsers : 0, [totalWaterConsumed, totalUsers]);
-    
-    const totalWeeklyAllocation = useMemo(() => {
-        const totalShares = allUsers.filter(u => u.status !== 'invited').reduce((acc, user) => acc + user.shares, 0);
-        return totalShares * gallonsPerShare;
-    }, [gallonsPerShare, allUsers]);
+    const totalShares = useMemo(() => registeredUsers.reduce((acc, user) => acc + user.shares, 0), [registeredUsers]);
+    const totalWeeklyAllocation = useMemo(() => totalShares * gallonsPerShare, [totalShares, gallonsPerShare]);
+    const totalPeriodAllocation = useMemo(() => (totalWeeklyAllocation / 7) * periodDurationInDays, [totalWeeklyAllocation, periodDurationInDays]);
 
-    const periodDurationInDays = useMemo(() => {
-        if (date?.from && date.to) {
-            return differenceInDays(date.to, date.from) + 1;
-        }
-        return 7;
-    }, [date]);
-
-
-    useEffect(() => {
-        const calculateUserData = async () => {
-             if (!date?.from || !date?.to || allUsers.length === 0) {
-                setUserData(allUsers.map(u => ({
-                    ...u,
-                    used: 0,
-                    allocation: 0,
-                    percentageUsed: 0,
-                    statusColor: 'bg-gray-400',
-                })));
-                return;
-            }
-
-            const registeredUsers = allUsers.filter(u => u.status !== 'invited');
-            const userIds = registeredUsers.map(u => u.id);
-            const usageDataById = await getUsageForDateRange(userIds, date.from, date.to);
-
-            const data = allUsers.map(user => {
-                if (user.status === 'invited') {
-                    return { ...user, used: 0, allocation: 0, percentageUsed: 0, statusColor: 'bg-gray-400' };
-                }
-
-                const used = usageDataById[user.id] || 0;
-                const weeklyAllocation = user.shares * gallonsPerShare;
-                const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
-                const percentageUsed = periodAllocation > 0 ? Math.round((used / periodAllocation) * 100) : 0;
-                let statusColor = 'bg-green-500';
-                if (percentageUsed > 100) {
-                    statusColor = 'bg-red-500';
-                } else if (percentageUsed > 80) {
-                    statusColor = 'bg-yellow-500';
-                }
-                return { ...user, used, allocation: Math.round(periodAllocation), percentageUsed, statusColor };
-            });
-            setUserData(data);
-        }
-        calculateUserData();
-
-    }, [gallonsPerShare, allUsers, date, periodDurationInDays]);
-    
     const getBadgeVariant = (status?: 'active' | 'inactive' | 'invited') => {
         switch (status) {
-            case 'active':
-                return 'secondary';
-            case 'inactive':
-                return 'destructive';
-            case 'invited':
-                return 'default';
-            default:
-                return 'secondary';
+            case 'active': return 'secondary';
+            case 'inactive': return 'destructive';
+            case 'invited': return 'default';
+            default: return 'secondary';
         }
     };
 
@@ -403,30 +385,40 @@ export default function AdminDashboard() {
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <Card className="rounded-xl shadow-md">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold">{totalUsers}</p>
-                    </CardContent>
-                </Card>
-                <Card className="rounded-xl shadow-md">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold">{((totalWeeklyAllocation/7*periodDurationInDays) / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
-                    </CardContent>
-                </Card>
-                <Card className="rounded-xl shadow-md">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold">{(totalWaterConsumed / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
-                    </CardContent>
-                </Card>
+                {loading ? (
+                    <>
+                        <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+                        <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+                        <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+                    </>
+                ) : (
+                    <>
+                    <Card className="rounded-xl shadow-md">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-3xl font-bold">{totalUsers}</p>
+                        </CardContent>
+                    </Card>
+                    <Card className="rounded-xl shadow-md">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-3xl font-bold">{(totalPeriodAllocation / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
+                        </CardContent>
+                    </Card>
+                    <Card className="rounded-xl shadow-md">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-3xl font-bold">{(totalWaterConsumed / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
+                        </CardContent>
+                    </Card>
+                    </>
+                )}
             </div>
 
             <Card className="mb-8 rounded-xl shadow-md">
@@ -437,16 +429,18 @@ export default function AdminDashboard() {
                     <div className="flex flex-col sm:flex-row items-end gap-4">
                         <div className="flex-grow w-full">
                             <label htmlFor="gallons-per-share" className="block text-sm font-medium text-foreground mb-1">Gallons per Share this Week</label>
-                            <Input
-                                type="number"
-                                id="gallons-per-share"
-                                value={gallonsPerShare}
-                                onChange={(e) => setGallonsPerShare(Number(e.target.value))}
-                                placeholder="e.g. 2000"
-                            />
+                             {loading ? <Skeleton className="h-10 w-full" /> : 
+                                <Input
+                                    type="number"
+                                    id="gallons-per-share"
+                                    value={gallonsPerShare}
+                                    onChange={(e) => setGallonsPerShare(Number(e.target.value))}
+                                    placeholder="e.g. 2000"
+                                />
+                             }
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 flex-wrap">
-                            <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation}>
+                            <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation} disabled={loading}>
                                 Update Allocations
                             </Button>
                             <AllocationSuggester
@@ -456,6 +450,12 @@ export default function AdminDashboard() {
                                 averageUsagePerUser={averageUsagePerUser}
                                 currentGallonsPerShare={gallonsPerShare}
                                 onSuggestionAccept={(suggestion) => setGallonsPerShare(suggestion)}
+                            />
+                            <AllocationPredictor
+                                usageDataForPeriod={userData.map(u => ({name: u.name, used: u.used, shares: u.shares}))}
+                                periodDurationInDays={periodDurationInDays}
+                                currentGallonsPerShare={gallonsPerShare}
+                                onPredictionAccept={(prediction) => setGallonsPerShare(prediction)}
                             />
                         </div>
                     </div>
@@ -513,8 +513,23 @@ export default function AdminDashboard() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {userData.map((user) => (
-                                    <TableRow key={user.id} className={user.status === 'inactive' ? 'opacity-50' : ''}>
+                                {loading ? (
+                                    Array.from({length: 5}).map((_, i) => (
+                                        <TableRow key={`skeleton-${i}`}>
+                                            <TableCell><Skeleton className="h-4 w-4 rounded-full" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                                            <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : userData.map((user) => (
+                                    <TableRow key={user.id} className={(user.status ?? 'active') === 'inactive' ? 'opacity-50' : ''}>
                                         <TableCell>
                                             <span className={`h-4 w-4 rounded-full ${user.statusColor} inline-block`} title={`${user.percentageUsed}% used`}></span>
                                         </TableCell>
@@ -616,6 +631,5 @@ export default function AdminDashboard() {
             </AlertDialog>
         </div>
     );
-}
 
     
