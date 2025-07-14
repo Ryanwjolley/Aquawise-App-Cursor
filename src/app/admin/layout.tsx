@@ -19,21 +19,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [user, userDetails, loading, router]);
 
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4 text-center">
-            <Droplets className="h-12 w-12 text-primary animate-pulse" />
-            <p className="text-xl font-semibold">Loading Admin Dashboard...</p>
-            <p className="text-muted-foreground">Verifying credentials.</p>
-        </div>
-      </div>
-    );
-  }
+  const isVerifiedAdmin = !loading && user && userDetails?.role === 'admin';
 
-  if (user && userDetails?.role === 'admin') {
+  if (isVerifiedAdmin) {
     return <AppLayout>{children}</AppLayout>;
   }
 
-  return null;
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-4 text-center">
+          <Droplets className="h-12 w-12 text-primary animate-pulse" />
+          <p className="text-xl font-semibold">Loading Admin Dashboard...</p>
+          <p className="text-muted-foreground">Verifying credentials.</p>
+      </div>
+    </div>
+  );
 }
