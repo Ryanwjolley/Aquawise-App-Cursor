@@ -14,12 +14,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (!user) {
         router.push('/login');
       } else if (userDetails && userDetails.role !== 'admin') {
-        router.push('/dashboard'); // or a '/unauthorized' page
+        router.push('/dashboard');
       }
     }
   }, [user, userDetails, loading, router]);
 
-  if (loading || !userDetails || userDetails.role !== 'admin') {
+  if (loading || (user && !userDetails)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4 text-center">
@@ -29,6 +29,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
     );
+  }
+  
+  if (!loading && userDetails && userDetails.role !== 'admin') {
+      return null;
   }
 
   return <AppLayout>{children}</AppLayout>;
