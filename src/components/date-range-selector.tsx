@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ export function DateRangeSelector({ date, setDate, allocations, className }: Dat
     };
     
     const allocationOptions = useMemo(() => {
+        if (!allocations) return [];
         return allocations.map(alloc => ({
             id: alloc.id,
             label: `${format(alloc.startDate, 'LLL d, yyyy')} - ${format(alloc.endDate, 'LLL d, yyyy')}`
@@ -40,11 +41,13 @@ export function DateRangeSelector({ date, setDate, allocations, className }: Dat
     }, [allocations]);
 
     // Set a default if allocations exist and none is selected
-    if (selectionMode === 'allocation' && !selectedAllocationId && allocationOptions.length > 0) {
-        const firstAllocation = allocations[0];
-        setDate({ from: firstAllocation.startDate, to: firstAllocation.endDate });
-        setSelectedAllocationId(firstAllocation.id);
-    }
+    useEffect(() => {
+        if (selectionMode === 'allocation' && !selectedAllocationId && allocationOptions.length > 0) {
+            const firstAllocation = allocations[0];
+            setDate({ from: firstAllocation.startDate, to: firstAllocation.endDate });
+            setSelectedAllocationId(firstAllocation.id);
+        }
+    }, [selectionMode, selectedAllocationId, allocationOptions, allocations, setDate]);
     
     return (
         <div className={cn("flex flex-col gap-2", className)}>
@@ -52,7 +55,14 @@ export function DateRangeSelector({ date, setDate, allocations, className }: Dat
                 <Label>View Period</Label>
                 <RadioGroup
                     value={selectionMode}
-                    onValueChange={(value) => setSelectionMode(value as 'allocation' | 'custom')}
+                    onValueChange={(value) => {
+                        const newMode = value as 'allocation' | 'custom';
+                        setSelectionMode(newMode);
+                        // If switching to allocation mode and there's no selection, select the first one.
+                        if (newMode === 'allocation' && !selectedAllocationId && allocations.length > 0) {
+                            handleAllocationSelect(allocations[0].id);
+                        }
+                    }}
                     className="flex items-center"
                 >
                     <div className="flex items-center space-x-2">
