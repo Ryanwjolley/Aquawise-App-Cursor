@@ -79,7 +79,15 @@ export default function AdminDashboard() {
         }
     }, [toast]);
 
-    const fetchWaterData = useCallback(async (currentUsers: User[]) => {
+    const fetchWaterData = useCallback(async () => {
+        let usersToFetch = userData.filter(u => u.status !== 'invited') as User[];
+        if (usersToFetch.length === 0 && userData.length > 0) {
+             usersToFetch = userData.filter(u => u.status !== 'invited') as User[];
+        } else if (usersToFetch.length === 0 && !loading) {
+            const fetchedData = await fetchUserData();
+            usersToFetch = fetchedData.filter(u => u.status !== 'invited') as User[];
+        }
+
         if (!date?.from) {
             setTotalWaterConsumed(0);
             return;
@@ -87,7 +95,7 @@ export default function AdminDashboard() {
         const endDate = date.to ?? date.from;
         setWaterDataLoading(true);
         try {
-            const userIds = currentUsers.filter(u => u.status === 'active').map(u => u.id);
+            const userIds = usersToFetch.filter(u => u.status === 'active').map(u => u.id);
 
             const [allocation, usageDataById] = await Promise.all([
                 getAllocationForDate(date.from),
@@ -110,7 +118,7 @@ export default function AdminDashboard() {
         } finally {
             setWaterDataLoading(false);
         }
-    }, [date, toast]);
+    }, [date, toast, userData, loading, fetchUserData]);
 
 
     useEffect(() => {
@@ -120,31 +128,17 @@ export default function AdminDashboard() {
     useEffect(() => {
         const activeTab = document.querySelector('[data-state="active"]')?.getAttribute('data-value');
         if (activeTab === 'water') {
-            const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
-            if (registeredUsers.length > 0 && !loading) {
-                fetchWaterData(registeredUsers);
-            }
+            fetchWaterData();
         }
-    }, [date, userData, loading, fetchWaterData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [date]);
 
 
     const onTabChange = async (tab: string) => {
         if (tab === 'water') {
-            let usersToFetch = userData.filter(u => u.status !== 'invited') as User[];
-            if (usersToFetch.length === 0 && !loading) {
-                const fetchedData = await fetchUserData();
-                usersToFetch = fetchedData.filter(u => u.status !== 'invited') as User[];
-            }
-            if(usersToFetch.length > 0) {
-                fetchWaterData(usersToFetch);
-            }
+            fetchWaterData();
         }
     }
-    
-    const userNameToIdMap = useMemo(() => {
-        const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
-        return new Map(registeredUsers.map(u => [u.name, u.id]));
-    }, [userData]);
     
     const handleUsageCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -167,18 +161,19 @@ export default function AdminDashboard() {
                 
                 const usageEntries = [];
                 let updatesMade = 0;
+                const registeredUsers = userData.filter((u) => u.status !== 'invited') as User[];
+                const validUserIds = new Set(registeredUsers.map((u) => u.id));
 
                 for (const line of lines) {
                     if (!line.trim()) continue;
-                    const [name, usedStr, dateStr] = line.split(',');
-                    if (name && usedStr && dateStr) {
-                        const trimmedName = name.trim();
+                    const [userId, usedStr, dateStr] = line.split(',');
+                    if (userId && usedStr && dateStr) {
+                        const trimmedUserId = userId.trim();
                         const used = parseInt(usedStr.trim(), 10);
                         const trimmedDate = dateStr.trim();
-                        const userId = userNameToIdMap.get(trimmedName);
 
-                        if (userId && !isNaN(used) && trimmedDate) {
-                            usageEntries.push({ userId: userId, consumption: used, date: trimmedDate });
+                        if (validUserIds.has(trimmedUserId) && !isNaN(used) && trimmedDate) {
+                            usageEntries.push({ userId: trimmedUserId, consumption: used, date: trimmedDate });
                             updatesMade++;
                         }
                     }
@@ -186,17 +181,16 @@ export default function AdminDashboard() {
                 
                 if (updatesMade > 0) {
                     await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
-                    fetchWaterData(registeredUsers);
+                    fetchWaterData();
                     toast({
                         title: 'Upload Successful',
-                        description: `Logged usage for ${updatesMade} user(s).`,
+                        description: `Logged usage for ${updatesMade} record(s).`,
                     });
                 } else {
                      toast({
                         variant: 'destructive',
                         title: 'No Updates Made',
-                        description: 'CSV data did not match any existing users or was invalid. Expected format: name,used,date.',
+                        description: 'CSV data did not match any existing users or was invalid. Expected format: userId,consumption,date.',
                     });
                 }
             } catch (error) {
@@ -293,8 +287,7 @@ export default function AdminDashboard() {
         }
         try {
             await setAllocationForDate(date.from, date.to, totalAllocation);
-            const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
-            fetchWaterData(registeredUsers);
+            fetchWaterData();
             toast({
                 title: 'Allocation Updated',
                 description: `Set total allocation to ${totalAllocation.toLocaleString()} gallons for the selected period.`,
@@ -492,6 +485,7 @@ export default function AdminDashboard() {
                                         <TableRow>
                                             <TableHead>User</TableHead>
                                             <TableHead>Email</TableHead>
+                                            <TableHead>User ID</TableHead>
                                             <TableHead>Role</TableHead>
                                             <TableHead>Shares</TableHead>
                                             <TableHead>Status</TableHead>
@@ -504,6 +498,7 @@ export default function AdminDashboard() {
                                                 <TableRow key={`skeleton-${i}`}>
                                                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                                    <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                                                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
@@ -514,6 +509,7 @@ export default function AdminDashboard() {
                                             <TableRow key={user.id} className={(user.status ?? 'active') === 'inactive' ? 'opacity-50' : ''}>
                                                 <TableCell className="font-medium">{user.name}</TableCell>
                                                 <TableCell>{user.email}</TableCell>
+                                                <TableCell><code className="text-xs p-1 bg-muted rounded-sm">{user.id}</code></TableCell>
                                                 <TableCell className="capitalize">{user.role}</TableCell>
                                                 <TableCell>{user.shares}</TableCell>
                                                 <TableCell>
@@ -652,7 +648,7 @@ export default function AdminDashboard() {
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>Upload a CSV with columns: `name`, `used`, `date` (YYYY-MM-DD).</p>
+                                            <p>Upload a CSV with columns: `userId`, `consumption`, `date` (YYYY-MM-DD).</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
