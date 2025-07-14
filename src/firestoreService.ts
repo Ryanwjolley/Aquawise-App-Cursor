@@ -259,6 +259,16 @@ export const updateAllocation = async (id: string, data: { startDate: Date, endD
   }
 };
 
+export const deleteAllocation = async (id: string): Promise<void> => {
+  try {
+    const allocationDoc = doc(db, "allocations", id);
+    await deleteDoc(allocationDoc);
+  } catch (e) {
+    console.error("Error deleting allocation: ", e);
+    throw e;
+  }
+};
+
 export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): Promise<Allocation[]> => {
     try {
         // Firestore doesn't allow range filters on multiple fields without a composite index.

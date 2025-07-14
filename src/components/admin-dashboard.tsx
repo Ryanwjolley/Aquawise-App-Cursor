@@ -6,7 +6,7 @@ import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCir
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation } from '../firestoreService';
+import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, deleteAllocation } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -48,6 +48,7 @@ export default function AdminDashboard() {
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
+    const [allocationToDelete, setAllocationToDelete] = useState<Allocation | null>(null);
 
     const [gapConfirmation, setGapConfirmation] = useState<{ isOpen: boolean, data: AllocationData | null, message: string }>({ isOpen: false, data: null, message: '' });
     
@@ -403,7 +404,7 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleConfirmDelete = async () => {
+    const handleConfirmUserDelete = async () => {
         if (!userToDelete) return;
     
         try {
@@ -429,6 +430,27 @@ export default function AdminDashboard() {
             });
         } finally {
             setUserToDelete(null);
+        }
+    };
+
+    const handleConfirmAllocationDelete = async () => {
+        if (!allocationToDelete) return;
+        try {
+            await deleteAllocation(allocationToDelete.id);
+            toast({
+                title: 'Allocation Deleted',
+                description: `The allocation period has been successfully deleted.`,
+            });
+            fetchAllocations();
+            fetchWaterData();
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Deletion Failed',
+                description: 'Could not delete the allocation.',
+            });
+        } finally {
+            setAllocationToDelete(null);
         }
     };
 
@@ -704,7 +726,7 @@ export default function AdminDashboard() {
                                                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                                                     <TableCell className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableCell>
-                                                    <TableCell><Skeleton className="h-8 w-10" /></TableCell>
+                                                    <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                                                 </TableRow>
                                              ))
                                         ) : allocations.map((alloc) => (
@@ -713,18 +735,30 @@ export default function AdminDashboard() {
                                                 <TableCell>{format(alloc.endDate, 'MMM d, yyyy, h:mm a')}</TableCell>
                                                 <TableCell className="text-right">{alloc.totalAllocationGallons.toLocaleString()}</TableCell>
                                                 <TableCell>
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Button variant="ghost" size="icon" onClick={() => { setEditingAllocation(alloc); setIsAllocationFormOpen(true); }}>
-                                                                    <Edit className="h-4 w-4" />
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Edit Allocation</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
+                                                    <div className="flex items-center gap-1">
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" onClick={() => { setEditingAllocation(alloc); setIsAllocationFormOpen(true); }}>
+                                                                        <Edit className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Edit Allocation</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" onClick={() => setAllocationToDelete(alloc)}>
+                                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Delete Allocation</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -806,7 +840,24 @@ export default function AdminDashboard() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmDelete} className={buttonVariants({ variant: "destructive" })}>
+                        <AlertDialogAction onClick={handleConfirmUserDelete} className={buttonVariants({ variant: "destructive" })}>
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={!!allocationToDelete} onOpenChange={(isOpen) => !isOpen && setAllocationToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete this allocation period.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmAllocationDelete} className={buttonVariants({ variant: "destructive" })}>
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>
