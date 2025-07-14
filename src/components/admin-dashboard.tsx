@@ -79,7 +79,7 @@ export default function AdminDashboard() {
         }
     }, [toast]);
 
-    const fetchWaterData = useCallback(async (currentUsers: UserData[]) => {
+    const fetchWaterData = useCallback(async (currentUsers: User[]) => {
         if (!date?.from) {
             setTotalWaterConsumed(0);
             return;
@@ -87,8 +87,7 @@ export default function AdminDashboard() {
         const endDate = date.to ?? date.from;
         setWaterDataLoading(true);
         try {
-            const activeUsers = currentUsers.filter(u => u.status === 'active') as User[];
-            const userIds = activeUsers.map(u => u.id);
+            const userIds = currentUsers.filter(u => u.status === 'active').map(u => u.id);
 
             const [allocation, usageDataById] = await Promise.all([
                 getAllocationForDate(date.from),
@@ -118,26 +117,26 @@ export default function AdminDashboard() {
         fetchUserData();
     }, [fetchUserData]);
     
-    // This effect runs when the date changes to refetch water data
     useEffect(() => {
-        // We only fetch water data if there are users and the component is not in its initial loading state
-        if (userData.length > 0 && !loading && !waterDataLoading) {
-            const activeTab = document.querySelector('[data-state="active"]')?.getAttribute('data-value');
-            if (activeTab === 'water') {
-                fetchWaterData(userData);
+        const activeTab = document.querySelector('[data-state="active"]')?.getAttribute('data-value');
+        if (activeTab === 'water') {
+            const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
+            if (registeredUsers.length > 0 && !loading) {
+                fetchWaterData(registeredUsers);
             }
         }
-    }, [date, userData, loading, fetchWaterData, waterDataLoading]);
+    }, [date, userData, loading, fetchWaterData]);
 
-    const onTabChange = (tab: string) => {
+
+    const onTabChange = async (tab: string) => {
         if (tab === 'water') {
-            // userData might not be populated yet if initial fetchUserData is slow.
-            // If userData is available, fetch water data. Otherwise, useEffect will handle it.
-            if (userData.length > 0) {
-                 fetchWaterData(userData);
-            } else if (!loading) {
-                // if not loading and no user data, it means fetchUserData finished with 0 users.
-                fetchWaterData([]);
+            let usersToFetch = userData.filter(u => u.status !== 'invited') as User[];
+            if (usersToFetch.length === 0 && !loading) {
+                const fetchedData = await fetchUserData();
+                usersToFetch = fetchedData.filter(u => u.status !== 'invited') as User[];
+            }
+            if(usersToFetch.length > 0) {
+                fetchWaterData(usersToFetch);
             }
         }
     }
@@ -187,10 +186,11 @@ export default function AdminDashboard() {
                 
                 if (updatesMade > 0) {
                     await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    fetchUserData();
+                    const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
+                    fetchWaterData(registeredUsers);
                     toast({
                         title: 'Upload Successful',
-                        description: `Logged usage for ${updatesMade} user(s). View data by selecting the appropriate date range.`,
+                        description: `Logged usage for ${updatesMade} user(s).`,
                     });
                 } else {
                      toast({
@@ -293,7 +293,8 @@ export default function AdminDashboard() {
         }
         try {
             await setAllocationForDate(date.from, date.to, totalAllocation);
-            fetchWaterData(userData);
+            const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
+            fetchWaterData(registeredUsers);
             toast({
                 title: 'Allocation Updated',
                 description: `Set total allocation to ${totalAllocation.toLocaleString()} gallons for the selected period.`,
