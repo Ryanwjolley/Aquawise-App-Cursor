@@ -31,6 +31,13 @@ export interface Invite {
   role: 'customer' | 'admin';
 }
 
+export interface Allocation {
+  id: string;
+  startDate: Date;
+  endDate: Date;
+  totalAllocationGallons: number;
+}
+
 const usersCollection = collection(db, "users");
 const usageCollection = collection(db, "usageData");
 const invitesCollection = collection(db, "invites");
@@ -225,11 +232,9 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
     return usageMap;
 }
 
-export const setAllocationForDate = async (startDate: Date, endDate: Date, totalAllocationGallons: number): Promise<void> => {
-  const allocationId = `${format(startDate, 'yyyy-MM-dd')}_${format(endDate, 'yyyy-MM-dd')}`;
+export const setAllocation = async (startDate: Date, endDate: Date, totalAllocationGallons: number): Promise<void> => {
   try {
-    const docRef = doc(db, "allocations", allocationId);
-    await setDoc(docRef, { 
+    await addDoc(allocationsCollection, { 
         startDate: Timestamp.fromDate(startDate),
         endDate: Timestamp.fromDate(endDate),
         totalAllocationGallons,
@@ -240,30 +245,56 @@ export const setAllocationForDate = async (startDate: Date, endDate: Date, total
   }
 };
 
-export const getAllocationForDate = async (date: Date): Promise<number | null> => {
-  try {
-    const q = query(
-        allocationsCollection,
-        where("startDate", "<=", date),
-        orderBy("startDate", "desc"),
-        limit(1)
-    );
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-        const docSnap = querySnapshot.docs[0];
-        const allocationData = docSnap.data();
-        const endDate = (allocationData.endDate as Timestamp).toDate();
+export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): Promise<Allocation[]> => {
+    try {
+        // This query finds allocations that *overlap* with the given date range.
+        // An allocation overlaps if its start is before the range's end AND its end is after the range's start.
+        const q = query(
+            allocationsCollection,
+            where("startDate", "<=", endDate),
+            where("endDate", ">=", startDate)
+        );
 
-        if (date <= endDate) {
-            return allocationData.totalAllocationGallons;
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            return [];
         }
+
+        return querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                startDate: (data.startDate as Timestamp).toDate(),
+                endDate: (data.endDate as Timestamp).toDate(),
+                totalAllocationGallons: data.totalAllocationGallons,
+            } as Allocation;
+        });
+
+    } catch (e) {
+        console.error("Error getting allocations for period: ", e);
+        throw e;
     }
-    return null;
-  } catch (e) {
-    console.error("Error getting allocation: ", e);
-    throw e;
-  }
 };
+
+export const getAllocations = async (): Promise<Allocation[]> => {
+    try {
+        const q = query(allocationsCollection, orderBy("startDate", "desc"));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                startDate: (data.startDate as Timestamp).toDate(),
+                endDate: (data.endDate as Timestamp).toDate(),
+                totalAllocationGallons: data.totalAllocationGallons,
+            } as Allocation;
+        });
+    } catch (e) {
+        console.error("Error getting all allocations: ", e);
+        throw e;
+    }
+};
+
 
 export const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
     
@@ -301,3 +332,5 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
       gallons: dailyUsageMap.get(format(day, 'yyyy-MM-dd')) || 0,
     }));
 };
+
+    

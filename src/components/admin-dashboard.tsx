@@ -2,11 +2,11 @@
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2 } from 'lucide-react';
+import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getAllocationForDate, setAllocationForDate, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument } from '../firestoreService';
+import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -16,6 +16,7 @@ import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { UserForm } from './user-form';
+import { AllocationForm } from './allocation-form';
 import { useAuth } from '@/context/auth-context';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -31,18 +32,18 @@ import {
 import { Skeleton } from './ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const DEFAULT_TOTAL_ALLOCATION = 5000000;
-
 type UserData = User | Invite;
 
 export default function AdminDashboard() {
-    const [totalAllocation, setTotalAllocation] = useState(DEFAULT_TOTAL_ALLOCATION);
     const [userData, setUserData] = useState<UserData[]>([]);
+    const [allocations, setAllocations] = useState<Allocation[]>([]);
     const [loading, setLoading] = useState(true);
     const [waterDataLoading, setWaterDataLoading] = useState(false);
     const [totalWaterConsumed, setTotalWaterConsumed] = useState(0);
+    const [totalPeriodAllocation, setTotalPeriodAllocation] = useState(0);
     
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
+    const [isAllocationFormOpen, setIsAllocationFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
     
@@ -88,22 +89,23 @@ export default function AdminDashboard() {
             usersToFetch = fetchedData.filter(u => u.status !== 'invited') as User[];
         }
 
-        if (!date?.from) {
+        if (!date?.from || !date.to) {
             setTotalWaterConsumed(0);
+            setTotalPeriodAllocation(0);
             return;
         }
-        const endDate = date.to ?? date.from;
+        
         setWaterDataLoading(true);
         try {
             const userIds = usersToFetch.filter(u => u.status === 'active').map(u => u.id);
 
-            const [allocation, usageDataById] = await Promise.all([
-                getAllocationForDate(date.from),
-                userIds.length > 0 ? getUsageForDateRange(userIds, date.from, endDate) : Promise.resolve({}),
+            const [allocations, usageDataById] = await Promise.all([
+                getAllocationsForPeriod(date.from, date.to),
+                userIds.length > 0 ? getUsageForDateRange(userIds, date.from, date.to) : Promise.resolve({}),
             ]);
             
-            const currentTotalAllocation = allocation ?? DEFAULT_TOTAL_ALLOCATION;
-            setTotalAllocation(currentTotalAllocation);
+            const totalAllocation = allocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
+            setTotalPeriodAllocation(totalAllocation);
 
             const consumed = Object.values(usageDataById).reduce((sum, val) => sum + val, 0);
             setTotalWaterConsumed(consumed);
@@ -120,10 +122,24 @@ export default function AdminDashboard() {
         }
     }, [date, toast, userData, loading, fetchUserData]);
 
+    const fetchAllocations = useCallback(async () => {
+        try {
+            const fetchedAllocations = await getAllocations();
+            setAllocations(fetchedAllocations);
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Allocation Fetch Failed',
+                description: 'Could not load the list of allocations.',
+            });
+        }
+    }, [toast]);
+
 
     useEffect(() => {
         fetchUserData();
-    }, [fetchUserData]);
+        fetchAllocations();
+    }, [fetchUserData, fetchAllocations]);
     
     useEffect(() => {
         const activeTab = document.querySelector('[data-state="active"]')?.getAttribute('data-value');
@@ -136,7 +152,8 @@ export default function AdminDashboard() {
 
     const onTabChange = async (tab: string) => {
         if (tab === 'water') {
-            fetchWaterData();
+            await fetchWaterData();
+            await fetchAllocations();
         }
     }
     
@@ -279,27 +296,20 @@ export default function AdminDashboard() {
         reader.readAsText(file);
     };
 
-    const handleUpdateAllocation = async () => {
-        if (!date?.from || !date?.to) {
-            toast({
-                variant: 'destructive',
-                title: 'Invalid Date Range',
-                description: 'Please select a start and end date for the allocation period.',
-            });
-            return;
-        }
+    const handleAllocationSave = async (data: { startDate: Date, endDate: Date, totalAllocationGallons: number }) => {
         try {
-            await setAllocationForDate(date.from, date.to, totalAllocation);
+            await setAllocation(data.startDate, data.endDate, data.totalAllocationGallons);
+            fetchAllocations();
             fetchWaterData();
             toast({
-                title: 'Allocation Updated',
-                description: `Set total allocation to ${totalAllocation.toLocaleString()} gallons for the selected period.`,
+                title: 'Allocation Created',
+                description: `Successfully created new allocation period.`,
             });
         } catch (error) {
             toast({
                 variant: 'destructive',
-                title: 'Update Failed',
-                description: 'Could not save the allocation.',
+                title: 'Creation Failed',
+                description: 'Could not save the new allocation.',
             });
         }
     };
@@ -384,6 +394,10 @@ export default function AdminDashboard() {
     const activeUsers = useMemo(() => {
         return userData.filter(u => u.status === 'active');
     }, [userData]);
+    
+    const totalSharesIssued = useMemo(() => {
+        return (userData.filter(u => u.status !== 'invited') as User[]).reduce((acc, user) => acc + user.shares, 0);
+    }, [userData]);
 
     const getBadgeVariant = (status?: 'active' | 'inactive' | 'invited') => {
         switch (status) {
@@ -400,44 +414,6 @@ export default function AdminDashboard() {
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Water Master Dashboard</h1>
                     <p className="text-muted-foreground">Manti Irrigation Company</p>
-                </div>
-                <div className="flex items-center gap-4">
-                 <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                        id="date"
-                        variant={"outline"}
-                        className={cn(
-                            "w-auto min-w-[240px] justify-start text-left font-normal",
-                            !date && "text-muted-foreground"
-                        )}
-                        >
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        {date?.from ? (
-                            date.to ? (
-                            <>
-                                {format(date.from, "LLL dd, y")} -{" "}
-                                {format(date.to, "LLL dd, y")}
-                            </>
-                            ) : (
-                            format(date.from, "LLL dd, y")
-                            )
-                        ) : (
-                            <span>Pick a date range</span>
-                        )}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={date?.from}
-                            selected={date}
-                            onSelect={setDate}
-                            numberOfMonths={2}
-                        />
-                    </PopoverContent>
-                </Popover>
                 </div>
             </header>
 
@@ -571,69 +547,135 @@ export default function AdminDashboard() {
 
                 <TabsContent value="water">
                     <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {waterDataLoading ? (
-                                <>
-                                    <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
-                                    <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
-                                    <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
-                                </>
-                            ) : (
-                                <>
-                                <Card className="rounded-xl shadow-md">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-3xl font-bold">{activeUsers.length}</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="rounded-xl shadow-md">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-3xl font-bold">{(totalAllocation / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="rounded-xl shadow-md">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-3xl font-bold">{(totalWaterConsumed / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
-                                    </CardContent>
-                                </Card>
-                                </>
-                            )}
-                        </div>
-
                         <Card className="rounded-xl shadow-md">
                             <CardHeader>
-                                <CardTitle className="text-xl">Allocation Management</CardTitle>
+                                <CardTitle className="text-xl">System Information</CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <div className="flex flex-col sm:flex-row items-end gap-4">
-                                    <div className="flex-grow w-full">
-                                        <label htmlFor="total-allocation" className="block text-sm font-medium text-foreground mb-1">Total Allocation for Period (Gallons)</label>
-                                        {waterDataLoading ? <Skeleton className="h-10 w-full" /> : 
-                                            <Input
-                                                type="number"
-                                                id="total-allocation"
-                                                value={totalAllocation}
-                                                onChange={(e) => setTotalAllocation(Number(e.target.value))}
-                                                placeholder="e.g. 5000000"
+                             <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                     <Card className="rounded-lg">
+                                        <CardHeader className="pb-2 flex-row items-center justify-between">
+                                            <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
+                                            <Users className="h-4 w-4 text-muted-foreground" />
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-2xl font-bold">{activeUsers.length}</p>
+                                        </CardContent>
+                                    </Card>
+                                     <Card className="rounded-lg">
+                                        <CardHeader className="pb-2 flex-row items-center justify-between">
+                                            <CardTitle className="text-sm font-medium">Total Shares Issued</CardTitle>
+                                            <BarChart className="h-4 w-4 text-muted-foreground" />
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-2xl font-bold">{totalSharesIssued.toLocaleString()}</p>
+                                        </CardContent>
+                                    </Card>
+                                     <Card className="rounded-lg">
+                                        <CardHeader className="pb-2 flex-row items-center justify-between">
+                                            <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
+                                            <Droplets className="h-4 w-4 text-muted-foreground" />
+                                        </CardHeader>
+                                        <CardContent>
+                                             {waterDataLoading ? <Skeleton className="h-7 w-2/3" /> :
+                                                <p className="text-2xl font-bold">{(totalPeriodAllocation / 1000).toFixed(0)}K <span className="text-base font-normal text-muted-foreground">gal</span></p>
+                                             }
+                                        </CardContent>
+                                    </Card>
+                                     <Card className="rounded-lg">
+                                        <CardHeader className="pb-2 flex-row items-center justify-between">
+                                            <CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle>
+                                            <Droplets className="h-4 w-4 text-primary" />
+                                        </CardHeader>
+                                        <CardContent>
+                                             {waterDataLoading ? <Skeleton className="h-7 w-2/3" /> :
+                                                <p className="text-2xl font-bold">{(totalWaterConsumed / 1000).toFixed(0)}K <span className="text-base font-normal text-muted-foreground">gal</span></p>
+                                             }
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                                <div className="flex justify-end">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                            id="date"
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-auto min-w-[240px] justify-start text-left font-normal",
+                                                !date && "text-muted-foreground"
+                                            )}
+                                            >
+                                            <CalendarDays className="mr-2 h-4 w-4" />
+                                            {date?.from ? (
+                                                date.to ? (
+                                                <>
+                                                    {format(date.from, "LLL dd, y")} -{" "}
+                                                    {format(date.to, "LLL dd, y")}
+                                                </>
+                                                ) : (
+                                                format(date.from, "LLL dd, y")
+                                                )
+                                            ) : (
+                                                <span>Pick a date range</span>
+                                            )}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="end">
+                                            <Calendar
+                                                initialFocus
+                                                mode="range"
+                                                defaultMonth={date?.from}
+                                                selected={date}
+                                                onSelect={setDate}
+                                                numberOfMonths={2}
                                             />
-                                        }
-                                    </div>
-                                    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 flex-wrap">
-                                        <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation} disabled={waterDataLoading}>
-                                            Update Allocation
-                                        </Button>
-                                    </div>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </CardContent>
                         </Card>
+
+                        <Card className="rounded-xl shadow-md">
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-xl">Allocation Management</CardTitle>
+                                    <CardDescription>Create and view allocation periods.</CardDescription>
+                                </div>
+                                <Button onClick={() => setIsAllocationFormOpen(true)}>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    New Allocation
+                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Start Date & Time</TableHead>
+                                            <TableHead>End Date & Time</TableHead>
+                                            <TableHead className="text-right">Total Gallons Allocated</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {waterDataLoading ? (
+                                             Array.from({length: 3}).map((_, i) => (
+                                                <TableRow key={`alloc-skel-${i}`}>
+                                                    <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                                    <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                                    <TableCell className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableCell>
+                                                </TableRow>
+                                             ))
+                                        ) : allocations.map((alloc) => (
+                                            <TableRow key={alloc.id}>
+                                                <TableCell>{format(alloc.startDate, 'MMM d, yyyy, h:mm a')}</TableCell>
+                                                <TableCell>{format(alloc.endDate, 'MMM d, yyyy, h:mm a')}</TableCell>
+                                                <TableCell className="text-right">{alloc.totalAllocationGallons.toLocaleString()}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+
                          <Card className="rounded-xl shadow-md">
                             <CardHeader>
                                 <CardTitle className="text-xl">Upload Usage Data</CardTitle>
@@ -681,6 +723,12 @@ export default function AdminDashboard() {
                 user={editingUser}
             />
 
+            <AllocationForm
+                isOpen={isAllocationFormOpen}
+                onOpenChange={setIsAllocationFormOpen}
+                onSave={handleAllocationSave}
+            />
+
             <AlertDialog open={!!userToDelete} onOpenChange={(isOpen) => !isOpen && setUserToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -703,5 +751,6 @@ export default function AdminDashboard() {
             </AlertDialog>
         </div>
     );
+}
 
     

@@ -5,22 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Droplets, LineChart, Scale, CalendarDays, Users, TrendingUp } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
-import { getAllocationForDate, getDailyUsageForDateRange, DailyUsage, User, getUsers } from '@/firestoreService';
+import { getAllocationsForPeriod, getDailyUsageForDateRange, DailyUsage, User, getUsers } from '@/firestoreService';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { startOfMonth, endOfMonth, format, differenceInMinutes, differenceInSeconds } from 'date-fns';
-import { cn, convertAndFormat, GALLONS_PER_ACRE_FOOT, GALLONS_PER_CUBIC_FOOT } from '@/lib/utils';
+import { cn, convertAndFormat, GALLONS_PER_CUBIC_FOOT } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUnit } from '@/context/unit-context';
 import { Label } from './ui/label';
-
-
-const DEFAULT_TOTAL_ALLOCATION = 5000000;
 
 export default function CustomerDashboard() {
   const { userDetails, loading: authLoading } = useAuth();
@@ -68,7 +65,9 @@ export default function CustomerDashboard() {
             }
         }
     };
-    initializeUser();
+    if (userDetails) {
+      initializeUser();
+    }
   }, [userDetails, toast]);
 
 
@@ -85,15 +84,14 @@ export default function CustomerDashboard() {
         setLoading(true);
 
         try {
-            const allocationForPeriod = await getAllocationForDate(date.from);
+            const allocations = await getAllocationsForPeriod(date.from, date.to);
+            const totalSystemAllocationForPeriod = allocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
+            
             const activeUsers = allUsers.filter(u => u.status === 'active');
             const totalSystemShares = activeUsers.reduce((acc, user) => acc + user.shares, 0);
 
-            if (totalSystemShares === 0 && activeUsers.length > 0) {
-              // Handle case where users exist but have no shares
-               setTotalPeriodAllocation(0);
-            } else if (totalSystemShares > 0) {
-               const userAllocation = (allocationForPeriod ?? DEFAULT_TOTAL_ALLOCATION) * (selectedUser.shares / totalSystemShares);
+            if (totalSystemShares > 0) {
+               const userAllocation = totalSystemAllocationForPeriod * (selectedUser.shares / totalSystemShares);
                setTotalPeriodAllocation(userAllocation);
             } else {
                setTotalPeriodAllocation(0);
@@ -111,8 +109,7 @@ export default function CustomerDashboard() {
                 title: 'Data Fetch Failed',
                 description: 'Could not fetch your usage data for this period.',
             });
-            const totalSystemShares = allUsers.reduce((acc, user) => acc + user.shares, 0);
-            setTotalPeriodAllocation(totalSystemShares > 0 ? DEFAULT_TOTAL_ALLOCATION * ((selectedUser?.shares || 0) / totalSystemShares) : 0);
+            setTotalPeriodAllocation(0);
             setWaterUsed(0);
             setDailyUsage([]);
         } finally {
@@ -120,7 +117,7 @@ export default function CustomerDashboard() {
         }
     };
     
-    if (selectedUser) {
+    if (selectedUser && allUsers.length > 0) {
       fetchPeriodData();
     } else if (userDetails?.role === 'admin' && users.length === 0){
         // Admin view, but no customers yet
@@ -365,3 +362,5 @@ export default function CustomerDashboard() {
     </div>
   );
 }
+
+    
