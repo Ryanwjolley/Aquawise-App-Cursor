@@ -5,12 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, deleteAllocation, AllocationData } from '../firestoreService';
+import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, AllocationData } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { DateRange } from 'react-day-picker';
-import { format } from 'date-fns';
+import { format, differenceInMinutes } from 'date-fns';
 import { cn, convertAndFormat } from '@/lib/utils';
 import { UserForm } from './user-form';
 import { AllocationForm } from './allocation-form';
@@ -345,10 +345,10 @@ export default function AdminDashboard() {
         const nextAllocation = sortedAllocations[currentIndex + 1];
         
         let gapMessage = '';
-        if (prevAllocation && data.startDate > prevAllocation.endDate) {
+        if (prevAllocation && differenceInMinutes(data.startDate, prevAllocation.endDate) > 1) {
             gapMessage += `This creates a gap between this allocation and the previous one ending at ${format(prevAllocation.endDate, 'PPp')}. `;
         }
-        if (nextAllocation && data.endDate < nextAllocation.startDate) {
+        if (nextAllocation && differenceInMinutes(nextAllocation.startDate, data.endDate) > 1) {
             gapMessage += `This creates a gap between this allocation and the next one starting at ${format(nextAllocation.startDate, 'PPp')}.`;
         }
         
