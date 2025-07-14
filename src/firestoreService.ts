@@ -301,5 +301,3 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
       gallons: dailyUsageMap.get(format(day, 'yyyy-MM-dd')) || 0,
     }));
 };
-
-    
