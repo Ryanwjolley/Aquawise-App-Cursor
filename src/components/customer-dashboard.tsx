@@ -2,22 +2,20 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplets, LineChart, Scale, CalendarDays, Users, TrendingUp } from 'lucide-react';
+import { Droplets, LineChart, Scale, Users, TrendingUp } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
-import { getAllocationsForPeriod, getDailyUsageForDateRange, DailyUsage, User, getUsers } from '@/firestoreService';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import { getAllocationsForPeriod, getDailyUsageForDateRange, DailyUsage, User, getUsers, getAllocations, Allocation } from '@/firestoreService';
 import type { DateRange } from 'react-day-picker';
-import { startOfMonth, endOfMonth, format, differenceInMinutes, differenceInSeconds } from 'date-fns';
-import { cn, convertAndFormat, GALLONS_PER_CUBIC_FOOT } from '@/lib/utils';
+import { startOfMonth, endOfMonth, differenceInMinutes, differenceInSeconds } from 'date-fns';
+import { convertAndFormat, GALLONS_PER_CUBIC_FOOT } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUnit } from '@/context/unit-context';
 import { Label } from './ui/label';
+import { DateRangeSelector } from './date-range-selector';
 
 export default function CustomerDashboard() {
   const { userDetails, loading: authLoading } = useAuth();
@@ -37,6 +35,7 @@ export default function CustomerDashboard() {
   const [waterUsed, setWaterUsed] = useState(0);
   const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -65,8 +64,21 @@ export default function CustomerDashboard() {
             }
         }
     };
+    const fetchAllAllocations = async () => {
+        try {
+            const fetchedAllocations = await getAllocations();
+            setAllTimeAllocations(fetchedAllocations);
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Failed to fetch allocations',
+                description: 'Could not load allocation list.',
+            });
+        }
+    }
     if (userDetails) {
       initializeUser();
+      fetchAllAllocations();
     }
   }, [userDetails, toast]);
 
@@ -186,20 +198,23 @@ export default function CustomerDashboard() {
           <h1 className="text-3xl font-bold text-foreground">{welcomeMessage}</h1>
           <p className="text-muted-foreground">{subMessage}</p>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-end gap-4">
           {userDetails?.role === 'admin' && users.length > 0 && (
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Users className="h-5 w-5 text-muted-foreground" />
-                <Select onValueChange={handleUserChange} value={selectedUser?.id}>
-                    <SelectTrigger className="w-full sm:w-[200px]">
-                        <SelectValue placeholder="Select a user" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {users.map((user) => (
-                            <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+            <div className="flex flex-col gap-1 w-full sm:w-auto">
+                <Label>Viewing As</Label>
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-muted-foreground" />
+                  <Select onValueChange={handleUserChange} value={selectedUser?.id}>
+                      <SelectTrigger className="w-full sm:w-[200px]">
+                          <SelectValue placeholder="Select a user" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {users.map((user) => (
+                              <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                </div>
             </div>
           )}
            <div>
@@ -214,44 +229,11 @@ export default function CustomerDashboard() {
                 </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>Allocation Period</Label>
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button
-                    id="date"
-                    variant={"outline"}
-                    className={cn(
-                        "w-auto min-w-[240px] justify-start text-left font-normal",
-                        !date && "text-muted-foreground"
-                    )}
-                    >
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    {date?.from ? (
-                        date.to ? (
-                        <>
-                            {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-                        </>
-                        ) : (
-                        format(date.from, "LLL dd, y")
-                        )
-                    ) : (
-                        <span>Pick a date range</span>
-                    )}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={date?.from}
-                    selected={date}
-                    onSelect={setDate}
-                    numberOfMonths={2}
-                    />
-                </PopoverContent>
-            </Popover>
-          </div>
+          <DateRangeSelector
+              date={date}
+              setDate={setDate}
+              allocations={allTimeAllocations}
+          />
         </div>
       </header>
         

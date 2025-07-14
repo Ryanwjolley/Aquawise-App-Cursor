@@ -2,16 +2,13 @@
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets, Ruler } from 'lucide-react';
+import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, deleteAllocation, AllocationData } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { cn, convertAndFormat } from '@/lib/utils';
@@ -34,12 +31,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUnit } from '@/context/unit-context';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { DateRangeSelector } from './date-range-selector';
 
 type UserData = User | Invite;
 
 export default function AdminDashboard() {
     const [userData, setUserData] = useState<UserData[]>([]);
     const [allocations, setAllocations] = useState<Allocation[]>([]);
+    const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
     const [loading, setLoading] = useState(true);
     const [waterDataLoading, setWaterDataLoading] = useState(false);
     const [totalWaterConsumed, setTotalWaterConsumed] = useState(0);
@@ -107,12 +106,12 @@ export default function AdminDashboard() {
         try {
             const userIds = usersToFetch.filter(u => u.status === 'active').map(u => u.id);
 
-            const [allocations, usageDataById] = await Promise.all([
+            const [periodAllocations, usageDataById] = await Promise.all([
                 getAllocationsForPeriod(date.from, date.to),
                 userIds.length > 0 ? getUsageForDateRange(userIds, date.from, date.to) : Promise.resolve({}),
             ]);
             
-            const totalAllocation = allocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
+            const totalAllocation = periodAllocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
             setTotalPeriodAllocation(totalAllocation);
 
             const consumed = Object.values(usageDataById).reduce((sum, val) => sum + val, 0);
@@ -134,6 +133,7 @@ export default function AdminDashboard() {
         try {
             const fetchedAllocations = await getAllocations();
             setAllocations(fetchedAllocations);
+            setAllTimeAllocations(fetchedAllocations);
         } catch (error) {
             toast({
                 variant: 'destructive',
@@ -629,42 +629,11 @@ export default function AdminDashboard() {
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                            id="date"
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-auto min-w-[240px] justify-start text-left font-normal",
-                                                !date && "text-muted-foreground"
-                                            )}
-                                            >
-                                            <CalendarDays className="mr-2 h-4 w-4" />
-                                            {date?.from ? (
-                                                date.to ? (
-                                                <>
-                                                    {format(date.from, "LLL dd, y")} -{" "}
-                                                    {format(date.to, "LLL dd, y")}
-                                                </>
-                                                ) : (
-                                                format(date.from, "LLL dd, y")
-                                                )
-                                            ) : (
-                                                <span>Pick a date range</span>
-                                            )}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="end">
-                                            <Calendar
-                                                initialFocus
-                                                mode="range"
-                                                defaultMonth={date?.from}
-                                                selected={date}
-                                                onSelect={setDate}
-                                                numberOfMonths={2}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
+                                    <DateRangeSelector
+                                        date={date}
+                                        setDate={setDate}
+                                        allocations={allTimeAllocations}
+                                    />
                                 </div>
                             </CardHeader>
                              <CardContent className="space-y-4 pt-4">
@@ -903,5 +872,3 @@ export default function AdminDashboard() {
         </div>
     );
 }
-
-    
