@@ -1,10 +1,11 @@
 'use client'
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts'
-import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart'
+import { ChartContainer, ChartTooltipContent, ChartTooltip, ChartStyle } from '@/components/ui/chart'
 import type { DailyUsage } from '@/firestoreService';
 import { useUnit } from '@/context/unit-context';
 import { convertAndFormat, GALLONS_PER_ACRE_FOOT } from '@/lib/utils';
+import { useMemo } from 'react';
 
 type DailyUsageChartProps = {
   data: DailyUsage[];
@@ -20,10 +21,10 @@ export default function DailyUsageChart({ data }: DailyUsageChartProps) {
       },
   }
 
-  const chartData = data.map(item => ({
+  const chartData = useMemo(() => data.map(item => ({
     ...item,
     displayValue: unit === 'acre-feet' ? item.gallons / GALLONS_PER_ACRE_FOOT : item.gallons
-  }));
+  })), [data, unit]);
 
   return (
     <ChartContainer config={chartConfig} className="w-full h-full">
@@ -37,19 +38,22 @@ export default function DailyUsageChart({ data }: DailyUsageChartProps) {
                     axisLine={false} 
                     tickFormatter={(value) => unit === 'gallons' ? `${value}` : `${Number(value).toFixed(2)}`} 
                 />
-                <Tooltip 
-                    cursor={{fill: 'hsla(var(--muted), 0.5)'}} 
-                    content={<ChartTooltipContent 
-                                indicator="dot" 
-                                formatter={(value, name, props) => {
-                                    return (
-                                        <div className="flex flex-col">
-                                            <span className="font-semibold">{props.payload.day}</span>
-                                            <span>{`${convertAndFormat(props.payload.gallons, unit)} ${getUnitLabel()}`}</span>
-                                        </div>
-                                    )
-                                }}
-                            />}
+                <ChartTooltip 
+                    cursor={{fill: 'hsla(var(--muted), 0.5)'}}
+                    content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                            const originalDataPoint = data.find(d => d.day === label);
+                            if (originalDataPoint) {
+                                return (
+                                    <div className="p-2 bg-background border rounded-lg shadow-sm">
+                                        <p className="font-bold">{label}</p>
+                                        <p>{`${convertAndFormat(originalDataPoint.gallons, unit)} ${getUnitLabel()}`}</p>
+                                    </div>
+                                )
+                            }
+                        }
+                        return null;
+                    }}
                 />
                 <Bar dataKey="displayValue" fill="var(--color-gallons)" radius={[5, 5, 0, 0]} />
             </BarChart>

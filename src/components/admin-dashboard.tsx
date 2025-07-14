@@ -78,7 +78,7 @@ export default function AdminDashboard() {
         }
     }, [toast]);
 
-    const fetchWaterData = useCallback(async () => {
+    const fetchWaterData = useCallback(async (currentUsers: UserData[]) => {
         if (!date?.from) {
             setTotalWaterConsumed(0);
             return;
@@ -86,7 +86,7 @@ export default function AdminDashboard() {
         const endDate = date.to ?? date.from;
         setWaterDataLoading(true);
         try {
-            const activeUsers = userData.filter(u => u.status === 'active') as User[];
+            const activeUsers = currentUsers.filter(u => u.status === 'active') as User[];
             const userIds = activeUsers.map(u => u.id);
 
             const [allocation, usageDataById] = await Promise.all([
@@ -110,16 +110,20 @@ export default function AdminDashboard() {
         } finally {
             setWaterDataLoading(false);
         }
-    }, [date, toast, userData]);
+    }, [date, toast]);
 
 
     useEffect(() => {
         fetchUserData();
     }, [fetchUserData]);
 
-    const onTabChange = (tab: string) => {
+    const onTabChange = async (tab: string) => {
         if (tab === 'water') {
-            fetchWaterData();
+            // Ensure user data is loaded before fetching water data
+            if (userData.length === 0) {
+                await fetchUserData();
+            }
+            fetchWaterData(userData);
         }
     }
     
@@ -274,7 +278,7 @@ export default function AdminDashboard() {
         }
         try {
             await setAllocationForDate(date.from, date.to, totalAllocation);
-            fetchWaterData();
+            fetchWaterData(userData);
             toast({
                 title: 'Allocation Updated',
                 description: `Set total allocation to ${totalAllocation.toLocaleString()} gallons for the selected period.`,
