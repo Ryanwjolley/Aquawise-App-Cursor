@@ -53,6 +53,8 @@ export default function CustomerDashboard() {
                     setUsers(customerUsers);
                     if (customerUsers.length > 0) {
                         setSelectedUser(customerUsers[0]);
+                    } else {
+                        setLoading(false); // No customers to load data for
                     }
                 } else {
                     setSelectedUser(userDetails);
@@ -164,7 +166,7 @@ export default function CustomerDashboard() {
       );
   }
 
-  if (!userDetails) {
+  if (userDetails?.role === 'customer' && !selectedUser) {
        return (
           <div className="flex flex-col items-center justify-center h-screen">
               <h1 className="text-2xl font-bold text-foreground">User not found</h1>
@@ -356,3 +358,5 @@ export default function CustomerDashboard() {
     </div>
   );
 }
+
+    
