@@ -19,6 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [user, userDetails, loading, router]);
 
+  // Show loading screen while auth state is resolving OR if user is logged in but details haven't been fetched yet.
   if (loading || (user && !userDetails)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -30,10 +31,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
     );
   }
-  
-  if (!loading && userDetails && userDetails.role !== 'admin') {
-      return null;
-  }
 
+  // If loading is finished, user is not logged in, or user is not an admin, don't render children.
+  // The useEffect above will handle the redirection. Return null to prevent flicker.
+  if (!user || (userDetails && userDetails.role !== 'admin')) {
+    return null;
+  }
+  
+  // If all checks pass, render the layout with children.
   return <AppLayout>{children}</AppLayout>;
 }
