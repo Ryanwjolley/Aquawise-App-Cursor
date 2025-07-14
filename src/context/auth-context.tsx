@@ -15,13 +15,31 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const MOCK_ADMIN_USER = {
+  id: 'admin-001',
+  name: 'Admin User',
+  email: 'admin@aquawise.com',
+  role: 'admin',
+  shares: 100,
+  status: 'active',
+} as User;
+
+const MOCK_FIREBASE_USER = {
+    uid: 'admin-001',
+    email: 'admin@aquawise.com',
+} as FirebaseUser;
+
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userDetails, setUserDetails] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<FirebaseUser | null>(MOCK_FIREBASE_USER);
+  const [userDetails, setUserDetails] = useState<User | null>(MOCK_ADMIN_USER);
+  const [loading, setLoading] = useState(false); // Set to false since we are using mock data
   const auth = getAuth(app);
   const router = useRouter();
 
+  // The original onAuthStateChanged is commented out to allow for mock user.
+  // We can restore this when we re-enable login.
+  /*
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -56,9 +74,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => unsubscribe();
   }, [auth]);
+  */
 
   const logout = async () => {
-    await auth.signOut();
+    // When using mock data, this just clears the state.
+    // In a real scenario, it would sign out from Firebase.
     setUser(null);
     setUserDetails(null);
     // Redirect to the root, which will then go to the admin page.
