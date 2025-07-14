@@ -702,7 +702,7 @@ export default function AdminDashboard() {
                                                     <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                                                 </TableRow>
                                              ))
-                                        ) : periodAllocations.map((alloc) => (
+                                        ) : allTimeAllocations.map((alloc) => (
                                             <TableRow key={alloc.id}>
                                                 <TableCell>{format(alloc.startDate, 'MMM d, yyyy, h:mm a')}</TableCell>
                                                 <TableCell>{format(alloc.endDate, 'MMM d, yyyy, h:mm a')}</TableCell>
