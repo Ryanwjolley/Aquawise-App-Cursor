@@ -10,8 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { startOfMonth, endOfMonth, format, differenceInMinutes } from 'date-fns';
-import { cn, convertAndFormat, GALLONS_PER_ACRE_FOOT } from '@/lib/utils';
+import { startOfMonth, endOfMonth, format, differenceInMinutes, differenceInSeconds } from 'date-fns';
+import { cn, convertAndFormat, GALLONS_PER_ACRE_FOOT, GALLONS_PER_CUBIC_FOOT } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
@@ -25,6 +25,7 @@ const DEFAULT_TOTAL_ALLOCATION = 5000000;
 export default function CustomerDashboard() {
   const { userDetails, loading: authLoading } = useAuth();
   const { unit, setUnit, getUnitLabel } = useUnit();
+  const [flowUnit, setFlowUnit] = useState<'gpm' | 'cfs'>('gpm');
 
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfMonth(new Date(2025, 6, 6)),
@@ -130,9 +131,21 @@ export default function CustomerDashboard() {
   
   const averageFlow = () => {
     if (!date?.from || !date?.to || waterUsed === 0) return 0;
-    const minutes = differenceInMinutes(date.to, date.from);
-    if (minutes === 0) return 0;
-    return waterUsed / minutes; // GPM
+    
+    if (flowUnit === 'gpm') {
+        const minutes = differenceInMinutes(date.to, date.from);
+        if (minutes === 0) return 0;
+        return waterUsed / minutes; // GPM
+    }
+    
+    if (flowUnit === 'cfs') {
+        const seconds = differenceInSeconds(date.to, date.from);
+        if (seconds === 0) return 0;
+        const cubicFeet = waterUsed / GALLONS_PER_CUBIC_FOOT;
+        return cubicFeet / seconds; // CFS
+    }
+
+    return 0;
   };
   
   const welcomeMessage = userDetails?.role === 'admin' 
@@ -279,15 +292,28 @@ export default function CustomerDashboard() {
             </CardContent>
             </Card>
             <Card className="rounded-xl shadow-md">
-            <CardContent className="p-6 flex items-center space-x-4">
-                <div className="bg-purple-100 p-4 rounded-full">
-                    <TrendingUp className="h-6 w-6 text-purple-500" />
-                </div>
-                <div>
-                <p className="text-sm text-muted-foreground">Average Flow for Period</p>
-                <p className="text-3xl font-bold text-foreground">{averageFlow().toFixed(2)} <span className="text-lg font-normal text-muted-foreground">gpm</span></p>
-                </div>
-            </CardContent>
+                <CardContent className="p-6 flex flex-col justify-between h-full">
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-4">
+                             <div className="bg-purple-100 p-4 rounded-full">
+                                <TrendingUp className="h-6 w-6 text-purple-500" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground">Average Flow for Period</p>
+                                <p className="text-3xl font-bold text-foreground">{averageFlow().toFixed(2)}</p>
+                            </div>
+                        </div>
+                        <Select onValueChange={(value) => setFlowUnit(value as 'gpm' | 'cfs')} value={flowUnit}>
+                            <SelectTrigger className="w-[80px] h-8 text-xs">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="gpm">GPM</SelectItem>
+                                <SelectItem value="cfs">CFS</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardContent>
             </Card>
         </div>
       )}

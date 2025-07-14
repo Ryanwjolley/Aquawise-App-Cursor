@@ -6,6 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const GALLONS_PER_ACRE_FOOT = 325851;
+export const GALLONS_PER_CUBIC_FOOT = 7.48052;
 
 export const convertAndFormat = (value: number, unit: 'gallons' | 'acre-feet', chartTooltip: boolean = false) => {
   if (unit === 'acre-feet') {
