@@ -33,17 +33,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const DEFAULT_TOTAL_ALLOCATION = 5000000;
 
-type UserData = (User | Invite) & {
-    used: number;
-    allocation: number;
-    percentageUsed: number;
-    statusColor: string;
-}
+type UserData = User | Invite;
 
 export default function AdminDashboard() {
     const [totalAllocation, setTotalAllocation] = useState(DEFAULT_TOTAL_ALLOCATION);
     const [userData, setUserData] = useState<UserData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [totalWaterConsumed, setTotalWaterConsumed] = useState(0);
     
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
@@ -68,45 +64,23 @@ export default function AdminDashboard() {
         setLoading(true);
 
         try {
-            const fetchedUsers = await getUsers();
-            const userIds = fetchedUsers.filter(u => u.status === 'active').map(u => u.id);
-
-            const [fetchedInvites, allocation, usageDataById] = await Promise.all([
+            const [fetchedUsers, fetchedInvites, allocation] = await Promise.all([
+                getUsers(),
                 getInvites(),
                 getAllocationForDate(date.from),
-                userIds.length > 0 ? getUsageForDateRange(userIds, date.from, endDate) : Promise.resolve({})
             ]);
+
+            const userIds = fetchedUsers.filter(u => u.status === 'active').map(u => u.id);
+            const usageDataById = userIds.length > 0 ? await getUsageForDateRange(userIds, date.from, endDate) : {};
             
             const currentTotalAllocation = allocation ?? DEFAULT_TOTAL_ALLOCATION;
             setTotalAllocation(currentTotalAllocation);
             
-            const allUsersAndInvites = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
-            const totalSystemShares = fetchedUsers.filter(u => u.status === 'active').reduce((acc, user) => acc + (user.shares || 0), 0);
-            
-            const processedUserData = allUsersAndInvites.map(userOrInvite => {
-                const userStatus = 'status' in userOrInvite ? userOrInvite.status : 'invited';
+            const combinedData = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
+            setUserData(combinedData);
 
-                if (userStatus === 'invited' || userOrInvite.status === 'inactive') {
-                    return { ...userOrInvite, used: 0, allocation: 0, percentageUsed: 0, statusColor: 'bg-gray-400' } as UserData;
-                }
-
-                const user = userOrInvite as User;
-                const used = usageDataById[user.id] || 0;
-                
-                const userAllocation = totalSystemShares > 0 
-                    ? ((user.shares || 0) / totalSystemShares) * currentTotalAllocation
-                    : 0;
-
-                const percentageUsed = userAllocation > 0 ? Math.round((used / userAllocation) * 100) : 0;
-                
-                let statusColor = 'bg-green-500';
-                if (percentageUsed > 100) statusColor = 'bg-red-500';
-                else if (percentageUsed > 80) statusColor = 'bg-yellow-500';
-
-                return { ...user, used, allocation: Math.round(userAllocation), percentageUsed, statusColor } as UserData;
-            });
-
-            setUserData(processedUserData);
+            const consumed = Object.values(usageDataById).reduce((sum, val) => sum + val, 0);
+            setTotalWaterConsumed(consumed);
 
         } catch(error) {
             toast({
@@ -366,16 +340,8 @@ export default function AdminDashboard() {
         }
     };
 
-    const {
-        totalWaterConsumed,
-        activeUsers,
-    } = useMemo(() => {
-        const activeUsers = userData.filter(u => u.status === 'active');
-        const totalWaterConsumed = userData.reduce((acc, user) => acc + user.used, 0);
-        return {
-            totalWaterConsumed,
-            activeUsers,
-        };
+    const activeUsers = useMemo(() => {
+        return userData.filter(u => u.status === 'active');
     }, [userData]);
 
     const getBadgeVariant = (status?: 'active' | 'inactive' | 'invited') => {
@@ -444,7 +410,7 @@ export default function AdminDashboard() {
                     <Card className="rounded-xl shadow-md overflow-hidden">
                         <CardHeader className="flex flex-row items-center justify-between">
                             <div>
-                                <CardTitle className="text-xl">User & Water Management</CardTitle>
+                                <CardTitle className="text-xl">User & Invitation Management</CardTitle>
                             </div>
                             <div className='flex items-center gap-2'>
                                 <Button variant="outline" onClick={() => { setEditingUser(null); setIsUserFormOpen(true); }}>
@@ -498,15 +464,11 @@ export default function AdminDashboard() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead className="w-16">Usage</TableHead>
                                             <TableHead>User</TableHead>
                                             <TableHead>Email</TableHead>
                                             <TableHead>Role</TableHead>
                                             <TableHead>Shares</TableHead>
                                             <TableHead>Status</TableHead>
-                                            <TableHead>Allocated (gal)</TableHead>
-                                            <TableHead>Used (gal)</TableHead>
-                                            <TableHead>% Used</TableHead>
                                             <TableHead>Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -514,23 +476,16 @@ export default function AdminDashboard() {
                                         {loading ? (
                                             Array.from({length: 5}).map((_, i) => (
                                                 <TableRow key={`skeleton-${i}`}>
-                                                    <TableCell><Skeleton className="h-4 w-4 rounded-full" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                                                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                                                     <TableCell><Skeleton className="h-8 w-24" /></TableCell>
                                                 </TableRow>
                                             ))
                                         ) : userData.map((user) => (
                                             <TableRow key={user.id} className={(user.status ?? 'active') === 'inactive' ? 'opacity-50' : ''}>
-                                                <TableCell>
-                                                    <span className={`h-4 w-4 rounded-full ${user.statusColor} inline-block`} title={`${user.percentageUsed}% used`}></span>
-                                                </TableCell>
                                                 <TableCell className="font-medium">{user.name}</TableCell>
                                                 <TableCell>{user.email}</TableCell>
                                                 <TableCell className="capitalize">{user.role}</TableCell>
@@ -539,13 +494,6 @@ export default function AdminDashboard() {
                                                     <Badge variant={getBadgeVariant((user as User).status ?? 'invited')}>
                                                         {((user as User).status ?? 'invited').charAt(0).toUpperCase() + ((user as User).status ?? 'invited').slice(1)}
                                                     </Badge>
-                                                </TableCell>
-                                                <TableCell>{user.allocation.toLocaleString()}</TableCell>
-                                                <TableCell>{user.used.toLocaleString()}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-3 min-w-[150px]">
-                                                        <span className="text-sm font-medium text-muted-foreground">{user.percentageUsed}%</span>
-                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-1">
