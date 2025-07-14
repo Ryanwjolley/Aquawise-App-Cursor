@@ -1,13 +1,13 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Droplets, LineChart, Scale, Users, TrendingUp } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
 import { getAllocationsForPeriod, getDailyUsageForDateRange, DailyUsage, User, getUsers, getAllocations, Allocation } from '@/firestoreService';
 import type { DateRange } from 'react-day-picker';
-import { startOfMonth, endOfMonth, differenceInMinutes, differenceInSeconds } from 'date-fns';
+import { differenceInMinutes, differenceInSeconds } from 'date-fns';
 import { convertAndFormat, GALLONS_PER_CUBIC_FOOT } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -22,10 +22,7 @@ export default function CustomerDashboard() {
   const { unit, setUnit, getUnitLabel } = useUnit();
   const [flowUnit, setFlowUnit] = useState<'gpm' | 'cfs'>('gpm');
 
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date(2025, 6, 6)),
-    to: endOfMonth(new Date(2025, 6, 6)),
-  });
+  const [date, setDate] = useState<DateRange | undefined>(undefined);
   
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -38,49 +35,41 @@ export default function CustomerDashboard() {
   const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const initializeUser = async () => {
-        if (userDetails) {
-            try {
-                const fetchedUsers = await getUsers();
-                setAllUsers(fetchedUsers);
-                if (userDetails.role === 'admin') {
-                    const customerUsers = fetchedUsers.filter(u => u.role !== 'admin');
-                    setUsers(customerUsers);
-                    if (customerUsers.length > 0) {
-                        setSelectedUser(customerUsers[0]);
-                    } else {
-                        setLoading(false); // No customers to load data for
-                    }
-                } else {
-                    setSelectedUser(userDetails);
-                }
-            } catch (error) {
-                toast({
-                    variant: 'destructive',
-                    title: 'Failed to fetch users',
-                    description: 'Could not load user list.',
-                });
-            }
-        }
-    };
-    const fetchAllAllocations = async () => {
+  const fetchInitialData = useCallback(async () => {
+    if (userDetails) {
         try {
-            const fetchedAllocations = await getAllocations();
+            const [fetchedUsers, fetchedAllocations] = await Promise.all([
+                getUsers(),
+                getAllocations()
+            ]);
+            
+            setAllUsers(fetchedUsers);
             setAllTimeAllocations(fetchedAllocations);
+
+            if (userDetails.role === 'admin') {
+                const customerUsers = fetchedUsers.filter(u => u.role !== 'admin');
+                setUsers(customerUsers);
+                if (customerUsers.length > 0) {
+                    setSelectedUser(customerUsers[0]);
+                } else {
+                    setLoading(false); 
+                }
+            } else {
+                setSelectedUser(userDetails);
+            }
         } catch (error) {
-             toast({
+            toast({
                 variant: 'destructive',
-                title: 'Failed to fetch allocations',
-                description: 'Could not load allocation list.',
+                title: 'Failed to fetch initial data',
+                description: 'Could not load required user and allocation data.',
             });
         }
     }
-    if (userDetails) {
-      initializeUser();
-      fetchAllAllocations();
-    }
   }, [userDetails, toast]);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
 
   useEffect(() => {

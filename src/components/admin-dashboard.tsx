@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, AllocationData } from '../firestoreService';
+import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, AllocationData, deleteAllocation } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -57,10 +57,7 @@ export default function AdminDashboard() {
     const { unit, setUnit, getUnitLabel } = useUnit();
     const usageFileInputRef = React.useRef<HTMLInputElement>(null);
     const userFileInputRef = React.useRef<HTMLInputElement>(null);
-    const [date, setDate] = useState<DateRange | undefined>({
-        from: new Date(2025, 6, 1),
-        to: new Date(2025, 6, 31),
-    });
+    const [date, setDate] = useState<DateRange | undefined>(undefined);
     const { user: authUser } = useAuth();
     
     const fetchUserData = useCallback(async () => {
