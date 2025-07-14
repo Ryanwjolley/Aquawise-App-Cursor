@@ -1,9 +1,9 @@
 'use client'
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts'
-import { ChartContainer, ChartTooltipContent, ChartTooltip, ChartStyle } from '@/components/ui/chart'
+import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart'
 import type { DailyUsage } from '@/firestoreService';
-import { useUnit } from '@/context/unit-context';
+import { useUnit } from '@/context/unit-unit';
 import { convertAndFormat, GALLONS_PER_ACRE_FOOT } from '@/lib/utils';
 import { useMemo } from 'react';
 
@@ -26,6 +26,19 @@ export default function DailyUsageChart({ data }: DailyUsageChartProps) {
     displayValue: unit === 'acre-feet' ? item.gallons / GALLONS_PER_ACRE_FOOT : item.gallons
   })), [data, unit]);
 
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const dataPoint = payload[0].payload;
+      return (
+        <div className="p-2 bg-background border rounded-lg shadow-sm">
+          <p className="font-bold">{label}</p>
+          <p>{`${convertAndFormat(dataPoint.gallons, unit)} ${getUnitLabel()}`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <ChartContainer config={chartConfig} className="w-full h-full">
         <ResponsiveContainer width="100%" height="100%">
@@ -38,22 +51,9 @@ export default function DailyUsageChart({ data }: DailyUsageChartProps) {
                     axisLine={false} 
                     tickFormatter={(value) => unit === 'gallons' ? `${value}` : `${Number(value).toFixed(2)}`} 
                 />
-                <ChartTooltip 
+                <Tooltip 
                     cursor={{fill: 'hsla(var(--muted), 0.5)'}}
-                    content={({ active, payload, label }) => {
-                        if (active && payload && payload.length) {
-                            const originalDataPoint = data.find(d => d.day === label);
-                            if (originalDataPoint) {
-                                return (
-                                    <div className="p-2 bg-background border rounded-lg shadow-sm">
-                                        <p className="font-bold">{label}</p>
-                                        <p>{`${convertAndFormat(originalDataPoint.gallons, unit)} ${getUnitLabel()}`}</p>
-                                    </div>
-                                )
-                            }
-                        }
-                        return null;
-                    }}
+                    content={<CustomTooltip />}
                 />
                 <Bar dataKey="displayValue" fill="var(--color-gallons)" radius={[5, 5, 0, 0]} />
             </BarChart>

@@ -65,7 +65,7 @@ export default function AdminDashboard() {
             
             const combinedData = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
             setUserData(combinedData);
-
+            return combinedData;
         } catch(error) {
             toast({
                 variant: 'destructive',
@@ -73,6 +73,7 @@ export default function AdminDashboard() {
                 description: 'Could not load user and invitation list.',
             });
             console.error(error);
+            return [];
         } finally {
             setLoading(false);
         }
@@ -119,11 +120,14 @@ export default function AdminDashboard() {
 
     const onTabChange = async (tab: string) => {
         if (tab === 'water') {
-            // Ensure user data is loaded before fetching water data
-            if (userData.length === 0) {
-                await fetchUserData();
+            if (userData.length > 0) {
+                fetchWaterData(userData);
+            } else {
+                const currentUsers = await fetchUserData();
+                if (currentUsers.length > 0) {
+                    fetchWaterData(currentUsers);
+                }
             }
-            fetchWaterData(userData);
         }
     }
     
