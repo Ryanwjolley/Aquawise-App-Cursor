@@ -85,6 +85,7 @@ export default function AdminDashboard() {
     }, [toast]);
 
     const fetchAllTimeAllocations = useCallback(async () => {
+        setWaterDataLoading(true);
         try {
             const fetchedAllocations = await getAllocations();
             setAllTimeAllocations(fetchedAllocations);
@@ -94,14 +95,14 @@ export default function AdminDashboard() {
                 title: 'Allocation Fetch Failed',
                 description: 'Could not load the list of allocations.',
             });
+        } finally {
+            setWaterDataLoading(false);
         }
     }, [toast]);
 
     const fetchWaterData = useCallback(async () => {
         if (!date?.from || !date.to) {
             setTotalWaterConsumed(0);
-            setTotalPeriodAllocation(0);
-            setAllocations([]);
             return;
         }
         
@@ -115,15 +116,8 @@ export default function AdminDashboard() {
         try {
             const userIds = usersToFetch.filter(u => u.status === 'active').map(u => u.id);
 
-            const [periodAllocations, usageDataById] = await Promise.all([
-                getAllocationsForPeriod(date.from, date.to),
-                userIds.length > 0 ? getUsageForDateRange(userIds, date.from, date.to) : Promise.resolve({}),
-            ]);
+            const usageDataById = userIds.length > 0 ? await getUsageForDateRange(userIds, date.from, date.to) : {};
             
-            setAllocations(periodAllocations);
-            const totalAllocation = periodAllocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
-            setTotalPeriodAllocation(totalAllocation);
-
             const consumed = Object.values(usageDataById).reduce((sum, val) => sum + val, 0);
             setTotalWaterConsumed(consumed);
 
@@ -138,23 +132,26 @@ export default function AdminDashboard() {
             setWaterDataLoading(false);
         }
     }, [date, toast, userData, loading, fetchUserData]);
-
+    
     useEffect(() => {
         fetchUserData();
         fetchAllTimeAllocations();
     }, [fetchUserData, fetchAllTimeAllocations]);
     
+    const periodAllocations = useMemo(() => {
+        if (!date?.from || !date.to) return [];
+        return allTimeAllocations.filter(alloc => alloc.endDate >= date.from! && alloc.startDate <= date.to!);
+    }, [allTimeAllocations, date]);
+
     useEffect(() => {
-        const activeTab = document.querySelector('[data-state="active"]')?.getAttribute('data-value');
-        if (activeTab === 'water') {
-            fetchWaterData();
-        }
-    }, [date, fetchWaterData]);
+        fetchWaterData();
+        const totalAllocation = periodAllocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
+        setTotalPeriodAllocation(totalAllocation);
+    }, [date, periodAllocations, fetchWaterData]);
 
 
     const onTabChange = async (tab: string) => {
         if (tab === 'water') {
-            await fetchWaterData();
             await fetchAllTimeAllocations();
         }
     }
@@ -308,7 +305,6 @@ export default function AdminDashboard() {
                 toast({ title: 'Allocation Created', description: `Successfully created new allocation period.` });
             }
             fetchAllTimeAllocations();
-            fetchWaterData();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the allocation.' });
         }
@@ -439,7 +435,6 @@ export default function AdminDashboard() {
                 description: `The allocation period has been successfully deleted.`,
             });
             fetchAllTimeAllocations();
-            fetchWaterData();
         } catch (error) {
             toast({
                 variant: 'destructive',
@@ -707,7 +702,7 @@ export default function AdminDashboard() {
                                                     <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                                                 </TableRow>
                                              ))
-                                        ) : allocations.map((alloc) => (
+                                        ) : periodAllocations.map((alloc) => (
                                             <TableRow key={alloc.id}>
                                                 <TableCell>{format(alloc.startDate, 'MMM d, yyyy, h:mm a')}</TableCell>
                                                 <TableCell>{format(alloc.endDate, 'MMM d, yyyy, h:mm a')}</TableCell>
