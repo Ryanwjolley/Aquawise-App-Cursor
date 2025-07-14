@@ -2,26 +2,30 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Droplets, LineChart, Scale, CalendarDays, Users } from 'lucide-react';
+import { Droplets, LineChart, Scale, CalendarDays, Users, TrendingUp } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
-import { getAllocationForDate, getDailyUsageForDateRange, DailyUsage, User, getUsers, getInvites } from '@/firestoreService';
+import { getAllocationForDate, getDailyUsageForDateRange, DailyUsage, User, getUsers } from '@/firestoreService';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { startOfMonth, endOfMonth, format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { startOfMonth, endOfMonth, format, differenceInMinutes } from 'date-fns';
+import { cn, convertAndFormat, GALLONS_PER_ACRE_FOOT } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/auth-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useUnit } from '@/context/unit-context';
+import { Label } from './ui/label';
 
 
 const DEFAULT_TOTAL_ALLOCATION = 5000000;
 
 export default function CustomerDashboard() {
   const { userDetails, loading: authLoading } = useAuth();
+  const { unit, setUnit, getUnitLabel } = useUnit();
+
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfMonth(new Date(2025, 6, 6)),
     to: endOfMonth(new Date(2025, 6, 6)),
@@ -79,7 +83,8 @@ export default function CustomerDashboard() {
 
         try {
             const allocationForPeriod = await getAllocationForDate(date.from);
-            const totalSystemShares = allUsers.reduce((acc, user) => acc + user.shares, 0);
+            const activeUsers = allUsers.filter(u => u.status === 'active');
+            const totalSystemShares = activeUsers.reduce((acc, user) => acc + user.shares, 0);
 
             const userAllocation = (allocationForPeriod ?? DEFAULT_TOTAL_ALLOCATION) * (selectedUser.shares / totalSystemShares);
             setTotalPeriodAllocation(userAllocation);
@@ -123,6 +128,13 @@ export default function CustomerDashboard() {
   const remaining = totalPeriodAllocation - waterUsed;
   const usagePercentage = totalPeriodAllocation > 0 ? Math.round((waterUsed / totalPeriodAllocation) * 100) : 0;
   
+  const averageFlow = () => {
+    if (!date?.from || !date?.to || waterUsed === 0) return 0;
+    const minutes = differenceInMinutes(date.to, date.from);
+    if (minutes === 0) return 0;
+    return waterUsed / minutes; // GPM
+  };
+  
   const welcomeMessage = userDetails?.role === 'admin' 
     ? selectedUser ? `Viewing as: ${selectedUser.name}` : 'Customer View'
     : `Welcome, ${userDetails?.name || 'User'}`;
@@ -150,7 +162,7 @@ export default function CustomerDashboard() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
+      <header className="flex flex-col sm:flex-row justify-between sm:items-end mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">{welcomeMessage}</h1>
           <p className="text-muted-foreground">{subMessage}</p>
@@ -171,52 +183,68 @@ export default function CustomerDashboard() {
                 </Select>
             </div>
           )}
-          <Popover>
-              <PopoverTrigger asChild>
-                  <Button
-                  id="date"
-                  variant={"outline"}
-                  className={cn(
-                      "w-auto min-w-[240px] justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                  )}
-                  >
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  {date?.from ? (
-                      date.to ? (
-                      <>
-                          {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-                      </>
-                      ) : (
-                      format(date.from, "LLL dd, y")
-                      )
-                  ) : (
-                      <span>Pick a date range</span>
-                  )}
-                  </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={date?.from}
-                  selected={date}
-                  onSelect={setDate}
-                  numberOfMonths={2}
-                  />
-              </PopoverContent>
-          </Popover>
+           <div>
+            <Label>Display Units</Label>
+            <Select onValueChange={(value) => setUnit(value as 'gallons' | 'acre-feet')} value={unit}>
+                <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectValue placeholder="Select unit" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="gallons">Gallons</SelectItem>
+                    <SelectItem value="acre-feet">Acre-Feet</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Allocation Period</Label>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                    id="date"
+                    variant={"outline"}
+                    className={cn(
+                        "w-auto min-w-[240px] justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                    )}
+                    >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    {date?.from ? (
+                        date.to ? (
+                        <>
+                            {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                        </>
+                        ) : (
+                        format(date.from, "LLL dd, y")
+                        )
+                    ) : (
+                        <span>Pick a date range</span>
+                    )}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={date?.from}
+                    selected={date}
+                    onSelect={setDate}
+                    numberOfMonths={2}
+                    />
+                </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </header>
         
       {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[88px] w-full" /></CardContent></Card>
               <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[88px] w-full" /></CardContent></Card>
               <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[88px] w-full" /></CardContent></Card>
               <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-[88px] w-full" /></CardContent></Card>
           </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card className="rounded-xl shadow-md">
             <CardContent className="p-6 flex items-center space-x-4">
                 <div className="bg-blue-100 p-4 rounded-full">
@@ -224,7 +252,7 @@ export default function CustomerDashboard() {
                 </div>
                 <div>
                 <p className="text-sm text-muted-foreground">Period Allocation</p>
-                <p className="text-3xl font-bold text-foreground">{totalPeriodAllocation.toLocaleString()} <span className="text-lg font-normal text-muted-foreground">gal</span></p>
+                <p className="text-3xl font-bold text-foreground">{convertAndFormat(totalPeriodAllocation, unit)} <span className="text-lg font-normal text-muted-foreground">{getUnitLabel()}</span></p>
                 </div>
             </CardContent>
             </Card>
@@ -235,7 +263,7 @@ export default function CustomerDashboard() {
                 </div>
                 <div>
                 <p className="text-sm text-muted-foreground">Water Used</p>
-                <p className="text-3xl font-bold text-foreground">{waterUsed.toLocaleString()} <span className="text-lg font-normal text-muted-foreground">gal</span></p>
+                <p className="text-3xl font-bold text-foreground">{convertAndFormat(waterUsed, unit)} <span className="text-lg font-normal text-muted-foreground">{getUnitLabel()}</span></p>
                 </div>
             </CardContent>
             </Card>
@@ -246,7 +274,18 @@ export default function CustomerDashboard() {
                 </div>
                 <div>
                 <p className="text-sm text-muted-foreground">Remaining</p>
-                <p className="text-3xl font-bold text-foreground">{remaining.toLocaleString()} <span className="text-lg font-normal text-muted-foreground">gal</span></p>
+                <p className="text-3xl font-bold text-foreground">{convertAndFormat(remaining, unit)} <span className="text-lg font-normal text-muted-foreground">{getUnitLabel()}</span></p>
+                </div>
+            </CardContent>
+            </Card>
+            <Card className="rounded-xl shadow-md">
+            <CardContent className="p-6 flex items-center space-x-4">
+                <div className="bg-purple-100 p-4 rounded-full">
+                    <TrendingUp className="h-6 w-6 text-purple-500" />
+                </div>
+                <div>
+                <p className="text-sm text-muted-foreground">Average Flow for Period</p>
+                <p className="text-3xl font-bold text-foreground">{averageFlow().toFixed(2)} <span className="text-lg font-normal text-muted-foreground">gpm</span></p>
                 </div>
             </CardContent>
             </Card>
@@ -256,7 +295,7 @@ export default function CustomerDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 rounded-xl shadow-md">
           <CardHeader>
-            <CardTitle className="text-xl">Daily Usage (Gallons)</CardTitle>
+            <CardTitle className="text-xl">Daily Usage ({getUnitLabel()})</CardTitle>
           </CardHeader>
           <CardContent className="h-80">
             {loading ? <div className="w-full h-full flex items-center justify-center"><Skeleton className="w-full h-full" /></div> : <DailyUsageChart data={dailyUsage} />}
@@ -291,5 +330,3 @@ export default function CustomerDashboard() {
     </div>
   );
 }
-
-    
