@@ -1,29 +1,28 @@
 'use client'
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts'
-import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart'
+import { ChartContainer } from '@/components/ui/chart'
 import type { DailyUsage } from '@/firestoreService';
-import { useUnit } from '@/context/unit-unit';
-import { convertAndFormat, GALLONS_PER_ACRE_FOOT } from '@/lib/utils';
+import { convertAndFormat } from '@/lib/utils';
 import { useMemo } from 'react';
 
 type DailyUsageChartProps = {
   data: DailyUsage[];
+  unit: 'gallons' | 'acre-feet';
+  unitLabel: string;
 }
 
-export default function DailyUsageChart({ data }: DailyUsageChartProps) {
-  const { unit, getUnitLabel } = useUnit();
-
+export default function DailyUsageChart({ data, unit, unitLabel }: DailyUsageChartProps) {
   const chartConfig = {
       gallons: {
-          label: getUnitLabel(),
+          label: unitLabel,
           color: "hsl(var(--chart-1))",
       },
   }
 
   const chartData = useMemo(() => data.map(item => ({
     ...item,
-    displayValue: unit === 'acre-feet' ? item.gallons / GALLONS_PER_ACRE_FOOT : item.gallons
+    displayValue: unit === 'acre-feet' ? item.gallons / 325851 : item.gallons,
   })), [data, unit]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -32,7 +31,7 @@ export default function DailyUsageChart({ data }: DailyUsageChartProps) {
       return (
         <div className="p-2 bg-background border rounded-lg shadow-sm">
           <p className="font-bold">{label}</p>
-          <p>{`${convertAndFormat(dataPoint.gallons, unit)} ${getUnitLabel()}`}</p>
+          <p>{`${convertAndFormat(dataPoint.gallons, unit)} ${unitLabel}`}</p>
         </div>
       );
     }

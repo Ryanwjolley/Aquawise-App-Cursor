@@ -117,16 +117,26 @@ export default function AdminDashboard() {
     useEffect(() => {
         fetchUserData();
     }, [fetchUserData]);
+    
+    // This effect runs when the date changes to refetch water data
+    useEffect(() => {
+        // We only fetch water data if there are users and the component is not in its initial loading state
+        if (userData.length > 0 && !loading) {
+            fetchWaterData(userData);
+        }
+    }, [date, userData, loading, fetchWaterData]);
 
     const onTabChange = async (tab: string) => {
         if (tab === 'water') {
-            if (userData.length > 0) {
-                fetchWaterData(userData);
-            } else {
+            // Check if userData is already populated. If not, fetch it first.
+            if (userData.length === 0) {
                 const currentUsers = await fetchUserData();
                 if (currentUsers.length > 0) {
                     fetchWaterData(currentUsers);
                 }
+            } else {
+                // If userData is already there, just fetch water data.
+                fetchWaterData(userData);
             }
         }
     }

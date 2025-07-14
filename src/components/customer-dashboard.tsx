@@ -89,8 +89,15 @@ export default function CustomerDashboard() {
             const activeUsers = allUsers.filter(u => u.status === 'active');
             const totalSystemShares = activeUsers.reduce((acc, user) => acc + user.shares, 0);
 
-            const userAllocation = (allocationForPeriod ?? DEFAULT_TOTAL_ALLOCATION) * (selectedUser.shares / totalSystemShares);
-            setTotalPeriodAllocation(userAllocation);
+            if (totalSystemShares === 0 && activeUsers.length > 0) {
+              // Handle case where users exist but have no shares
+               setTotalPeriodAllocation(0);
+            } else if (totalSystemShares > 0) {
+               const userAllocation = (allocationForPeriod ?? DEFAULT_TOTAL_ALLOCATION) * (selectedUser.shares / totalSystemShares);
+               setTotalPeriodAllocation(userAllocation);
+            } else {
+               setTotalPeriodAllocation(0);
+            }
 
             const dailyData = await getDailyUsageForDateRange(selectedUser.id, date.from, date.to);
             setDailyUsage(dailyData);
@@ -105,7 +112,7 @@ export default function CustomerDashboard() {
                 description: 'Could not fetch your usage data for this period.',
             });
             const totalSystemShares = allUsers.reduce((acc, user) => acc + user.shares, 0);
-            setTotalPeriodAllocation(DEFAULT_TOTAL_ALLOCATION * ((selectedUser?.shares || 0) / totalSystemShares));
+            setTotalPeriodAllocation(totalSystemShares > 0 ? DEFAULT_TOTAL_ALLOCATION * ((selectedUser?.shares || 0) / totalSystemShares) : 0);
             setWaterUsed(0);
             setDailyUsage([]);
         } finally {
@@ -326,7 +333,7 @@ export default function CustomerDashboard() {
             <CardTitle className="text-xl">Daily Usage ({getUnitLabel()})</CardTitle>
           </CardHeader>
           <CardContent className="h-80">
-            {loading ? <div className="w-full h-full flex items-center justify-center"><Skeleton className="w-full h-full" /></div> : <DailyUsageChart data={dailyUsage} />}
+            {loading ? <div className="w-full h-full flex items-center justify-center"><Skeleton className="w-full h-full" /></div> : <DailyUsageChart data={dailyUsage} unit={unit} unitLabel={getUnitLabel()} />}
           </CardContent>
         </Card>
         <div className="space-y-6">
@@ -358,5 +365,3 @@ export default function CustomerDashboard() {
     </div>
   );
 }
-
-    
