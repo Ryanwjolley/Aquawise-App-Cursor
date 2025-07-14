@@ -35,19 +35,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } else {
             // User is authenticated but no user document found.
             // This might happen if the document creation failed or was deleted.
-            // In this state, userDetails will be null.
             setUserDetails(null);
           }
         } catch (error) {
           console.error("Error fetching user details:", error);
           setUserDetails(null);
         } finally {
-          setLoading(false); // Loading is false only after attempting to fetch user details
+          setLoading(false);
         }
       } else {
         setUser(null);
         setUserDetails(null);
-        setLoading(false); // Loading is false if there's no user
+        setLoading(false);
       }
     });
 
