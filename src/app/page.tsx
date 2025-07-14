@@ -10,25 +10,30 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      if (user && userDetails) {
-        if (userDetails.role === 'admin') {
-          router.replace('/admin');
-        } else {
-          router.replace('/dashboard');
-        }
+    // Wait until the loading is fully complete
+    if (loading) {
+      return;
+    }
+
+    // If loading is done, and we have a user and their details, we can redirect
+    if (user && userDetails) {
+      if (userDetails.role === 'admin') {
+        router.replace('/admin');
       } else {
-        router.replace('/login');
+        router.replace('/dashboard');
       }
+    } else {
+      // If loading is done and there's no user, redirect to login
+      router.replace('/login');
     }
   }, [user, userDetails, loading, router]);
 
   return (
     <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-            <Droplets className="h-12 w-12 text-primary animate-pulse" />
-            <p className="text-muted-foreground">Loading AquaWise...</p>
-        </div>
+      <div className="flex flex-col items-center gap-4">
+        <Droplets className="h-12 w-12 text-primary animate-pulse" />
+        <p className="text-muted-foreground">Loading AquaWise...</p>
+      </div>
     </div>
   );
 }
