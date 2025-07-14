@@ -6,7 +6,7 @@ import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCir
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, deleteAllocation } from '../firestoreService';
+import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, deleteAllocation, AllocationData } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -36,7 +36,6 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 type UserData = User | Invite;
-type AllocationData = { id?: string; startDate: Date; endDate: Date; totalAllocationGallons: number };
 
 export default function AdminDashboard() {
     const [userData, setUserData] = useState<UserData[]>([]);
@@ -308,10 +307,10 @@ export default function AdminDashboard() {
     const proceedWithSave = async (data: AllocationData) => {
         try {
             if (data.id) {
-                await updateAllocation(data.id, { startDate: data.startDate, endDate: data.endDate, totalAllocationGallons: data.totalAllocationGallons });
+                await updateAllocation(data.id, data);
                 toast({ title: 'Allocation Updated', description: `Successfully updated allocation period.` });
             } else {
-                await setAllocation(data.startDate, data.endDate, data.totalAllocationGallons);
+                await setAllocation(data);
                 toast({ title: 'Allocation Created', description: `Successfully created new allocation period.` });
             }
             fetchAllocations();
@@ -904,3 +903,5 @@ export default function AdminDashboard() {
         </div>
     );
 }
+
+    

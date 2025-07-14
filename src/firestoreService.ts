@@ -1,3 +1,4 @@
+'use server';
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import { format, eachDayOfInterval } from 'date-fns';
@@ -36,7 +37,15 @@ export interface Allocation {
   startDate: Date;
   endDate: Date;
   totalAllocationGallons: number;
+  // Optional fields to store original input
+  inputType?: 'volume' | 'flow';
+  inputValue?: number;
+  volumeUnit?: 'gallons' | 'acre-feet';
+  flowUnit?: 'gpm' | 'cfs';
 }
+
+export type AllocationData = Omit<Allocation, 'id'> & { id?: string };
+
 
 const usersCollection = collection(db, "users");
 const usageCollection = collection(db, "usageData");
@@ -232,12 +241,13 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
     return usageMap;
 }
 
-export const setAllocation = async (startDate: Date, endDate: Date, totalAllocationGallons: number): Promise<void> => {
+export const setAllocation = async (data: AllocationData): Promise<void> => {
   try {
+    const { id, ...rest } = data; // exclude id from data being saved
     await addDoc(allocationsCollection, { 
-        startDate: Timestamp.fromDate(startDate),
-        endDate: Timestamp.fromDate(endDate),
-        totalAllocationGallons,
+        ...rest,
+        startDate: Timestamp.fromDate(data.startDate),
+        endDate: Timestamp.fromDate(data.endDate),
      });
   } catch (e) {
     console.error("Error setting allocation: ", e);
@@ -245,13 +255,14 @@ export const setAllocation = async (startDate: Date, endDate: Date, totalAllocat
   }
 };
 
-export const updateAllocation = async (id: string, data: { startDate: Date, endDate: Date, totalAllocationGallons: number }): Promise<void> => {
+export const updateAllocation = async (id: string, data: AllocationData): Promise<void> => {
   try {
     const allocationDoc = doc(db, "allocations", id);
+    const { id: dataId, ...rest } = data; // exclude id from data being saved
     await updateDoc(allocationDoc, {
+      ...rest,
       startDate: Timestamp.fromDate(data.startDate),
       endDate: Timestamp.fromDate(data.endDate),
-      totalAllocationGallons: data.totalAllocationGallons,
     });
   } catch (e) {
     console.error("Error updating allocation: ", e);
@@ -290,6 +301,11 @@ export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): P
                 startDate: (data.startDate as Timestamp).toDate(),
                 endDate: (data.endDate as Timestamp).toDate(),
                 totalAllocationGallons: data.totalAllocationGallons,
+                // include optional fields
+                inputType: data.inputType,
+                inputValue: data.inputValue,
+                volumeUnit: data.volumeUnit,
+                flowUnit: data.flowUnit,
             } as Allocation;
         });
 
@@ -314,6 +330,11 @@ export const getAllocations = async (): Promise<Allocation[]> => {
                 startDate: (data.startDate as Timestamp).toDate(),
                 endDate: (data.endDate as Timestamp).toDate(),
                 totalAllocationGallons: data.totalAllocationGallons,
+                 // include optional fields
+                inputType: data.inputType,
+                inputValue: data.inputValue,
+                volumeUnit: data.volumeUnit,
+                flowUnit: data.flowUnit,
             } as Allocation;
         });
     } catch (e) {
@@ -359,3 +380,5 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
       gallons: dailyUsageMap.get(format(day, 'yyyy-MM-dd')) || 0,
     }));
 };
+
+    

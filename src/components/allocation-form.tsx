@@ -21,7 +21,7 @@ import { Calendar } from './ui/calendar';
 import { cn, GALLONS_PER_ACRE_FOOT, GPM_TO_GALLONS_PER_SECOND, CFS_TO_GALLONS_PER_SECOND } from '@/lib/utils';
 import { format, differenceInSeconds } from 'date-fns';
 import React from 'react';
-import type { Allocation } from '@/firestoreService';
+import type { Allocation, AllocationData } from '@/firestoreService';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
@@ -58,7 +58,7 @@ const formSchema = z.object({
 type AllocationFormProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: { id?: string, startDate: Date, endDate: Date, totalAllocationGallons: number }) => void;
+  onSave: (data: AllocationData) => void;
   allocation: Allocation | null;
 };
 
@@ -81,17 +81,33 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
   React.useEffect(() => {
     if (isOpen) {
         if (isEditMode && allocation) {
-            form.reset({
-                startDate: allocation.startDate,
-                startTime: format(allocation.startDate, 'HH:mm'),
-                endDate: allocation.endDate,
-                endTime: format(allocation.endDate, 'HH:mm'),
-                inputType: 'volume', // Edit mode defaults to volume
-                inputValue: allocation.totalAllocationGallons,
-                volumeUnit: 'gallons',
-                flowUnit: undefined,
-            });
+            // If original input values are stored, use them
+            if (allocation.inputType && allocation.inputValue) {
+                form.reset({
+                    startDate: allocation.startDate,
+                    startTime: format(allocation.startDate, 'HH:mm'),
+                    endDate: allocation.endDate,
+                    endTime: format(allocation.endDate, 'HH:mm'),
+                    inputType: allocation.inputType,
+                    inputValue: allocation.inputValue,
+                    volumeUnit: allocation.volumeUnit,
+                    flowUnit: allocation.flowUnit,
+                });
+            } else {
+                 // Fallback for older data: treat totalAllocationGallons as the source
+                form.reset({
+                    startDate: allocation.startDate,
+                    startTime: format(allocation.startDate, 'HH:mm'),
+                    endDate: allocation.endDate,
+                    endTime: format(allocation.endDate, 'HH:mm'),
+                    inputType: 'volume',
+                    inputValue: allocation.totalAllocationGallons,
+                    volumeUnit: 'gallons',
+                    flowUnit: undefined,
+                });
+            }
         } else {
+            // Default values for a new allocation
             form.reset({
                 startDate: new Date(),
                 startTime: '00:00',
@@ -134,7 +150,19 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
       }
     }
 
-    onSave({ id: allocation?.id, startDate: finalStartDate, endDate: finalEndDate, totalAllocationGallons: Math.round(totalAllocationGallons) });
+    const dataToSave: AllocationData = { 
+        id: allocation?.id, 
+        startDate: finalStartDate, 
+        endDate: finalEndDate, 
+        totalAllocationGallons: Math.round(totalAllocationGallons),
+        // Save the original input values
+        inputType,
+        inputValue,
+        volumeUnit,
+        flowUnit
+    };
+
+    onSave(dataToSave);
     onOpenChange(false);
   };
 
@@ -274,7 +302,6 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                         }}
                         defaultValue={field.value}
                         className="flex items-center space-x-4"
-                        disabled={isEditMode}
                         >
                         <FormItem className="flex items-center space-x-2 space-y-0">
                             <FormControl>
@@ -371,3 +398,5 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
     </Dialog>
   );
 }
+
+    
