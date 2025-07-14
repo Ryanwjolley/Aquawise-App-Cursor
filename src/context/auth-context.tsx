@@ -24,21 +24,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setLoading(true); // Start loading when auth state changes
+      setLoading(true);
       if (firebaseUser) {
         setUser(firebaseUser);
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          setUserDetails({ id: userDoc.id, ...userDoc.data() } as User);
-        } else {
+        try {
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            setUserDetails({ id: userDoc.id, ...userDoc.data() } as User);
+          } else {
+            setUserDetails(null);
+          }
+        } catch (error) {
+          console.error("Error fetching user details:", error);
           setUserDetails(null);
         }
       } else {
         setUser(null);
         setUserDetails(null);
       }
-      setLoading(false); // Finish loading after all async operations
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -47,7 +52,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     setLoading(true);
     await auth.signOut();
+    setUser(null);
+    setUserDetails(null);
     router.push('/login');
+    setLoading(false);
   };
 
 

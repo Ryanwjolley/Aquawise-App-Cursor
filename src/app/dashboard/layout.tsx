@@ -11,20 +11,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.replace('/login');
     }
   }, [user, loading, router]);
 
-  if (!loading && user) {
-    return <AppLayout>{children}</AppLayout>;
+  if (loading || !user) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+            <Droplets className="h-12 w-12 text-primary animate-pulse" />
+            <p className="text-muted-foreground">Loading Dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className="flex h-screen w-full items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-4">
-          <Droplets className="h-12 w-12 text-primary animate-pulse" />
-          <p className="text-muted-foreground">Loading Dashboard...</p>
-      </div>
-    </div>
-  );
+  return <AppLayout>{children}</AppLayout>;
 }
