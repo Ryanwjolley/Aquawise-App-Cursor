@@ -1,25 +1,28 @@
 'use client';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Droplets } from 'lucide-react';
 import AppLayout from '@/components/app-layout';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, userDetails, loading } = useAuth();
   const router = useRouter();
+  const [isVerifiedAdmin, setIsVerifiedAdmin] = useState(false);
 
   useEffect(() => {
     if (!loading) {
       if (!user) {
         router.push('/login');
-      } else if (userDetails && userDetails.role !== 'admin') {
-        router.push('/dashboard');
+      } else if (userDetails) {
+        if (userDetails.role === 'admin') {
+          setIsVerifiedAdmin(true);
+        } else {
+          router.push('/dashboard');
+        }
       }
     }
   }, [user, userDetails, loading, router]);
-
-  const isVerifiedAdmin = !loading && user && userDetails?.role === 'admin';
 
   if (isVerifiedAdmin) {
     return <AppLayout>{children}</AppLayout>;
