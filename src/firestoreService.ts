@@ -27,11 +27,14 @@ export interface Invite {
   name: string;
   email: string;
   shares: number;
+  status: 'invited';
+  role: 'customer' | 'admin';
 }
 
 const usersCollection = collection(db, "users");
 const usageCollection = collection(db, "usageData");
 const invitesCollection = collection(db, "invites");
+const allocationsCollection = collection(db, "allocations");
 
 export const createUserDocument = async (
   uid: string,
@@ -69,7 +72,7 @@ export const getInvite = async (email: string): Promise<Invite | null> => {
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
       const doc = querySnapshot.docs[0];
-      return { id: doc.id, ...doc.data() } as Invite;
+      return { id: doc.id, ...doc.data(), status: 'invited' } as Invite;
     }
     return null;
   } catch (e) {
@@ -81,7 +84,7 @@ export const getInvite = async (email: string): Promise<Invite | null> => {
 export const getInvites = async (): Promise<Invite[]> => {
   try {
     const querySnapshot = await getDocs(invitesCollection);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invite));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), status: 'invited' } as Invite));
   } catch (e) {
     console.error("Error getting invites: ", e);
     throw e;
@@ -197,7 +200,6 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
           where("userId", "in", userIds),
           where("date", ">=", startDate),
           where("date", "<=", endDate),
-          orderBy("date")
         );
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
@@ -214,34 +216,41 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
     return usageMap;
 }
 
-export const setWeeklyAllocation = async (weekStartDate: Date, gallons: number): Promise<void> => {
-  const weekId = format(weekStartDate, 'yyyy-MM-dd');
+export const setAllocationForDate = async (startDate: Date, endDate: Date, totalAllocationGallons: number): Promise<void> => {
+  const allocationId = `${format(startDate, 'yyyy-MM-dd')}_${format(endDate, 'yyyy-MM-dd')}`;
   try {
-    const docRef = doc(db, "weeklyAllocations", weekId);
-    await setDoc(docRef, { gallonsPerShare: gallons });
+    const docRef = doc(db, "allocations", allocationId);
+    await setDoc(docRef, { 
+        startDate: Timestamp.fromDate(startDate),
+        endDate: Timestamp.fromDate(endDate),
+        totalAllocationGallons,
+     });
   } catch (e) {
-    console.error("Error setting weekly allocation: ", e);
+    console.error("Error setting allocation: ", e);
     throw e;
   }
 };
 
-export const getWeeklyAllocation = async (weekStartDate: Date): Promise<number | null> => {
-  const weekId = format(weekStartDate, 'yyyy-MM-dd');
+export const getAllocationForDate = async (date: Date): Promise<number | null> => {
   try {
-    const docRef = doc(db, "weeklyAllocations", weekId);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return docSnap.data().gallonsPerShare;
+    const q = query(
+        allocationsCollection,
+        where("startDate", "<=", date),
+        where("endDate", ">=", date),
+        limit(1)
+    );
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0];
+        return docSnap.data().totalAllocationGallons;
     } else {
-      return null;
+        return null;
     }
-  } catch (e)
-  {
-    console.error("Error getting weekly allocation: ", e);
+  } catch (e) {
+    console.error("Error getting allocation: ", e);
     throw e;
   }
 };
-
 
 export const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
     

@@ -1,19 +1,19 @@
 
 'use client';
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getWeeklyAllocation, setWeeklyAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry } from '../firestoreService';
+import { getUsageForDateRange, getAllocationForDate, setAllocationForDate, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
-import { format, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
+import { format, differenceInDays, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { UserForm } from './user-form';
 import { AllocationSuggester } from './allocation-suggester';
@@ -32,8 +32,7 @@ import {
 import { Skeleton } from './ui/skeleton';
 import { AllocationPredictor } from './allocation-predictor';
 
-
-const DEFAULT_GALLONS_PER_SHARE = 2000;
+const DEFAULT_TOTAL_ALLOCATION = 5000000;
 
 type UserData = (User | Invite) & {
     used: number;
@@ -43,7 +42,7 @@ type UserData = (User | Invite) & {
 }
 
 export default function AdminDashboard() {
-    const [gallonsPerShare, setGallonsPerShare] = useState(DEFAULT_GALLONS_PER_SHARE);
+    const [totalAllocation, setTotalAllocation] = useState(DEFAULT_TOTAL_ALLOCATION);
     const [userData, setUserData] = useState<UserData[]>([]);
     const [loading, setLoading] = useState(true);
     
@@ -52,61 +51,71 @@ export default function AdminDashboard() {
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
     
     const { toast } = useToast();
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [date, setDate] = useState<DateRange | undefined>({
-        from: startOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
-        to: endOfWeek(new Date(2025, 6, 6), { weekStartsOn: 0 }),
+        from: new Date(2025, 6, 1),
+        to: new Date(2025, 6, 31),
     });
-    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-    const [month, setMonth] = useState<Date>(date?.from ?? new Date());
     const { user: authUser } = useAuth();
     
     const periodDurationInDays = useMemo(() => {
         if (date?.from && date.to) {
             return differenceInDays(date.to, date.from) + 1;
         }
-        return 7;
+        return 0;
     }, [date]);
 
+    const { totalShares, activeUsers } = useMemo(() => {
+        const activeUsers = userData.filter(u => u.status === 'active') as User[];
+        const totalShares = activeUsers.reduce((acc, user) => acc + user.shares, 0);
+        return { totalShares, activeUsers };
+    }, [userData]);
+
+
     const fetchDashboardData = useCallback(async () => {
-        if (!date?.from || !date.to) {
+        if (!date?.from) {
             setLoading(false);
             setUserData([]);
             return;
         }
+        const endDate = date.to ?? date.from;
         setLoading(true);
 
         try {
             const [fetchedUsers, fetchedInvites, allocation, usageDataById] = await Promise.all([
                 getUsers(),
                 getInvites(),
-                getWeeklyAllocation(date.from),
-                getUsageForDateRange( (await getUsers()).map(u => u.id), date.from, date.to)
+                getAllocationForDate(date.from),
+                getUsageForDateRange( (await getUsers()).map(u => u.id), date.from, endDate)
             ]);
-
-            const currentGallonsPerShare = allocation ?? DEFAULT_GALLONS_PER_SHARE;
-            setGallonsPerShare(currentGallonsPerShare);
             
-            const combinedUsersAndInvites = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
+            const currentTotalAllocation = allocation ?? DEFAULT_TOTAL_ALLOCATION;
+            setTotalAllocation(currentTotalAllocation);
+            
+            const allUsersAndInvites = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
+            const totalSystemShares = fetchedUsers.reduce((acc, user) => acc + user.shares, 0);
+            
+            const processedUserData = allUsersAndInvites.map(userOrInvite => {
+                const userStatus = 'status' in userOrInvite ? userOrInvite.status : 'invited';
 
-            const processedUserData = combinedUsersAndInvites.map(user => {
-                const userStatus = 'status' in user ? user.status : 'invited';
-
-                if (userStatus === 'invited') {
-                    return { ...user, used: 0, allocation: 0, percentageUsed: 0, statusColor: 'bg-gray-400' } as UserData;
+                if (userStatus === 'invited' || userOrInvite.status === 'inactive') {
+                    return { ...userOrInvite, used: 0, allocation: 0, percentageUsed: 0, statusColor: 'bg-gray-400' } as UserData;
                 }
 
-                const registeredUser = user as User;
-                const used = usageDataById[registeredUser.id] || 0;
-                const weeklyAllocation = registeredUser.shares * currentGallonsPerShare;
-                const periodAllocation = (weeklyAllocation / 7) * periodDurationInDays;
-                const percentageUsed = periodAllocation > 0 ? Math.round((used / periodAllocation) * 100) : 0;
+                const user = userOrInvite as User;
+                const used = usageDataById[user.id] || 0;
+                
+                const userAllocation = totalSystemShares > 0 
+                    ? (user.shares / totalSystemShares) * currentTotalAllocation
+                    : 0;
+
+                const percentageUsed = userAllocation > 0 ? Math.round((used / userAllocation) * 100) : 0;
                 
                 let statusColor = 'bg-green-500';
                 if (percentageUsed > 100) statusColor = 'bg-red-500';
                 else if (percentageUsed > 80) statusColor = 'bg-yellow-500';
 
-                return { ...registeredUser, used, allocation: Math.round(periodAllocation), percentageUsed, statusColor } as UserData;
+                return { ...user, used, allocation: Math.round(userAllocation), percentageUsed, statusColor } as UserData;
             });
 
             setUserData(processedUserData);
@@ -121,7 +130,7 @@ export default function AdminDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [date, periodDurationInDays, toast]);
+    }, [date, toast]);
 
     useEffect(() => {
         fetchDashboardData();
@@ -132,14 +141,6 @@ export default function AdminDashboard() {
         return new Map(registeredUsers.map(u => [u.name, u.id]));
     }, [userData]);
     
-    const handleDayClick = (day: Date) => {
-        const weekStart = startOfWeek(day, { weekStartsOn: 0 });
-        const weekEnd = endOfWeek(day, { weekStartsOn: 0 });
-        setDate({ from: weekStart, to: weekEnd });
-        setMonth(weekStart);
-        setIsCalendarOpen(false);
-    };
-
     const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -209,26 +210,26 @@ export default function AdminDashboard() {
     };
 
     const handleUpdateAllocation = async () => {
-        if (!date?.from) {
+        if (!date?.from || !date?.to) {
             toast({
                 variant: 'destructive',
-                title: 'No Date Selected',
-                description: 'Please select a week to update the allocation.',
+                title: 'Invalid Date Range',
+                description: 'Please select a start and end date for the allocation period.',
             });
             return;
         }
         try {
-            await setWeeklyAllocation(date.from, gallonsPerShare);
+            await setAllocationForDate(date.from, date.to, totalAllocation);
             fetchDashboardData();
             toast({
                 title: 'Allocation Updated',
-                description: `Set gallons per share to ${gallonsPerShare.toLocaleString()} for the selected week.`,
+                description: `Set total allocation to ${totalAllocation.toLocaleString()} gallons for the selected period.`,
             });
         } catch (error) {
             toast({
                 variant: 'destructive',
                 title: 'Update Failed',
-                description: 'Could not save the weekly allocation.',
+                description: 'Could not save the allocation.',
             });
         }
     };
@@ -311,30 +312,21 @@ export default function AdminDashboard() {
     };
 
     const {
-        totalUsers,
         totalWaterConsumed,
         averageUsagePerUser,
-        totalShares,
-        totalWeeklyAllocation,
-        totalPeriodAllocation
     } = useMemo(() => {
-        const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
-        const totalUsers = registeredUsers.length;
         const totalWaterConsumed = userData.reduce((acc, user) => acc + user.used, 0);
-        const averageUsagePerUser = totalUsers > 0 ? totalWaterConsumed / totalUsers : 0;
-        const totalShares = registeredUsers.reduce((acc, user) => acc + user.shares, 0);
-        const totalWeeklyAllocation = totalShares * gallonsPerShare;
-        const totalPeriodAllocation = (totalWeeklyAllocation / 7) * periodDurationInDays;
-
+        const averageUsagePerUser = activeUsers.length > 0 ? totalWaterConsumed / activeUsers.length : 0;
+        
         return {
-            totalUsers,
             totalWaterConsumed,
             averageUsagePerUser,
-            totalShares,
-            totalWeeklyAllocation,
-            totalPeriodAllocation
         };
-    }, [userData, gallonsPerShare, periodDurationInDays]);
+    }, [userData, activeUsers]);
+
+    // Dummy props for suggester/predictor until they are refactored
+    const gallonsPerShare = totalShares > 0 ? totalAllocation / totalShares : 0;
+    const totalWeeklyAllocation = (totalAllocation / periodDurationInDays) * 7;
 
 
     const getBadgeVariant = (status?: 'active' | 'inactive' | 'invited') => {
@@ -354,7 +346,7 @@ export default function AdminDashboard() {
                     <p className="text-muted-foreground">Manti Irrigation Company</p>
                 </div>
                 <div className="flex items-center gap-4">
-                 <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                 <Popover>
                     <PopoverTrigger asChild>
                         <Button
                         id="date"
@@ -381,14 +373,12 @@ export default function AdminDashboard() {
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="end">
                         <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={date?.from}
-                        selected={date}
-                        onDayClick={handleDayClick}
-                        numberOfMonths={2}
-                        onMonthChange={setMonth}
-                        month={month}
+                            initialFocus
+                            mode="range"
+                            defaultMonth={date?.from}
+                            selected={date}
+                            onSelect={setDate}
+                            numberOfMonths={2}
                         />
                     </PopoverContent>
                 </Popover>
@@ -406,10 +396,10 @@ export default function AdminDashboard() {
                     <>
                     <Card className="rounded-xl shadow-md">
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                            <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-3xl font-bold">{totalUsers}</p>
+                            <p className="text-3xl font-bold">{activeUsers.length}</p>
                         </CardContent>
                     </Card>
                     <Card className="rounded-xl shadow-md">
@@ -417,7 +407,7 @@ export default function AdminDashboard() {
                             <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-3xl font-bold">{(totalPeriodAllocation / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
+                            <p className="text-3xl font-bold">{(totalAllocation / 1000).toFixed(0)}K <span className="text-lg font-normal text-muted-foreground">gal</span></p>
                         </CardContent>
                     </Card>
                     <Card className="rounded-xl shadow-md">
@@ -434,39 +424,39 @@ export default function AdminDashboard() {
 
             <Card className="mb-8 rounded-xl shadow-md">
                 <CardHeader>
-                    <CardTitle className="text-xl">Weekly Allocation Management</CardTitle>
+                    <CardTitle className="text-xl">Allocation Management</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col sm:flex-row items-end gap-4">
                         <div className="flex-grow w-full">
-                            <label htmlFor="gallons-per-share" className="block text-sm font-medium text-foreground mb-1">Gallons per Share this Week</label>
+                            <label htmlFor="total-allocation" className="block text-sm font-medium text-foreground mb-1">Total Allocation for Period (Gallons)</label>
                              {loading ? <Skeleton className="h-10 w-full" /> : 
                                 <Input
                                     type="number"
-                                    id="gallons-per-share"
-                                    value={gallonsPerShare}
-                                    onChange={(e) => setGallonsPerShare(Number(e.target.value))}
-                                    placeholder="e.g. 2000"
+                                    id="total-allocation"
+                                    value={totalAllocation}
+                                    onChange={(e) => setTotalAllocation(Number(e.target.value))}
+                                    placeholder="e.g. 5000000"
                                 />
                              }
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 flex-wrap">
                             <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation} disabled={loading}>
-                                Update Allocations
+                                Update Allocation
                             </Button>
                             <AllocationSuggester
-                                totalUsers={totalUsers}
+                                totalUsers={activeUsers.length}
                                 totalWeeklyAllocation={totalWeeklyAllocation}
                                 totalWaterConsumed={totalWaterConsumed}
                                 averageUsagePerUser={averageUsagePerUser}
                                 currentGallonsPerShare={gallonsPerShare}
-                                onSuggestionAccept={(suggestion) => setGallonsPerShare(suggestion)}
+                                onSuggestionAccept={(suggestion) => setTotalAllocation(suggestion * totalShares)}
                             />
                             <AllocationPredictor
                                 usageDataForPeriod={userData.filter(u => u.status !== 'invited').map(u => ({name: u.name, used: u.used, shares: u.shares}))}
                                 periodDurationInDays={periodDurationInDays}
                                 currentGallonsPerShare={gallonsPerShare}
-                                onPredictionAccept={(prediction) => setGallonsPerShare(prediction)}
+                                onPredictionAccept={(prediction) => setTotalAllocation(prediction * totalShares)}
                             />
                         </div>
                     </div>
@@ -549,8 +539,8 @@ export default function AdminDashboard() {
                                         <TableCell className="capitalize">{user.role}</TableCell>
                                         <TableCell>{user.shares}</TableCell>
                                         <TableCell>
-                                            <Badge variant={getBadgeVariant(user.status)}>
-                                                {(user.status ?? 'active').charAt(0).toUpperCase() + (user.status ?? 'active').slice(1)}
+                                            <Badge variant={getBadgeVariant((user as User).status ?? 'invited')}>
+                                                {((user as User).status ?? 'invited').charAt(0).toUpperCase() + ((user as User).status ?? 'invited').slice(1)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>{user.allocation.toLocaleString()}</TableCell>
@@ -642,5 +632,4 @@ export default function AdminDashboard() {
             </AlertDialog>
         </div>
     );
-
-    
+}
