@@ -38,18 +38,12 @@ const allocationsCollection = collection(db, "allocations");
 
 export const createUserDocument = async (
   uid: string,
-  data: { name: string; email: string; shares: number }
+  data: { name: string; email: string; shares: number; role: 'admin' | 'customer' }
 ): Promise<void> => {
   try {
     const userDocRef = doc(db, 'users', uid);
-    // Automatically assign admin role to a specific email, otherwise customer.
-    const role = data.email.toLowerCase() === 'admin@aquawise.com' ? 'admin' : 'customer';
-
     await setDoc(userDocRef, {
-      name: data.name,
-      email: data.email,
-      shares: data.shares,
-      role: role,
+      ...data,
       status: 'active',
     });
   } catch (e) {
@@ -307,3 +301,5 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
       gallons: dailyUsageMap.get(format(day, 'yyyy-MM-dd')) || 0,
     }));
 };
+
+    

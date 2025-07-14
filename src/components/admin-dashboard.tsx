@@ -6,7 +6,7 @@ import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2 } from '
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getAllocationForDate, setAllocationForDate, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry } from '../firestoreService';
+import { getUsageForDateRange, getAllocationForDate, setAllocationForDate, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -228,36 +228,39 @@ export default function AdminDashboard() {
                 const text = e.target?.result as string;
                 const lines = text.split(/\r\n|\n/).slice(1);
                 
-                const userInvites = [];
+                const usersToCreate = [];
                 for (const line of lines) {
                     if (!line.trim()) continue;
-                    const [name, email, role, sharesStr] = line.split(',');
-                    if (name && email && role && sharesStr) {
+                    const [name, email, userId, role, sharesStr] = line.split(',');
+                    if (name && email && userId && role && sharesStr) {
                         const shares = parseInt(sharesStr.trim(), 10);
                         const trimmedRole = role.trim().toLowerCase();
                         if (!isNaN(shares) && (trimmedRole === 'admin' || trimmedRole === 'customer')) {
-                            userInvites.push({ 
-                                name: name.trim(), 
-                                email: email.trim(), 
-                                shares, 
-                                role: trimmedRole as 'admin' | 'customer' 
+                            usersToCreate.push({ 
+                                id: userId.trim(),
+                                data: {
+                                    name: name.trim(), 
+                                    email: email.trim(), 
+                                    shares, 
+                                    role: trimmedRole as 'admin' | 'customer' 
+                                }
                             });
                         }
                     }
                 }
                 
-                if (userInvites.length > 0) {
-                    await Promise.all(userInvites.map(user => inviteUser(user)));
+                if (usersToCreate.length > 0) {
+                    await Promise.all(usersToCreate.map(user => createUserDocument(user.id, user.data)));
                     fetchUserData();
                     toast({
                         title: 'Upload Successful',
-                        description: `Sent invites for ${userInvites.length} user(s).`,
+                        description: `Created or updated ${usersToCreate.length} user(s).`,
                     });
                 } else {
                      toast({
                         variant: 'destructive',
-                        title: 'No Invites Sent',
-                        description: 'CSV data was invalid or empty. Expected format: name,email,role,shares.',
+                        title: 'No Users Created',
+                        description: 'CSV data was invalid or empty. Expected format: User,Email,User ID,Role,Shares.',
                     });
                 }
             } catch (error) {
@@ -464,7 +467,7 @@ export default function AdminDashboard() {
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>Upload a CSV with columns: `name`, `email`, `role`, `shares`.</p>
+                                            <p>Upload a CSV with columns: `User`, `Email`, `User ID`, `Role`, `Shares`.</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
@@ -700,4 +703,5 @@ export default function AdminDashboard() {
             </AlertDialog>
         </div>
     );
-}
+
+    
