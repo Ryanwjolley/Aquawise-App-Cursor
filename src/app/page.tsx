@@ -10,12 +10,12 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Wait until the loading is fully complete
+    // We only want to act when the loading is fully complete.
     if (loading) {
       return;
     }
 
-    // If loading is done, and we have a user and their details, we can redirect
+    // After loading, if a user and their details are present, route them.
     if (user && userDetails) {
       if (userDetails.role === 'admin') {
         router.replace('/admin');
@@ -23,11 +23,13 @@ export default function HomePage() {
         router.replace('/dashboard');
       }
     } else {
-      // If loading is done and there's no user, redirect to login
+      // If loading is done and there's no user, or user exists but no details (e.g., deleted from DB),
+      // they must log in.
       router.replace('/login');
     }
   }, [user, userDetails, loading, router]);
 
+  // Render a loading indicator until the routing logic in useEffect completes.
   return (
     <div className="flex h-screen w-full items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-4">
