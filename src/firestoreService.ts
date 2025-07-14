@@ -190,6 +190,7 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
     const usageMap: Record<string, number> = {};
     userIds.forEach(id => (usageMap[id] = 0));
 
+    // If there are no users, Firestore 'in' query will fail. Return empty map.
     if (userIds.length === 0) {
         return usageMap;
     }
@@ -285,4 +286,3 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
       
     return dailyUsageData;
 };
-

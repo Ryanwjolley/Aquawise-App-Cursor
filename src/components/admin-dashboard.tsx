@@ -67,11 +67,11 @@ export default function AdminDashboard() {
         setLoading(true);
 
         try {
-            const [fetchedUsers, fetchedInvites, allocation, usageDataById] = await Promise.all([
-                getUsers(),
+            const fetchedUsers = await getUsers();
+            const [fetchedInvites, allocation, usageDataById] = await Promise.all([
                 getInvites(),
                 getAllocationForDate(date.from),
-                getUsageForDateRange( (await getUsers()).map(u => u.id), date.from, endDate)
+                getUsageForDateRange(fetchedUsers.map(u => u.id), date.from, endDate)
             ]);
             
             const currentTotalAllocation = allocation ?? DEFAULT_TOTAL_ALLOCATION;
