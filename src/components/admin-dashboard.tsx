@@ -39,6 +39,7 @@ export default function AdminDashboard() {
     const [totalAllocation, setTotalAllocation] = useState(DEFAULT_TOTAL_ALLOCATION);
     const [userData, setUserData] = useState<UserData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [waterDataLoading, setWaterDataLoading] = useState(false);
     const [totalWaterConsumed, setTotalWaterConsumed] = useState(0);
     
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
@@ -54,30 +55,47 @@ export default function AdminDashboard() {
     });
     const { user: authUser } = useAuth();
     
-    const fetchDashboardData = useCallback(async () => {
-        if (!date?.from) {
-            setLoading(false);
-            setUserData([]);
-            return;
-        }
-        const endDate = date.to ?? date.from;
+    const fetchUserData = useCallback(async () => {
         setLoading(true);
-
         try {
-            const [fetchedUsers, fetchedInvites, allocation] = await Promise.all([
+            const [fetchedUsers, fetchedInvites] = await Promise.all([
                 getUsers(),
                 getInvites(),
-                getAllocationForDate(date.from),
             ]);
-
-            const userIds = fetchedUsers.filter(u => u.status === 'active').map(u => u.id);
-            const usageDataById = userIds.length > 0 ? await getUsageForDateRange(userIds, date.from, endDate) : {};
-            
-            const currentTotalAllocation = allocation ?? DEFAULT_TOTAL_ALLOCATION;
-            setTotalAllocation(currentTotalAllocation);
             
             const combinedData = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
             setUserData(combinedData);
+
+        } catch(error) {
+            toast({
+                variant: 'destructive',
+                title: 'User Data Fetch Failed',
+                description: 'Could not load user and invitation list.',
+            });
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    }, [toast]);
+
+    const fetchWaterData = useCallback(async () => {
+        if (!date?.from) {
+            setTotalWaterConsumed(0);
+            return;
+        }
+        const endDate = date.to ?? date.from;
+        setWaterDataLoading(true);
+        try {
+            const activeUsers = userData.filter(u => u.status === 'active') as User[];
+            const userIds = activeUsers.map(u => u.id);
+
+            const [allocation, usageDataById] = await Promise.all([
+                getAllocationForDate(date.from),
+                userIds.length > 0 ? getUsageForDateRange(userIds, date.from, endDate) : Promise.resolve({}),
+            ]);
+            
+            const currentTotalAllocation = allocation ?? DEFAULT_TOTAL_ALLOCATION;
+            setTotalAllocation(currentTotalAllocation);
 
             const consumed = Object.values(usageDataById).reduce((sum, val) => sum + val, 0);
             setTotalWaterConsumed(consumed);
@@ -85,18 +103,25 @@ export default function AdminDashboard() {
         } catch(error) {
             toast({
                 variant: 'destructive',
-                title: 'Data Fetch Failed',
-                description: 'Could not load dashboard data for the selected period.',
+                title: 'Water Data Fetch Failed',
+                description: 'Could not load water data for the selected period.',
             });
             console.error(error);
         } finally {
-            setLoading(false);
+            setWaterDataLoading(false);
         }
-    }, [date, toast]);
+    }, [date, toast, userData]);
+
 
     useEffect(() => {
-        fetchDashboardData();
-    }, [fetchDashboardData]);
+        fetchUserData();
+    }, [fetchUserData]);
+
+    const onTabChange = (tab: string) => {
+        if (tab === 'water') {
+            fetchWaterData();
+        }
+    }
     
     const userNameToIdMap = useMemo(() => {
         const registeredUsers = userData.filter(u => u.status !== 'invited') as User[];
@@ -143,7 +168,7 @@ export default function AdminDashboard() {
                 
                 if (updatesMade > 0) {
                     await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    fetchDashboardData();
+                    fetchUserData();
                     toast({
                         title: 'Upload Successful',
                         description: `Logged usage for ${updatesMade} user(s). View data by selecting the appropriate date range.`,
@@ -210,7 +235,7 @@ export default function AdminDashboard() {
                 
                 if (userInvites.length > 0) {
                     await Promise.all(userInvites.map(user => inviteUser(user)));
-                    fetchDashboardData();
+                    fetchUserData();
                     toast({
                         title: 'Upload Successful',
                         description: `Sent invites for ${userInvites.length} user(s).`,
@@ -249,7 +274,7 @@ export default function AdminDashboard() {
         }
         try {
             await setAllocationForDate(date.from, date.to, totalAllocation);
-            fetchDashboardData();
+            fetchWaterData();
             toast({
                 title: 'Allocation Updated',
                 description: `Set total allocation to ${totalAllocation.toLocaleString()} gallons for the selected period.`,
@@ -272,7 +297,7 @@ export default function AdminDashboard() {
                 await inviteUser(formData);
                 toast({ title: 'User Invited', description: `An invitation has been created for ${formData.email}.` });
             }
-            fetchDashboardData();
+            fetchUserData();
             setEditingUser(null);
         } catch (error) {
             const action = editingUser && editingUser.status !== 'invited' ? 'save' : 'invite';
@@ -297,7 +322,7 @@ export default function AdminDashboard() {
         const newStatus = (userToToggle.status ?? 'active') === 'active' ? 'inactive' : 'active';
         try {
             await updateUserStatus(userToToggle.id, newStatus);
-            fetchDashboardData();
+            fetchUserData();
             toast({
                 title: 'User Status Updated',
                 description: `${userToToggle.name} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}.`,
@@ -328,7 +353,7 @@ export default function AdminDashboard() {
                     description: `${userToDelete.name} has been successfully deleted.`,
                 });
             }
-            fetchDashboardData();
+            fetchUserData();
         } catch (error: any) {
             toast({
                 variant: 'destructive',
@@ -400,7 +425,7 @@ export default function AdminDashboard() {
                 </div>
             </header>
 
-            <Tabs defaultValue="users">
+            <Tabs defaultValue="users" onValueChange={onTabChange}>
                 <TabsList className="grid w-full grid-cols-2 mb-6">
                     <TabsTrigger value="users">User Management</TabsTrigger>
                     <TabsTrigger value="water">Water Management</TabsTrigger>
@@ -547,7 +572,7 @@ export default function AdminDashboard() {
                 <TabsContent value="water">
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {loading ? (
+                            {waterDataLoading ? (
                                 <>
                                     <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
                                     <Card className="rounded-xl shadow-md"><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
@@ -591,7 +616,7 @@ export default function AdminDashboard() {
                                 <div className="flex flex-col sm:flex-row items-end gap-4">
                                     <div className="flex-grow w-full">
                                         <label htmlFor="total-allocation" className="block text-sm font-medium text-foreground mb-1">Total Allocation for Period (Gallons)</label>
-                                        {loading ? <Skeleton className="h-10 w-full" /> : 
+                                        {waterDataLoading ? <Skeleton className="h-10 w-full" /> : 
                                             <Input
                                                 type="number"
                                                 id="total-allocation"
@@ -602,7 +627,7 @@ export default function AdminDashboard() {
                                         }
                                     </div>
                                     <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 flex-wrap">
-                                        <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation} disabled={loading}>
+                                        <Button className="w-full sm:w-auto" onClick={handleUpdateAllocation} disabled={waterDataLoading}>
                                             Update Allocation
                                         </Button>
                                     </div>
@@ -648,5 +673,3 @@ export default function AdminDashboard() {
         </div>
     );
 }
-
-    
