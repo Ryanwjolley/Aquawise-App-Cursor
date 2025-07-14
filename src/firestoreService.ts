@@ -247,12 +247,11 @@ export const setAllocation = async (startDate: Date, endDate: Date, totalAllocat
 
 export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): Promise<Allocation[]> => {
     try {
-        // This query finds allocations that *overlap* with the given date range.
-        // An allocation overlaps if its start is before the range's end AND its end is after the range's start.
+        // Firestore doesn't allow range filters on multiple fields without a composite index.
+        // We query for allocations that start before the end of our range.
         const q = query(
             allocationsCollection,
-            where("startDate", "<=", endDate),
-            where("endDate", ">=", startDate)
+            where("startDate", "<=", endDate)
         );
 
         const querySnapshot = await getDocs(q);
@@ -260,7 +259,7 @@ export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): P
             return [];
         }
 
-        return querySnapshot.docs.map(doc => {
+        const allocations = querySnapshot.docs.map(doc => {
             const data = doc.data();
             return {
                 id: doc.id,
@@ -269,6 +268,10 @@ export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): P
                 totalAllocationGallons: data.totalAllocationGallons,
             } as Allocation;
         });
+
+        // Then, we filter in-memory to find the ones that also end after our range starts,
+        // effectively finding all overlapping periods.
+        return allocations.filter(alloc => alloc.endDate >= startDate);
 
     } catch (e) {
         console.error("Error getting allocations for period: ", e);
@@ -332,5 +335,3 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
       gallons: dailyUsageMap.get(format(day, 'yyyy-MM-dd')) || 0,
     }));
 };
-
-    
