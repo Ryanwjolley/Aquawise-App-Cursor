@@ -4,7 +4,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recha
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart'
 import type { DailyUsage } from '@/firestoreService';
 import { useUnit } from '@/context/unit-context';
-import { convertAndFormat } from '@/lib/utils';
+import { convertAndFormat, GALLONS_PER_ACRE_FOOT } from '@/lib/utils';
 
 type DailyUsageChartProps = {
   data: DailyUsage[];
@@ -15,7 +15,7 @@ export default function DailyUsageChart({ data }: DailyUsageChartProps) {
 
   const chartData = data.map(item => ({
       ...item,
-      gallons: unit === 'acre-feet' ? item.gallons / 325851 : item.gallons,
+      value: unit === 'acre-feet' ? item.gallons / GALLONS_PER_ACRE_FOOT : item.gallons,
   }));
 
   const chartConfig = {
@@ -44,14 +44,14 @@ export default function DailyUsageChart({ data }: DailyUsageChartProps) {
                                 formatter={(value, name, props) => {
                                     return (
                                         <div className="flex flex-col">
-                                            <span>{props.payload.day}</span>
-                                            <span>{`${convertAndFormat(props.payload.gallons, unit, true)} ${getUnitLabel()}`}</span>
+                                            <span className="font-semibold">{props.payload.day}</span>
+                                            <span>{`${convertAndFormat(props.payload.gallons, unit)} ${getUnitLabel()}`}</span>
                                         </div>
                                     )
                                 }}
                             />}
                 />
-                <Bar dataKey="gallons" fill="var(--color-gallons)" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="value" fill="var(--color-gallons)" radius={[5, 5, 0, 0]} />
             </BarChart>
         </ResponsiveContainer>
     </ChartContainer>
