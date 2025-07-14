@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import { format, eachDayOfInterval } from 'date-fns';
 
@@ -241,6 +241,20 @@ export const setAllocation = async (startDate: Date, endDate: Date, totalAllocat
      });
   } catch (e) {
     console.error("Error setting allocation: ", e);
+    throw e;
+  }
+};
+
+export const updateAllocation = async (id: string, data: { startDate: Date, endDate: Date, totalAllocationGallons: number }): Promise<void> => {
+  try {
+    const allocationDoc = doc(db, "allocations", id);
+    await updateDoc(allocationDoc, {
+      startDate: Timestamp.fromDate(data.startDate),
+      endDate: Timestamp.fromDate(data.endDate),
+      totalAllocationGallons: data.totalAllocationGallons,
+    });
+  } catch (e) {
+    console.error("Error updating allocation: ", e);
     throw e;
   }
 };

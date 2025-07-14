@@ -21,6 +21,7 @@ import { Calendar } from './ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import React from 'react';
+import type { Allocation } from '@/firestoreService';
 
 const formSchema = z.object({
   startDate: z.date({ required_error: 'A start date is required.' }),
@@ -46,10 +47,13 @@ const formSchema = z.object({
 type AllocationFormProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (data: { startDate: Date, endDate: Date, totalAllocationGallons: number }) => void;
+  onSave: (data: { id?: string, startDate: Date, endDate: Date, totalAllocationGallons: number }) => void;
+  allocation: Allocation | null;
 };
 
-export function AllocationForm({ isOpen, onOpenChange, onSave }: AllocationFormProps) {
+export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: AllocationFormProps) {
+  const isEditMode = !!allocation;
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -61,15 +65,25 @@ export function AllocationForm({ isOpen, onOpenChange, onSave }: AllocationFormP
 
   React.useEffect(() => {
     if (isOpen) {
-      form.reset({
-        startDate: new Date(),
-        startTime: '00:00',
-        endDate: new Date(),
-        endTime: '23:59',
-        totalAllocationGallons: 1000000,
-      });
+        if (isEditMode && allocation) {
+            form.reset({
+                startDate: allocation.startDate,
+                startTime: format(allocation.startDate, 'HH:mm'),
+                endDate: allocation.endDate,
+                endTime: format(allocation.endDate, 'HH:mm'),
+                totalAllocationGallons: allocation.totalAllocationGallons,
+            });
+        } else {
+            form.reset({
+                startDate: new Date(),
+                startTime: '00:00',
+                endDate: new Date(),
+                endTime: '23:59',
+                totalAllocationGallons: 1000000,
+            });
+        }
     }
-  }, [form, isOpen]);
+  }, [form, isOpen, isEditMode, allocation]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     const { startDate, startTime, endDate, endTime, totalAllocationGallons } = values;
@@ -82,7 +96,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave }: AllocationFormP
     const [endHours, endMinutes] = endTime.split(':').map(Number);
     finalEndDate.setHours(endHours, endMinutes, 0, 0);
 
-    onSave({ startDate: finalStartDate, endDate: finalEndDate, totalAllocationGallons });
+    onSave({ id: allocation?.id, startDate: finalStartDate, endDate: finalEndDate, totalAllocationGallons });
     onOpenChange(false);
   };
 
@@ -90,9 +104,9 @@ export function AllocationForm({ isOpen, onOpenChange, onSave }: AllocationFormP
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New Allocation</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Edit Allocation' : 'Create New Allocation'}</DialogTitle>
           <DialogDescription>
-            Define a time period and the total water allocation available for all users during that time.
+            {isEditMode ? 'Update the details for this allocation period.' : 'Define a time period and the total water allocation available for all users during that time.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -219,7 +233,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave }: AllocationFormP
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Create Allocation</Button>
+              <Button type="submit">{isEditMode ? 'Save Changes' : 'Create Allocation'}</Button>
             </DialogFooter>
           </form>
         </Form>
@@ -227,5 +241,3 @@ export function AllocationForm({ isOpen, onOpenChange, onSave }: AllocationFormP
     </Dialog>
   );
 }
-
-    

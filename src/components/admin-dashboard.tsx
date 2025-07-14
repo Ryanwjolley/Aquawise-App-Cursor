@@ -6,7 +6,7 @@ import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCir
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation } from '../firestoreService';
+import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -45,6 +45,7 @@ export default function AdminDashboard() {
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
     const [isAllocationFormOpen, setIsAllocationFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
+    const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
     
     const { toast } = useToast();
@@ -296,20 +297,28 @@ export default function AdminDashboard() {
         reader.readAsText(file);
     };
 
-    const handleAllocationSave = async (data: { startDate: Date, endDate: Date, totalAllocationGallons: number }) => {
+    const handleAllocationSave = async (data: { id?: string, startDate: Date, endDate: Date, totalAllocationGallons: number }) => {
         try {
-            await setAllocation(data.startDate, data.endDate, data.totalAllocationGallons);
+            if (data.id) {
+                await updateAllocation(data.id, { startDate: data.startDate, endDate: data.endDate, totalAllocationGallons: data.totalAllocationGallons });
+                toast({
+                    title: 'Allocation Updated',
+                    description: `Successfully updated allocation period.`,
+                });
+            } else {
+                await setAllocation(data.startDate, data.endDate, data.totalAllocationGallons);
+                toast({
+                    title: 'Allocation Created',
+                    description: `Successfully created new allocation period.`,
+                });
+            }
             fetchAllocations();
             fetchWaterData();
-            toast({
-                title: 'Allocation Created',
-                description: `Successfully created new allocation period.`,
-            });
         } catch (error) {
             toast({
                 variant: 'destructive',
-                title: 'Creation Failed',
-                description: 'Could not save the new allocation.',
+                title: 'Save Failed',
+                description: 'Could not save the allocation.',
             });
         }
     };
@@ -641,7 +650,7 @@ export default function AdminDashboard() {
                                     <CardTitle className="text-xl">Allocation Management</CardTitle>
                                     <CardDescription>Create and view allocation periods.</CardDescription>
                                 </div>
-                                <Button onClick={() => setIsAllocationFormOpen(true)}>
+                                <Button onClick={() => { setEditingAllocation(null); setIsAllocationFormOpen(true); }}>
                                     <PlusCircle className="mr-2 h-4 w-4" />
                                     New Allocation
                                 </Button>
@@ -653,6 +662,7 @@ export default function AdminDashboard() {
                                             <TableHead>Start Date & Time</TableHead>
                                             <TableHead>End Date & Time</TableHead>
                                             <TableHead className="text-right">Total Gallons Allocated</TableHead>
+                                            <TableHead>Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -662,6 +672,7 @@ export default function AdminDashboard() {
                                                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                                                     <TableCell className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableCell>
+                                                    <TableCell><Skeleton className="h-8 w-10" /></TableCell>
                                                 </TableRow>
                                              ))
                                         ) : allocations.map((alloc) => (
@@ -669,6 +680,20 @@ export default function AdminDashboard() {
                                                 <TableCell>{format(alloc.startDate, 'MMM d, yyyy, h:mm a')}</TableCell>
                                                 <TableCell>{format(alloc.endDate, 'MMM d, yyyy, h:mm a')}</TableCell>
                                                 <TableCell className="text-right">{alloc.totalAllocationGallons.toLocaleString()}</TableCell>
+                                                <TableCell>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button variant="ghost" size="icon" onClick={() => { setEditingAllocation(alloc); setIsAllocationFormOpen(true); }}>
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Edit Allocation</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -725,8 +750,14 @@ export default function AdminDashboard() {
 
             <AllocationForm
                 isOpen={isAllocationFormOpen}
-                onOpenChange={setIsAllocationFormOpen}
+                onOpenChange={(isOpen) => {
+                    setIsAllocationFormOpen(isOpen);
+                    if (!isOpen) {
+                        setEditingAllocation(null);
+                    }
+                }}
                 onSave={handleAllocationSave}
+                allocation={editingAllocation}
             />
 
             <AlertDialog open={!!userToDelete} onOpenChange={(isOpen) => !isOpen && setUserToDelete(null)}>
@@ -752,5 +783,3 @@ export default function AdminDashboard() {
         </div>
     );
 }
-
-    
