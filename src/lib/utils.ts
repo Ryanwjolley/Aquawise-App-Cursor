@@ -16,7 +16,7 @@ export const CFS_TO_GALLONS_PER_SECOND = GALLONS_PER_CUBIC_FOOT;
 export const convertAndFormat = (value: number, unit: 'gallons' | 'acre-feet') => {
   if (unit === 'acre-feet') {
     const acreFeet = value / GALLONS_PER_ACRE_FOOT;
-    return acreFeet.toFixed(3);
+    return acreFeet.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   }
   return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
 };

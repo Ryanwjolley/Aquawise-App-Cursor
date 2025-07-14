@@ -2,7 +2,7 @@
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets } from 'lucide-react';
+import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets, Ruler } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, convertAndFormat } from '@/lib/utils';
 import { UserForm } from './user-form';
 import { AllocationForm } from './allocation-form';
 import { useAuth } from '@/context/auth-context';
@@ -31,6 +31,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from './ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useUnit } from '@/context/unit-context';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 type UserData = User | Invite;
 type AllocationData = { id?: string; startDate: Date; endDate: Date; totalAllocationGallons: number };
@@ -53,6 +56,7 @@ export default function AdminDashboard() {
     const [gapConfirmation, setGapConfirmation] = useState<{ isOpen: boolean, data: AllocationData | null, message: string }>({ isOpen: false, data: null, message: '' });
     
     const { toast } = useToast();
+    const { unit, setUnit, getUnitLabel } = useUnit();
     const usageFileInputRef = React.useRef<HTMLInputElement>(null);
     const userFileInputRef = React.useRef<HTMLInputElement>(null);
     const [date, setDate] = useState<DateRange | undefined>({
@@ -611,53 +615,21 @@ export default function AdminDashboard() {
                 <TabsContent value="water">
                     <div className="space-y-6">
                         <Card className="rounded-xl shadow-md">
-                            <CardHeader>
+                            <CardHeader className='flex-row items-center justify-between'>
                                 <CardTitle className="text-xl">System Information</CardTitle>
-                            </CardHeader>
-                             <CardContent className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                     <Card className="rounded-lg">
-                                        <CardHeader className="pb-2 flex-row items-center justify-between">
-                                            <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
-                                            <Users className="h-4 w-4 text-muted-foreground" />
-                                        </CardHeader>
-                                        <CardContent>
-                                            <p className="text-2xl font-bold">{activeUsers.length}</p>
-                                        </CardContent>
-                                    </Card>
-                                     <Card className="rounded-lg">
-                                        <CardHeader className="pb-2 flex-row items-center justify-between">
-                                            <CardTitle className="text-sm font-medium">Total Shares Issued</CardTitle>
-                                            <BarChart className="h-4 w-4 text-muted-foreground" />
-                                        </CardHeader>
-                                        <CardContent>
-                                            <p className="text-2xl font-bold">{totalSharesIssued.toLocaleString()}</p>
-                                        </CardContent>
-                                    </Card>
-                                     <Card className="rounded-lg">
-                                        <CardHeader className="pb-2 flex-row items-center justify-between">
-                                            <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
-                                            <Droplets className="h-4 w-4 text-muted-foreground" />
-                                        </CardHeader>
-                                        <CardContent>
-                                             {waterDataLoading ? <Skeleton className="h-7 w-2/3" /> :
-                                                <p className="text-2xl font-bold">{(totalPeriodAllocation / 1000).toFixed(0)}K <span className="text-base font-normal text-muted-foreground">gal</span></p>
-                                             }
-                                        </CardContent>
-                                    </Card>
-                                     <Card className="rounded-lg">
-                                        <CardHeader className="pb-2 flex-row items-center justify-between">
-                                            <CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle>
-                                            <Droplets className="h-4 w-4 text-primary" />
-                                        </CardHeader>
-                                        <CardContent>
-                                             {waterDataLoading ? <Skeleton className="h-7 w-2/3" /> :
-                                                <p className="text-2xl font-bold">{(totalWaterConsumed / 1000).toFixed(0)}K <span className="text-base font-normal text-muted-foreground">gal</span></p>
-                                             }
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                                <div className="flex justify-end">
+                                <div className='flex items-center gap-4'>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="unit-select">Units</Label>
+                                        <Select onValueChange={(value) => setUnit(value as 'gallons' | 'acre-feet')} value={unit}>
+                                            <SelectTrigger className="w-[120px]" id="unit-select">
+                                                <SelectValue placeholder="Select unit" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="gallons">Gallons</SelectItem>
+                                                <SelectItem value="acre-feet">Acre-Feet</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <Button
@@ -695,6 +667,50 @@ export default function AdminDashboard() {
                                         </PopoverContent>
                                     </Popover>
                                 </div>
+                            </CardHeader>
+                             <CardContent className="space-y-4 pt-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                     <Card className="rounded-lg">
+                                        <CardHeader className="pb-2 flex-row items-center justify-between">
+                                            <CardTitle className="text-sm font-medium">Total Active Users</CardTitle>
+                                            <Users className="h-4 w-4 text-muted-foreground" />
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-2xl font-bold">{activeUsers.length}</p>
+                                        </CardContent>
+                                    </Card>
+                                     <Card className="rounded-lg">
+                                        <CardHeader className="pb-2 flex-row items-center justify-between">
+                                            <CardTitle className="text-sm font-medium">Total Shares Issued</CardTitle>
+                                            <BarChart className="h-4 w-4 text-muted-foreground" />
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-2xl font-bold">{totalSharesIssued.toLocaleString()}</p>
+                                        </CardContent>
+                                    </Card>
+                                     <Card className="rounded-lg">
+                                        <CardHeader className="pb-2 flex-row items-center justify-between">
+                                            <CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle>
+                                            <Droplets className="h-4 w-4 text-muted-foreground" />
+                                        </CardHeader>
+                                        <CardContent>
+                                             {waterDataLoading ? <Skeleton className="h-7 w-2/3" /> :
+                                                <p className="text-2xl font-bold">{convertAndFormat(totalPeriodAllocation, unit)} <span className="text-base font-normal text-muted-foreground">{getUnitLabel()}</span></p>
+                                             }
+                                        </CardContent>
+                                    </Card>
+                                     <Card className="rounded-lg">
+                                        <CardHeader className="pb-2 flex-row items-center justify-between">
+                                            <CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle>
+                                            <Droplets className="h-4 w-4 text-primary" />
+                                        </CardHeader>
+                                        <CardContent>
+                                             {waterDataLoading ? <Skeleton className="h-7 w-2/3" /> :
+                                                <p className="text-2xl font-bold">{convertAndFormat(totalWaterConsumed, unit)} <span className="text-base font-normal text-muted-foreground">{getUnitLabel()}</span></p>
+                                             }
+                                        </CardContent>
+                                    </Card>
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -715,7 +731,7 @@ export default function AdminDashboard() {
                                         <TableRow>
                                             <TableHead>Start Date & Time</TableHead>
                                             <TableHead>End Date & Time</TableHead>
-                                            <TableHead className="text-right">Total Gallons Allocated</TableHead>
+                                            <TableHead className="text-right">Total Allocation</TableHead>
                                             <TableHead>Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -733,9 +749,9 @@ export default function AdminDashboard() {
                                             <TableRow key={alloc.id}>
                                                 <TableCell>{format(alloc.startDate, 'MMM d, yyyy, h:mm a')}</TableCell>
                                                 <TableCell>{format(alloc.endDate, 'MMM d, yyyy, h:mm a')}</TableCell>
-                                                <TableCell className="text-right">{alloc.totalAllocationGallons.toLocaleString()}</TableCell>
+                                                <TableCell className="text-right">{convertAndFormat(alloc.totalAllocationGallons, unit)} <span className="text-xs text-muted-foreground">{getUnitLabel()}</span></TableCell>
                                                 <TableCell>
-                                                    <div className="flex items-center gap-1">
+                                                    <div className="flex items-center gap-1 justify-end">
                                                         <TooltipProvider>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
