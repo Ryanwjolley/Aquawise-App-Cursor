@@ -33,6 +33,7 @@ import { Skeleton } from './ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type UserData = User | Invite;
+type AllocationData = { id?: string; startDate: Date; endDate: Date; totalAllocationGallons: number };
 
 export default function AdminDashboard() {
     const [userData, setUserData] = useState<UserData[]>([]);
@@ -47,6 +48,8 @@ export default function AdminDashboard() {
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
+
+    const [gapConfirmation, setGapConfirmation] = useState<{ isOpen: boolean, data: AllocationData | null, message: string }>({ isOpen: false, data: null, message: '' });
     
     const { toast } = useToast();
     const usageFileInputRef = React.useRef<HTMLInputElement>(null);
@@ -297,29 +300,58 @@ export default function AdminDashboard() {
         reader.readAsText(file);
     };
 
-    const handleAllocationSave = async (data: { id?: string, startDate: Date, endDate: Date, totalAllocationGallons: number }) => {
+    const proceedWithSave = async (data: AllocationData) => {
         try {
             if (data.id) {
                 await updateAllocation(data.id, { startDate: data.startDate, endDate: data.endDate, totalAllocationGallons: data.totalAllocationGallons });
-                toast({
-                    title: 'Allocation Updated',
-                    description: `Successfully updated allocation period.`,
-                });
+                toast({ title: 'Allocation Updated', description: `Successfully updated allocation period.` });
             } else {
                 await setAllocation(data.startDate, data.endDate, data.totalAllocationGallons);
-                toast({
-                    title: 'Allocation Created',
-                    description: `Successfully created new allocation period.`,
-                });
+                toast({ title: 'Allocation Created', description: `Successfully created new allocation period.` });
             }
             fetchAllocations();
             fetchWaterData();
         } catch (error) {
+            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the allocation.' });
+        }
+    };
+
+
+    const handleAllocationSave = (data: AllocationData) => {
+        // --- OVERLAP VALIDATION ---
+        const otherAllocations = allocations.filter(alloc => alloc.id !== data.id);
+        const hasOverlap = otherAllocations.some(alloc => 
+            data.startDate < alloc.endDate && data.endDate > alloc.startDate
+        );
+
+        if (hasOverlap) {
             toast({
                 variant: 'destructive',
-                title: 'Save Failed',
-                description: 'Could not save the allocation.',
+                title: 'Validation Error',
+                description: 'The provided time period overlaps with an existing allocation. Please adjust the dates and times.',
             });
+            return;
+        }
+
+        // --- GAP VALIDATION ---
+        const sortedAllocations = [...otherAllocations, { ...data, id: data.id || 'new' }].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+        const currentIndex = sortedAllocations.findIndex(alloc => (alloc.id === data.id || alloc.id === 'new'));
+
+        const prevAllocation = sortedAllocations[currentIndex - 1];
+        const nextAllocation = sortedAllocations[currentIndex + 1];
+        
+        let gapMessage = '';
+        if (prevAllocation && data.startDate > prevAllocation.endDate) {
+            gapMessage += `This creates a gap between this allocation and the previous one ending at ${format(prevAllocation.endDate, 'PPp')}. `;
+        }
+        if (nextAllocation && data.endDate < nextAllocation.startDate) {
+            gapMessage += `This creates a gap between this allocation and the next one starting at ${format(nextAllocation.startDate, 'PPp')}.`;
+        }
+        
+        if (gapMessage) {
+            setGapConfirmation({ isOpen: true, data, message: `${gapMessage.trim()} Are you sure you want to continue?` });
+        } else {
+            proceedWithSave(data);
         }
     };
     
@@ -776,6 +808,28 @@ export default function AdminDashboard() {
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={handleConfirmDelete} className={buttonVariants({ variant: "destructive" })}>
                             Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={gapConfirmation.isOpen} onOpenChange={(isOpen) => !isOpen && setGapConfirmation({ isOpen: false, data: null, message: '' })}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Gap Detected in Allocations</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {gapConfirmation.message}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => {
+                            if (gapConfirmation.data) {
+                                proceedWithSave(gapConfirmation.data);
+                            }
+                            setGapConfirmation({ isOpen: false, data: null, message: '' });
+                        }}>
+                            Continue Anyway
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

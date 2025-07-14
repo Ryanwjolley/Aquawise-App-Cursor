@@ -295,7 +295,7 @@ export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): P
 
 export const getAllocations = async (): Promise<Allocation[]> => {
     try {
-        const q = query(allocationsCollection, orderBy("startDate", "desc"));
+        const q = query(allocationsCollection, orderBy("startDate", "asc"));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => {
             const data = doc.data();
