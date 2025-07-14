@@ -24,27 +24,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setLoading(true);
       if (firebaseUser) {
-        // User is logged in, now get their details
         try {
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
+            const userData = { id: userDoc.id, ...userDoc.data() } as User;
             setUser(firebaseUser);
-            setUserDetails({ id: userDoc.id, ...userDoc.data() } as User);
+            setUserDetails(userData);
           } else {
-            // User authenticated but no user document. This is an invalid state.
-            // Log them out.
+            // No user document, sign out
+            await auth.signOut();
             setUser(null);
             setUserDetails(null);
-            await auth.signOut();
           }
         } catch (error) {
           console.error("Error fetching user details:", error);
+          await auth.signOut();
           setUser(null);
           setUserDetails(null);
-          await auth.signOut();
         } finally {
           setLoading(false);
         }
@@ -61,10 +59,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     await auth.signOut();
-    // Reset state immediately and redirect
     setUser(null);
     setUserDetails(null);
-    router.push('/login');
+    // Redirect to the root, which will then go to the admin page.
+    router.push('/');
   };
 
 

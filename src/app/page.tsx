@@ -6,29 +6,15 @@ import { useEffect } from 'react';
 import { Droplets } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, userDetails, loading } = useAuth();
+  const { loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // We only want to act when the loading is fully complete.
-    if (loading) {
-      return;
-    }
+    // Redirect directly to the admin dashboard, bypassing login.
+    router.replace('/admin');
+  }, [router]);
 
-    // After loading, if a user and their details are present, route them.
-    if (user && userDetails) {
-      if (userDetails.role === 'admin') {
-        router.replace('/admin');
-      } else {
-        router.replace('/dashboard');
-      }
-    } else {
-      // If loading is done and there's no user, they must log in.
-      router.replace('/login');
-    }
-  }, [user, userDetails, loading, router]);
-
-  // Render a loading indicator until the routing logic in useEffect completes.
+  // Render a loading indicator while the redirect happens.
   return (
     <div className="flex h-screen w-full items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-4">
