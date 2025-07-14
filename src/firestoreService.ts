@@ -57,7 +57,7 @@ export const createUserDocument = async (
   }
 };
 
-export const inviteUser = async (data: {name: string, email: string, shares: number}): Promise<void> => {
+export const inviteUser = async (data: {name: string, email: string, shares: number, role: 'customer' | 'admin'}): Promise<void> => {
   try {
     await addDoc(invitesCollection, data);
   } catch (e) {
@@ -285,3 +285,4 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
       
     return dailyUsageData;
 };
+

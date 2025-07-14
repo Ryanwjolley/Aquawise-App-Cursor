@@ -49,7 +49,8 @@ export default function AdminDashboard() {
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
     
     const { toast } = useToast();
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const usageFileInputRef = React.useRef<HTMLInputElement>(null);
+    const userFileInputRef = React.useRef<HTMLInputElement>(null);
     const [date, setDate] = useState<DateRange | undefined>({
         from: new Date(2025, 6, 1),
         to: new Date(2025, 6, 31),
@@ -77,7 +78,7 @@ export default function AdminDashboard() {
             setTotalAllocation(currentTotalAllocation);
             
             const allUsersAndInvites = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
-            const totalSystemShares = fetchedUsers.reduce((acc, user) => acc + user.shares, 0);
+            const totalSystemShares = fetchedUsers.reduce((acc, user) => acc + (user.shares || 0), 0);
             
             const processedUserData = allUsersAndInvites.map(userOrInvite => {
                 const userStatus = 'status' in userOrInvite ? userOrInvite.status : 'invited';
@@ -90,7 +91,7 @@ export default function AdminDashboard() {
                 const used = usageDataById[user.id] || 0;
                 
                 const userAllocation = totalSystemShares > 0 
-                    ? (user.shares / totalSystemShares) * currentTotalAllocation
+                    ? ((user.shares || 0) / totalSystemShares) * currentTotalAllocation
                     : 0;
 
                 const percentageUsed = userAllocation > 0 ? Math.round((used / userAllocation) * 100) : 0;
@@ -125,7 +126,7 @@ export default function AdminDashboard() {
         return new Map(registeredUsers.map(u => [u.name, u.id]));
     }, [userData]);
     
-    const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleUsageCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -185,8 +186,69 @@ export default function AdminDashboard() {
                 });
                 console.error("Error parsing CSV:", error);
             } finally {
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
+                if (usageFileInputRef.current) {
+                    usageFileInputRef.current.value = '';
+                }
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const handleUserCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (file.type !== 'text/csv') {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid File Type',
+                description: 'Please upload a valid .csv file.',
+            });
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const text = e.target?.result as string;
+                const lines = text.split(/\r\n|\n/).slice(1);
+                
+                const userInvites = [];
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    const [name, email, sharesStr] = line.split(',');
+                    if (name && email && sharesStr) {
+                        const shares = parseInt(sharesStr.trim(), 10);
+                        if (!isNaN(shares)) {
+                            userInvites.push({ name: name.trim(), email: email.trim(), shares, role: 'customer' });
+                        }
+                    }
+                }
+                
+                if (userInvites.length > 0) {
+                    await Promise.all(userInvites.map(user => inviteUser(user)));
+                    fetchDashboardData();
+                    toast({
+                        title: 'Upload Successful',
+                        description: `Sent invites for ${userInvites.length} user(s).`,
+                    });
+                } else {
+                     toast({
+                        variant: 'destructive',
+                        title: 'No Invites Sent',
+                        description: 'CSV data was invalid or empty. Expected format: name,email,shares.',
+                    });
+                }
+            } catch (error) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Error Processing File',
+                    description: 'Could not parse or upload the user CSV file.',
+                });
+                console.error("Error parsing user CSV:", error);
+            } finally {
+                if (userFileInputRef.current) {
+                    userFileInputRef.current.value = '';
                 }
             }
         };
@@ -438,11 +500,22 @@ export default function AdminDashboard() {
                            Invite User
                         </Button>
                         <TooltipProvider>
+                             <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="outline" onClick={() => userFileInputRef.current?.click()}>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Upload Users
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Upload a CSV with columns: `name`, `email`, `shares`.</p>
+                                </TooltipContent>
+                            </Tooltip>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                    <Button variant="outline" onClick={() => usageFileInputRef.current?.click()}>
                                         <Upload className="mr-2 h-4 w-4" />
-                                        Upload Usage CSV
+                                        Upload Usage
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -451,12 +524,20 @@ export default function AdminDashboard() {
                             </Tooltip>
                         </TooltipProvider>
                         <input
-                            ref={fileInputRef}
+                            ref={usageFileInputRef}
                             type="file"
                             id="csv-upload"
                             className="hidden"
                             accept=".csv"
-                            onChange={handleCsvUpload}
+                            onChange={handleUsageCsvUpload}
+                        />
+                         <input
+                            ref={userFileInputRef}
+                            type="file"
+                            id="user-csv-upload"
+                            className="hidden"
+                            accept=".csv"
+                            onChange={handleUserCsvUpload}
                         />
                     </div>
                 </CardHeader>
