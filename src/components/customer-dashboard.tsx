@@ -137,18 +137,18 @@ export default function CustomerDashboard() {
   const usagePercentage = totalPeriodAllocation > 0 ? Math.round((waterUsed / totalPeriodAllocation) * 100) : 0;
   
   const averageFlow = () => {
-    if (!date?.from || !date?.to || waterUsed === 0) return 0;
+    if (!date?.from || !date?.to || totalPeriodAllocation === 0) return 0;
     
     if (flowUnit === 'gpm') {
         const minutes = differenceInMinutes(date.to, date.from);
         if (minutes === 0) return 0;
-        return waterUsed / minutes; // GPM
+        return totalPeriodAllocation / minutes; // GPM
     }
     
     if (flowUnit === 'cfs') {
         const seconds = differenceInSeconds(date.to, date.from);
         if (seconds === 0) return 0;
-        const cubicFeet = waterUsed / GALLONS_PER_CUBIC_FOOT;
+        const cubicFeet = totalPeriodAllocation / GALLONS_PER_CUBIC_FOOT;
         return cubicFeet / seconds; // CFS
     }
 
