@@ -12,6 +12,24 @@ type DailyUsageChartProps = {
   unitLabel: string;
 }
 
+const CustomTooltip = ({ active, payload, label, unit, unitLabel }: any) => {
+  if (active && payload && payload.length) {
+    const dataPoint = payload[0].payload;
+    // dataPoint here is an item from the chartData array
+    // It should have 'day' and 'gallons' properties
+    if (typeof dataPoint.gallons === 'number') {
+        return (
+            <div className="p-2 bg-background border rounded-lg shadow-sm">
+            <p className="font-bold">{label}</p>
+            <p>{`${convertAndFormat(dataPoint.gallons, unit)} ${unitLabel}`}</p>
+            </div>
+        );
+    }
+  }
+  return null;
+};
+
+
 export default function DailyUsageChart({ data, unit, unitLabel }: DailyUsageChartProps) {
   const chartConfig = {
       gallons: {
@@ -24,19 +42,6 @@ export default function DailyUsageChart({ data, unit, unitLabel }: DailyUsageCha
     ...item,
     displayValue: unit === 'acre-feet' ? item.gallons / 325851 : item.gallons,
   })), [data, unit]);
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const dataPoint = payload[0].payload;
-      return (
-        <div className="p-2 bg-background border rounded-lg shadow-sm">
-          <p className="font-bold">{label}</p>
-          <p>{`${convertAndFormat(dataPoint.gallons, unit)} ${unitLabel}`}</p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <ChartContainer config={chartConfig} className="w-full h-full">
@@ -52,7 +57,7 @@ export default function DailyUsageChart({ data, unit, unitLabel }: DailyUsageCha
                 />
                 <Tooltip 
                     cursor={{fill: 'hsla(var(--muted), 0.5)'}}
-                    content={<CustomTooltip />}
+                    content={<CustomTooltip unit={unit} unitLabel={unitLabel} />}
                 />
                 <Bar dataKey="displayValue" fill="var(--color-gallons)" radius={[5, 5, 0, 0]} />
             </BarChart>
