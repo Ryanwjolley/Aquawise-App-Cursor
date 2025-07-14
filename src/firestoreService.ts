@@ -42,6 +42,7 @@ export const createUserDocument = async (
 ): Promise<void> => {
   try {
     const userDocRef = doc(db, 'users', uid);
+    // Automatically assign admin role to a specific email, otherwise customer.
     const role = data.email.toLowerCase() === 'admin@aquawise.com' ? 'admin' : 'customer';
 
     await setDoc(userDocRef, {
@@ -59,6 +60,19 @@ export const createUserDocument = async (
 
 export const inviteUser = async (data: {name: string, email: string, shares: number, role: 'customer' | 'admin'}): Promise<void> => {
   try {
+    // Check if user with this email already exists
+    const userQuery = query(usersCollection, where("email", "==", data.email), limit(1));
+    const userSnapshot = await getDocs(userQuery);
+    if (!userSnapshot.empty) {
+      throw new Error("A user with this email already exists.");
+    }
+    // Check if invite for this email already exists
+    const inviteQuery = query(invitesCollection, where("email", "==", data.email), limit(1));
+    const inviteSnapshot = await getDocs(inviteQuery);
+    if (!inviteSnapshot.empty) {
+      throw new Error("An invitation for this email has already been sent.");
+    }
+
     await addDoc(invitesCollection, data);
   } catch (e) {
     console.error('Error inviting user: ', e);
@@ -173,10 +187,11 @@ export const deleteUser = async (userId: string): Promise<void> => {
 export const addUsageEntry = async (usageEntry: {userId: string, date: string, consumption: number}): Promise<void> => {
   try {
     // Ensure date is treated as UTC to avoid timezone issues
-    const date = new Date(usageEntry.date + 'T00:00:00Z');
+    const date = new Date(usageEntry.date);
+    const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
     const dataWithTimestamp: UsageData = {
         ...usageEntry,
-        date: Timestamp.fromDate(date)
+        date: Timestamp.fromDate(utcDate)
     };
     await addDoc(usageCollection, dataWithTimestamp);
   } catch (e) {
@@ -190,7 +205,6 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
     const usageMap: Record<string, number> = {};
     userIds.forEach(id => (usageMap[id] = 0));
 
-    // If there are no users, Firestore 'in' query will fail. Return empty map.
     if (userIds.length === 0) {
         return usageMap;
     }
@@ -260,10 +274,11 @@ export const getAllocationForDate = async (date: Date): Promise<number | null> =
 export const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
     
     const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
-    const dailyUsageData: DailyUsage[] = daysInInterval.map(day => ({
-      day: format(day, 'EEE'),
-      gallons: 0,
-    }));
+    const dailyUsageMap = new Map<string, number>();
+
+    daysInInterval.forEach(day => {
+      dailyUsageMap.set(format(day, 'yyyy-MM-dd'), 0);
+    });
 
     try {
         const q = query(
@@ -278,15 +293,17 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
         querySnapshot.forEach((doc) => {
             const data = doc.data() as UsageData;
             const docDate = data.date.toDate();
-            const dayIndex = daysInInterval.findIndex(intervalDay => format(intervalDay, 'yyyy-MM-dd') === format(docDate, 'yyyy-MM-dd'));
-
-            if (dayIndex !== -1) {
-                dailyUsageData[dayIndex].gallons += data.consumption;
+            const dateKey = format(docDate, 'yyyy-MM-dd');
+            if (dailyUsageMap.has(dateKey)) {
+                dailyUsageMap.set(dateKey, dailyUsageMap.get(dateKey)! + data.consumption);
             }
         });
     } catch (error) {
         console.error("Error fetching daily usage data: ", error);
     }
       
-    return dailyUsageData;
+    return daysInInterval.map(day => ({
+      day: format(day, 'EEE'),
+      gallons: dailyUsageMap.get(format(day, 'yyyy-MM-dd')) || 0,
+    }));
 };

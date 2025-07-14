@@ -81,16 +81,26 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const invite = await getInvite(signupEmail);
+      let userName = 'Admin User';
+      let userShares = 0;
+      let inviteIdToDelete: string | null = null;
 
-      if (!invite) {
-        toast({
-          variant: 'destructive',
-          title: 'Sign Up Failed',
-          description: 'This email has not been invited. Please contact an administrator.',
-        });
-        setLoading(false);
-        return;
+      // Special case to allow admin creation without an invite
+      if (signupEmail.toLowerCase() !== 'admin@aquawise.com') {
+        const invite = await getInvite(signupEmail);
+
+        if (!invite) {
+          toast({
+            variant: 'destructive',
+            title: 'Sign Up Failed',
+            description: 'This email has not been invited. Please contact an administrator.',
+          });
+          setLoading(false);
+          return;
+        }
+        userName = invite.name;
+        userShares = invite.shares;
+        inviteIdToDelete = invite.id;
       }
       
       const userCredential = await createUserWithEmailAndPassword(
@@ -100,12 +110,14 @@ export default function LoginPage() {
       );
       
       await createUserDocument(userCredential.user.uid, {
-        name: invite.name,
+        name: userName,
         email: signupEmail,
-        shares: invite.shares,
+        shares: userShares,
       });
-
-      await deleteInvite(invite.id);
+      
+      if(inviteIdToDelete) {
+        await deleteInvite(inviteIdToDelete);
+      }
       
       router.push('/');
     } catch (error: any)
