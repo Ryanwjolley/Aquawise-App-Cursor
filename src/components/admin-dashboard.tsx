@@ -1,7 +1,7 @@
 
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CalendarDays, Upload, Edit, UserPlus, Ban, CheckCircle, Trash2 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -454,26 +454,7 @@ export default function AdminDashboard() {
                                             <p>Upload a CSV with columns: `name`, `email`, `role`, `shares`.</p>
                                         </TooltipContent>
                                     </Tooltip>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="outline" onClick={() => usageFileInputRef.current?.click()}>
-                                                <Upload className="mr-2 h-4 w-4" />
-                                                Upload Usage
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Upload a CSV with columns: `name`, `used`, `date` (YYYY-MM-DD).</p>
-                                        </TooltipContent>
-                                    </Tooltip>
                                 </TooltipProvider>
-                                <input
-                                    ref={usageFileInputRef}
-                                    type="file"
-                                    id="csv-upload"
-                                    className="hidden"
-                                    accept=".csv"
-                                    onChange={handleUsageCsvUpload}
-                                />
                                 <input
                                     ref={userFileInputRef}
                                     type="file"
@@ -632,6 +613,37 @@ export default function AdminDashboard() {
                                         </Button>
                                     </div>
                                 </div>
+                            </CardContent>
+                        </Card>
+                         <Card className="rounded-xl shadow-md">
+                            <CardHeader>
+                                <CardTitle className="text-xl">Upload Usage Data</CardTitle>
+                                <CardDescription>
+                                    Upload a CSV file with individual water usage records for the period.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button variant="outline" onClick={() => usageFileInputRef.current?.click()}>
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Upload Usage CSV
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Upload a CSV with columns: `name`, `used`, `date` (YYYY-MM-DD).</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                                <input
+                                    ref={usageFileInputRef}
+                                    type="file"
+                                    id="csv-upload"
+                                    className="hidden"
+                                    accept=".csv"
+                                    onChange={handleUsageCsvUpload}
+                                />
                             </CardContent>
                         </Card>
                     </div>
