@@ -24,6 +24,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true); // Start loading when auth state changes
       if (firebaseUser) {
         setUser(firebaseUser);
         const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -31,14 +32,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (userDoc.exists()) {
           setUserDetails({ id: userDoc.id, ...userDoc.data() } as User);
         } else {
-          // Handle case where user exists in Auth but not Firestore
-           setUserDetails(null);
+          setUserDetails(null);
         }
       } else {
         setUser(null);
         setUserDetails(null);
       }
-      setLoading(false);
+      setLoading(false); // Finish loading after all async operations
     });
 
     return () => unsubscribe();
