@@ -237,16 +237,20 @@ export const getAllocationForDate = async (date: Date): Promise<number | null> =
     const q = query(
         allocationsCollection,
         where("startDate", "<=", date),
-        where("endDate", ">=", date),
+        orderBy("startDate", "desc"),
         limit(1)
     );
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
         const docSnap = querySnapshot.docs[0];
-        return docSnap.data().totalAllocationGallons;
-    } else {
-        return null;
+        const allocationData = docSnap.data();
+        const endDate = (allocationData.endDate as Timestamp).toDate();
+
+        if (date <= endDate) {
+            return allocationData.totalAllocationGallons;
+        }
     }
+    return null;
   } catch (e) {
     console.error("Error getting allocation: ", e);
     throw e;
