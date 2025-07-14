@@ -23,8 +23,7 @@ export default function HomePage() {
         router.replace('/dashboard');
       }
     } else {
-      // If loading is done and there's no user, or user exists but no details (e.g., deleted from DB),
-      // they must log in.
+      // If loading is done and there's no user, they must log in.
       router.replace('/login');
     }
   }, [user, userDetails, loading, router]);

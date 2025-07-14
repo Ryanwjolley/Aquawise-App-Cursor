@@ -26,24 +26,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
       if (firebaseUser) {
-        setUser(firebaseUser);
+        // User is logged in, now get their details
         try {
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userDoc = await getDoc(userDocRef);
           if (userDoc.exists()) {
+            setUser(firebaseUser);
             setUserDetails({ id: userDoc.id, ...userDoc.data() } as User);
           } else {
-            // User is authenticated but no user document found.
-            // This might happen if the document creation failed or was deleted.
+            // User authenticated but no user document. This is an invalid state.
+            // Log them out.
+            setUser(null);
             setUserDetails(null);
+            await auth.signOut();
           }
         } catch (error) {
           console.error("Error fetching user details:", error);
+          setUser(null);
           setUserDetails(null);
+          await auth.signOut();
         } finally {
           setLoading(false);
         }
       } else {
+        // No user is logged in
         setUser(null);
         setUserDetails(null);
         setLoading(false);
@@ -55,10 +61,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     await auth.signOut();
-    // Reset state immediately for a faster UI response
+    // Reset state immediately and redirect
     setUser(null);
     setUserDetails(null);
-    setLoading(false);
     router.push('/login');
   };
 

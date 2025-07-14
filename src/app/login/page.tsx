@@ -58,6 +58,8 @@ export default function LoginPage() {
       let description = error.message;
       if (error.code === 'auth/configuration-not-found') {
         description = 'Email/Password sign-in is not enabled. Please enable it in your Firebase project console.';
+      } else if (error.code === 'auth/invalid-credential') {
+        description = 'Invalid email or password.';
       }
       toast({
         variant: 'destructive',
