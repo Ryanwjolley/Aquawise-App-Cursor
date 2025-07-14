@@ -190,7 +190,7 @@ export default function CustomerDashboard() {
           <p className="text-muted-foreground">{subMessage}</p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          {userDetails.role === 'admin' && users.length > 0 && (
+          {userDetails?.role === 'admin' && users.length > 0 && (
             <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Users className="h-5 w-5 text-muted-foreground" />
                 <Select onValueChange={handleUserChange} value={selectedUser?.id}>
