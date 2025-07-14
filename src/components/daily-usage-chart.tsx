@@ -13,11 +13,6 @@ type DailyUsageChartProps = {
 export default function DailyUsageChart({ data }: DailyUsageChartProps) {
   const { unit, getUnitLabel } = useUnit();
 
-  const chartData = data.map(item => ({
-      ...item,
-      value: unit === 'acre-feet' ? item.gallons / GALLONS_PER_ACRE_FOOT : item.gallons,
-  }));
-
   const chartConfig = {
       gallons: {
           label: getUnitLabel(),
@@ -25,17 +20,22 @@ export default function DailyUsageChart({ data }: DailyUsageChartProps) {
       },
   }
 
+  const chartData = data.map(item => ({
+    ...item,
+    displayValue: unit === 'acre-feet' ? item.gallons / GALLONS_PER_ACRE_FOOT : item.gallons
+  }));
+
   return (
     <ChartContainer config={chartConfig} className="w-full h-full">
         <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 5, right: 5, bottom: -10, left: -10 }}>
+            <BarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis 
                     stroke="hsl(var(--muted-foreground))" 
                     fontSize={12} 
                     tickLine={false} 
                     axisLine={false} 
-                    tickFormatter={(value) => unit === 'gallons' ? `${value}` : `${Number(value).toFixed(3)}`} 
+                    tickFormatter={(value) => unit === 'gallons' ? `${value}` : `${Number(value).toFixed(2)}`} 
                 />
                 <Tooltip 
                     cursor={{fill: 'hsla(var(--muted), 0.5)'}} 
@@ -51,7 +51,7 @@ export default function DailyUsageChart({ data }: DailyUsageChartProps) {
                                 }}
                             />}
                 />
-                <Bar dataKey="value" fill="var(--color-gallons)" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="displayValue" fill="var(--color-gallons)" radius={[5, 5, 0, 0]} />
             </BarChart>
         </ResponsiveContainer>
     </ChartContainer>
