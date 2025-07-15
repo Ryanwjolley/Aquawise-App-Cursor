@@ -39,6 +39,7 @@ export function NotificationSettings() {
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [editingRule, setEditingRule] = useState<NotificationRule | null>(null);
   const [ruleToDelete, setRuleToDelete] = useState<NotificationRule | null>(null);
   
   const [type, setType] = useState<'usage' | 'allocation'>('usage');
@@ -62,6 +63,18 @@ export function NotificationSettings() {
   useEffect(() => {
     fetchRules();
   }, [fetchRules]);
+
+  useEffect(() => {
+    if (isFormOpen && editingRule) {
+      setType(editingRule.type);
+      setThreshold(editingRule.threshold ?? 75);
+      setMessage(editingRule.message);
+    } else {
+      setType('usage');
+      setThreshold(75);
+      setMessage('');
+    }
+  }, [isFormOpen, editingRule]);
 
   const handleGenerateMessage = async () => {
     setIsGenerating(true);
@@ -88,24 +101,31 @@ export function NotificationSettings() {
         return;
     }
 
-    const newRule: NotificationRuleData = {
+    const ruleData: Partial<NotificationRuleData> = {
       type,
       threshold: type === 'usage' ? threshold : null,
       message,
-      enabled: true,
-      createdAt: new Date(),
     };
 
     try {
-      await addNotificationRule(newRule);
-      toast({ title: 'Rule Saved', description: 'The new notification rule has been added.' });
+      if (editingRule) {
+        await updateNotificationRule(editingRule.id, ruleData);
+        toast({ title: 'Rule Updated', description: 'The notification rule has been updated.' });
+      } else {
+        const newRule: NotificationRuleData = {
+          ...ruleData,
+          enabled: true,
+          createdAt: new Date(),
+        } as NotificationRuleData;
+        await addNotificationRule(newRule);
+        toast({ title: 'Rule Created', description: 'The new notification rule has been added.' });
+      }
       fetchRules();
       setIsFormOpen(false);
-      setMessage('');
-      setThreshold(75);
-      setType('usage');
+      setEditingRule(null);
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the new rule.' });
+        const action = editingRule ? 'Update' : 'Save';
+        toast({ variant: 'destructive', title: `${action} Failed`, description: `Could not ${action.toLowerCase()} the rule.` });
     }
   };
 
@@ -132,6 +152,11 @@ export function NotificationSettings() {
     }
   };
   
+  const handleOpenDialog = (rule: NotificationRule | null) => {
+    setEditingRule(rule);
+    setIsFormOpen(true);
+  }
+
   return (
     <div className="space-y-6">
         <Card className="rounded-xl shadow-md">
@@ -142,71 +167,7 @@ export function NotificationSettings() {
                         Set up automated notifications for customers.
                     </CardDescription>
                 </div>
-                <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                    <DialogTrigger asChild>
-                        <Button><PlusCircle className='mr-2 h-4 w-4' /> New Rule</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Create New Notification Rule</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className='space-y-2'>
-                                <Label htmlFor="type">Notification Type</Label>
-                                <Select onValueChange={(v) => setType(v as 'usage' | 'allocation')} value={type}>
-                                    <SelectTrigger id='type'>
-                                        <SelectValue placeholder="Select a type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="usage">Usage Threshold</SelectItem>
-                                        <SelectItem value="allocation">Allocation Changed</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            {type === 'usage' && (
-                                <div className='space-y-2'>
-                                    <Label htmlFor="threshold">Usage Threshold (%)</Label>
-                                    <Input
-                                        id="threshold"
-                                        type="number"
-                                        value={threshold}
-                                        onChange={(e) => setThreshold(Number(e.target.value))}
-                                        placeholder="e.g. 75"
-                                    />
-                                </div>
-                            )}
-                            <div className='space-y-2'>
-                                <div className="flex justify-between items-center">
-                                    <Label htmlFor="message">Message</Label>
-                                    <Button variant="ghost" size="sm" onClick={handleGenerateMessage} disabled={isGenerating}>
-                                        <WandSparkles className="mr-2 h-4 w-4" />
-                                        {isGenerating ? 'Generating...' : 'AI Assistant'}
-                                    </Button>
-                                </div>
-                                {isGenerating ? (
-                                    <Skeleton className="h-[100px] w-full" />
-                                ) : (
-                                    <Textarea
-                                        id="message"
-                                        value={message}
-                                        onChange={(e) => setMessage(e.target.value)}
-                                        placeholder="e.g. Heads up! You have used {usage_percent}% of your water allocation."
-                                        rows={4}
-                                    />
-                                )}
-                                <p className='text-xs text-muted-foreground'>
-                                    Use placeholders like `{'{{usage_percent}}'}`, `{'{{user_name}}'}`, `{'{{start_date}}'}`, or `{'{{end_date}}'}`.
-                                </p>
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <DialogClose asChild>
-                                <Button type="button" variant="outline">Cancel</Button>
-                            </DialogClose>
-                            <Button onClick={handleSaveRule}>Save Rule</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                 <Button onClick={() => handleOpenDialog(null)}><PlusCircle className='mr-2 h-4 w-4' /> New Rule</Button>
             </CardHeader>
             <CardContent>
                 <Table>
@@ -227,7 +188,7 @@ export function NotificationSettings() {
                                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-48" /></TableCell>
                                     <TableCell><Skeleton className="h-6 w-12" /></TableCell>
-                                    <TableCell className='text-right'><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
+                                    <TableCell className='text-right'><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
                                 </TableRow>
                             ))
                         ) : rules.map((rule) => (
@@ -248,9 +209,14 @@ export function NotificationSettings() {
                                     />
                                 </TableCell>
                                 <TableCell className='text-right'>
-                                    <Button variant="ghost" size="icon" onClick={() => setRuleToDelete(rule)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(rule)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => setRuleToDelete(rule)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -264,6 +230,74 @@ export function NotificationSettings() {
                 )}
             </CardContent>
         </Card>
+        
+        <Dialog open={isFormOpen} onOpenChange={(isOpen) => {
+            setIsFormOpen(isOpen);
+            if (!isOpen) {
+                setEditingRule(null);
+            }
+        }}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{editingRule ? 'Edit Notification Rule' : 'Create New Notification Rule'}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className='space-y-2'>
+                        <Label htmlFor="type">Notification Type</Label>
+                        <Select onValueChange={(v) => setType(v as 'usage' | 'allocation')} value={type}>
+                            <SelectTrigger id='type'>
+                                <SelectValue placeholder="Select a type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="usage">Usage Threshold</SelectItem>
+                                <SelectItem value="allocation">Allocation Changed</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {type === 'usage' && (
+                        <div className='space-y-2'>
+                            <Label htmlFor="threshold">Usage Threshold (%)</Label>
+                            <Input
+                                id="threshold"
+                                type="number"
+                                value={threshold}
+                                onChange={(e) => setThreshold(Number(e.target.value))}
+                                placeholder="e.g. 75"
+                            />
+                        </div>
+                    )}
+                    <div className='space-y-2'>
+                        <div className="flex justify-between items-center">
+                            <Label htmlFor="message">Message</Label>
+                            <Button variant="ghost" size="sm" onClick={handleGenerateMessage} disabled={isGenerating}>
+                                <WandSparkles className="mr-2 h-4 w-4" />
+                                {isGenerating ? 'Generating...' : 'AI Assistant'}
+                            </Button>
+                        </div>
+                        {isGenerating ? (
+                            <Skeleton className="h-[100px] w-full" />
+                        ) : (
+                            <Textarea
+                                id="message"
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                placeholder="e.g. Heads up! You have used {usage_percent}% of your water allocation."
+                                rows={4}
+                            />
+                        )}
+                        <p className='text-xs text-muted-foreground'>
+                            Use placeholders like `{'{{usage_percent}}'}`, `{'{{user_name}}'}`, `{'{{start_date}}'}`, or `{'{{end_date}}'}`.
+                        </p>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button onClick={handleSaveRule}>{editingRule ? 'Save Changes' : 'Create Rule'}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <AlertDialog open={!!ruleToDelete} onOpenChange={(isOpen) => !isOpen && setRuleToDelete(null)}>
             <AlertDialogContent>
