@@ -27,12 +27,16 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 
 export default function SuperAdminPage() {
-  const { user, userDetails, loading: authLoading, startImpersonation } = useAuth();
+  const { user, userDetails, loading: authLoading, startImpersonation, refreshCompanies } = useAuth();
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCompanyFormOpen, setIsCompanyFormOpen] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
+  const [adminName, setAdminName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminMobile, setAdminMobile] = useState('');
+
   const { toast } = useToast();
 
   const fetchCompanies = useCallback(async () => {
@@ -57,20 +61,32 @@ export default function SuperAdminPage() {
       }
     }
   }, [user, userDetails, authLoading, router, fetchCompanies]);
+  
+  const resetForm = () => {
+      setNewCompanyName('');
+      setAdminName('');
+      setAdminEmail('');
+      setAdminMobile('');
+  }
 
   const handleAddCompany = async () => {
-    if (!newCompanyName.trim()) {
-      toast({ variant: 'destructive', title: 'Company Name Required' });
+    if (!newCompanyName.trim() || !adminName.trim() || !adminEmail.trim()) {
+      toast({ variant: 'destructive', title: 'All Fields Required', description: 'Please fill out all fields to create a company.' });
       return;
     }
     try {
-      await addCompany(newCompanyName);
-      await fetchCompanies();
-      setNewCompanyName('');
+      await addCompany({
+        companyName: newCompanyName,
+        adminName,
+        adminEmail,
+      });
+      await fetchCompanies(); // Re-fetch to show the new company
+      await refreshCompanies(); // Re-fetch in auth context as well
+      resetForm();
       setIsCompanyFormOpen(false);
-      toast({ title: 'Company Created', description: `Successfully created ${newCompanyName}.` });
+      toast({ title: 'Company Created', description: `Successfully created ${newCompanyName} and its admin.` });
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Failed to Create Company' });
+      toast({ variant: 'destructive', title: 'Failed to Create Company', description: (error as Error).message || 'An unknown error occurred.' });
     }
   };
   
@@ -118,15 +134,29 @@ export default function SuperAdminPage() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Add New Company</DialogTitle>
-                        <DialogDescription>Create a new company to be managed by a Water Master.</DialogDescription>
+                        <DialogDescription>Create a new company and its initial administrator account.</DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-2 py-4">
-                        <Label htmlFor='company-name'>Company Name</Label>
-                        <Input id="company-name" placeholder="e.g. Sterling Irrigation Inc." value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} />
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor='company-name'>Company Name</Label>
+                            <Input id="company-name" placeholder="e.g. Sterling Irrigation Inc." value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor='admin-name'>Admin Full Name</Label>
+                            <Input id="admin-name" placeholder="e.g. John Watermaster" value={adminName} onChange={(e) => setAdminName(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor='admin-email'>Admin Email</Label>
+                            <Input id="admin-email" type="email" placeholder="e.g. admin@sterling.com" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor='admin-mobile'>Admin Mobile (Optional)</Label>
+                            <Input id="admin-mobile" type="tel" placeholder="e.g. (555) 123-4567" value={adminMobile} onChange={(e) => setAdminMobile(e.target.value)} />
+                        </div>
                     </div>
                     <DialogFooter>
-                        <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                        <Button onClick={handleAddCompany}>Create Company</Button>
+                        <DialogClose asChild><Button variant="outline" onClick={resetForm}>Cancel</Button></DialogClose>
+                        <Button onClick={handleAddCompany}>Create Company & Admin</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

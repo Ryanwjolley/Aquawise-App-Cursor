@@ -1,6 +1,6 @@
 
 'use server';
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc, writeBatch, runTransaction } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import { format, eachDayOfInterval } from 'date-fns';
 
@@ -99,12 +99,34 @@ export const getCompany = async (companyId: string): Promise<Company | null> => 
     }
 };
 
-export const addCompany = async (name: string): Promise<string> => {
+export const addCompany = async (data: { companyName: string, adminName: string, adminEmail: string }): Promise<void> => {
     try {
-        const docRef = await addDoc(companiesCollection, { name });
-        return docRef.id;
+        await runTransaction(db, async (transaction) => {
+            // 1. Check if a user with the admin's email already exists
+            const userQuery = query(usersCollection, where("email", "==", data.adminEmail));
+            const userSnapshot = await transaction.get(userQuery);
+            if (!userSnapshot.empty) {
+                throw new Error("An active user with this email already exists.");
+            }
+
+            // 2. Create the company document
+            const newCompanyRef = doc(collection(db, "companies"));
+            transaction.set(newCompanyRef, { name: data.companyName });
+
+            // 3. Create the admin user document for that company
+            const newAdminUserRef = doc(collection(db, "users"));
+            transaction.set(newAdminUserRef, {
+                companyId: newCompanyRef.id,
+                name: data.adminName,
+                email: data.adminEmail,
+                role: 'admin',
+                shares: 0, // Admins typically don't have shares
+                status: 'active'
+            });
+        });
     } catch(e) {
-        console.error("Error adding company: ", e);
+        console.error("Error adding company and admin user in transaction: ", e);
+        // Re-throw the error to be caught by the calling function
         throw e;
     }
 }
