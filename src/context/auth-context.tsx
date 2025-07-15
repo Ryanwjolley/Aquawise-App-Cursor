@@ -6,7 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { app, db } from '@/firebaseConfig';
 import type { User, Company } from '@/firestoreService';
 import { useRouter } from 'next/navigation';
-import { getCompanies } from '@/firestoreService';
+import { getCompanies, getUsers, createUserDocument } from '@/firestoreService';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -25,17 +25,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // MOCK DATA for development without real authentication
-const MOCK_COMPANY_ID = 'manti-irrigation-co';
-
-const MOCK_ADMIN_USER: User = {
-  id: 'admin-001',
-  companyId: MOCK_COMPANY_ID,
-  name: 'Water Master Admin',
-  email: 'admin@aquawise.com',
-  role: 'admin',
-  shares: 0,
-  status: 'active',
-};
 const MOCK_SUPER_ADMIN_USER: User = {
   id: 'super-admin-001',
   companyId: 'system-admin',
@@ -64,16 +53,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [impersonatingCompanyId, setImpersonatingCompanyId] = useState<string | null>(null);
   const [impersonatedCompanyDetails, setImpersonatedCompanyDetails] = useState<Company | null>(null);
 
-  const fetchCompanies = useCallback(async () => {
-    // In a real app, this would fetch from Firestore.
-    const fetchedCompanies = await getCompanies();
-    setCompanies(fetchedCompanies);
+  const fetchCompaniesAndBootstrapAdmins = useCallback(async () => {
+    setLoading(true);
+    try {
+      const fetchedCompanies = await getCompanies();
+      setCompanies(fetchedCompanies);
+
+      // --- Data Bootstrap Logic ---
+      // This ensures the two mock companies have an admin user.
+      const mockCompanyConfigs = [
+        { name: 'JDE Irrigation', adminEmail: 'admin@jde.com', adminName: 'JDE Admin' },
+        { name: 'Aqua-Agri Inc.', adminEmail: 'admin@aqua-agri.com', adminName: 'Aqua-Agri Admin' }
+      ];
+
+      const allUsers = await getUsers('system-admin'); // Fetch all users to check against
+      const existingEmails = new Set(allUsers.map(u => u.email));
+
+      for (const config of mockCompanyConfigs) {
+        const targetCompany = fetchedCompanies.find(c => c.name === config.name);
+        if (targetCompany && !existingEmails.has(config.adminEmail)) {
+          // Check if an admin for this company already exists by another email
+          const companyUsers = allUsers.filter(u => u.companyId === targetCompany.id && u.role === 'admin');
+          if (companyUsers.length === 0) {
+            console.log(`Bootstrapping admin for ${config.name}...`);
+            await createUserDocument(`mock-admin-${targetCompany.id}`, {
+              companyId: targetCompany.id,
+              name: config.adminName,
+              email: config.adminEmail,
+              shares: 0,
+              role: 'admin',
+            });
+          }
+        }
+      }
+      // --- End Bootstrap Logic ---
+      
+    } catch (error) {
+      console.error("Error during initial data fetch and bootstrap:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
   
   // Initial fetch
   useEffect(() => {
-    fetchCompanies();
-  }, [fetchCompanies]);
+    fetchCompaniesAndBootstrapAdmins();
+  }, [fetchCompaniesAndBootstrapAdmins]);
 
   useEffect(() => {
     const fetchCompanyDetails = async () => {
@@ -118,7 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshCompanies = async () => {
-      await fetchCompanies();
+      await fetchCompaniesAndBootstrapAdmins();
   }
 
 

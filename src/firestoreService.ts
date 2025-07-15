@@ -302,7 +302,9 @@ export const getAdminForCompany = async (companyId: string): Promise<User | null
 
 export const getUsers = async (companyId: string): Promise<User[]> => {
   try {
-    const q = query(usersCollection, where("companyId", "==", companyId));
+    const q = companyId === 'system-admin' 
+        ? query(usersCollection) // Super admin gets all users
+        : query(usersCollection, where("companyId", "==", companyId));
     const querySnapshot = await getDocs(q);
     const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
     // Sort by name in the application code to avoid needing a composite index
