@@ -5,17 +5,6 @@
  */
 import sgMail from '@sendgrid/mail';
 
-const apiKey = process.env.SENDGRID_API_KEY;
-const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-
-if (!apiKey || !fromEmail) {
-  console.warn(
-    'SendGrid credentials are not fully configured in environment variables. Email sending will be disabled.'
-  );
-} else {
-  sgMail.setApiKey(apiKey);
-}
-
 interface EmailParams {
   to: string;
   subject: string;
@@ -33,14 +22,20 @@ interface EmailParams {
  * @returns A promise that resolves when the email is sent.
  */
 export async function sendEmail(params: EmailParams): Promise<void> {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+
   if (!apiKey || !fromEmail) {
     const errorMessage =
       'SendGrid client is not initialized. Please check your environment variables.';
     console.error(errorMessage);
     // For development, log the email to the console instead of sending.
     console.log(`------ EMAIL (DEV) ------\nTO: ${params.to}\nSUBJECT: ${params.subject}\nBODY: ${params.text}\n-------------------------`);
-    return;
+    // Throw an error to make it clear that the email was not actually sent.
+    throw new Error(errorMessage);
   }
+
+  sgMail.setApiKey(apiKey);
 
   const msg = {
     ...params,
