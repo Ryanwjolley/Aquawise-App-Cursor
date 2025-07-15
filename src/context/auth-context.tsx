@@ -6,7 +6,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { app, db } from '@/firebaseConfig';
 import type { User, Company } from '@/firestoreService';
 import { useRouter } from 'next/navigation';
-import { getCompanies, getCompany } from '@/firestoreService';
+import { getCompanies } from '@/firestoreService';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -82,27 +82,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const fetchCompanyDetails = async () => {
         if (userDetails && userDetails.companyId !== 'system-admin') {
-            const details = MOCK_COMPANIES.find(c => c.id === userDetails.companyId) || null;
+            const details = companies.find(c => c.id === userDetails.companyId) || null;
             setCompanyDetails(details);
         } else {
             setCompanyDetails(null);
         }
     };
     fetchCompanyDetails();
-  }, [userDetails]);
+  }, [userDetails, companies]);
   
   useEffect(() => {
-    const fetchImpersonatedCompanyDetails = async () => {
+    const fetchImpersonatedCompanyDetails = () => {
       if (impersonatingCompanyId) {
-        // In a real app, you might use getCompany(impersonatingCompanyId)
-        const details = MOCK_COMPANIES.find(c => c.id === impersonatingCompanyId) || null;
+        const details = companies.find(c => c.id === impersonatingCompanyId) || null;
         setImpersonatedCompanyDetails(details);
       } else {
         setImpersonatedCompanyDetails(null);
       }
     };
     fetchImpersonatedCompanyDetails();
-  }, [impersonatingCompanyId]);
+  }, [impersonatingCompanyId, companies]);
 
   const logout = async () => {
     stopImpersonation();
