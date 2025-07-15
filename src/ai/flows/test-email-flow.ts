@@ -19,7 +19,7 @@ export const testEmailFlow = ai.defineFlow(
     try {
       await sendEmail({
         // IMPORTANT: Change this to your own email to receive the test.
-        to: 'test@example.com',
+        to: 'ryanj@jonesanddemille.com',
         subject: 'AquaWise - SendGrid Test',
         text: 'If you are seeing this, your SendGrid configuration is working!',
         html: '<strong>If you are seeing this, your SendGrid configuration is working!</strong>',
