@@ -414,9 +414,9 @@ export const getAllocationsForPeriod = async (companyId: string, startDate: Date
 
 export const getAllocations = async (companyId: string): Promise<Allocation[]> => {
     try {
-        const q = query(allocationsCollection, where("companyId", "==", companyId), orderBy("startDate", "asc"));
+        const q = query(allocationsCollection, where("companyId", "==", companyId));
         const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => {
+        const allocations = querySnapshot.docs.map(doc => {
             const data = doc.data();
             return {
                 id: doc.id,
@@ -430,6 +430,8 @@ export const getAllocations = async (companyId: string): Promise<Allocation[]> =
                 flowUnit: data.flowUnit,
             } as Allocation;
         });
+        // Sort by start date in the application code to avoid needing a composite index
+        return allocations.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
     } catch (e) {
         console.error("Error getting all allocations: ", e);
         throw e;
