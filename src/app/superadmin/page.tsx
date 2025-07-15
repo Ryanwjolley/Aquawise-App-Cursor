@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { PlusCircle, Building, Eye, Edit } from 'lucide-react';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { PlusCircle, Building, Eye, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getCompanies, addCompany, Company, updateCompany, User, getAdminForCompany, updateUser } from '@/firestoreService';
+import { getCompanies, addCompany, Company, updateCompany, User, getAdminForCompany, updateUser, deleteCompany } from '@/firestoreService';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -20,6 +20,16 @@ import {
   DialogClose,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -45,6 +55,9 @@ export default function SuperAdminPage() {
   const [editedCompanyName, setEditedCompanyName] = useState('');
   const [editedAdminName, setEditedAdminName] = useState('');
   const [editedAdminMobile, setEditedAdminMobile] = useState('');
+  
+  // State for deleting a company
+  const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
 
 
   const { toast } = useToast();
@@ -62,8 +75,10 @@ export default function SuperAdminPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchCompanies();
-  }, [fetchCompanies]);
+    if (refreshCompanies) {
+        refreshCompanies().then(() => fetchCompanies());
+    }
+  }, [fetchCompanies, refreshCompanies]);
   
   const resetAddForm = () => {
       setNewCompanyName('');
@@ -120,14 +135,14 @@ export default function SuperAdminPage() {
         return;
     }
     try {
-        // Prepare update objects
         const companyUpdateData = { name: editedCompanyName };
-        const adminUpdateData = { 
+        const adminUpdateData: Partial<User> = { 
             name: editedAdminName,
-            mobile: editedAdminMobile // Assuming you might want to save this later
         };
+        if(editedAdminMobile) {
+            (adminUpdateData as any).mobile = editedAdminMobile;
+        }
 
-        // Run updates
         await updateCompany(editingCompany.id, companyUpdateData);
         await updateUser(editingAdmin.id, adminUpdateData);
 
@@ -147,6 +162,21 @@ export default function SuperAdminPage() {
   const handleViewSystem = (companyId: string) => {
     startImpersonation(companyId);
     router.push('/admin');
+  };
+  
+  const handleConfirmDeleteCompany = async () => {
+    if (!companyToDelete) return;
+
+    try {
+        await deleteCompany(companyToDelete.id);
+        toast({ title: 'Company Deleted', description: `${companyToDelete.name} and all its data have been removed.` });
+        fetchCompanies();
+        refreshCompanies();
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Deletion Failed', description: 'Could not delete the company.' });
+    } finally {
+        setCompanyToDelete(null);
+    }
   };
 
   if (authLoading || loading) {
@@ -257,6 +287,16 @@ export default function SuperAdminPage() {
                             <p>View System</p>
                           </TooltipContent>
                         </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => setCompanyToDelete(company)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Delete Company</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </TooltipProvider>
                     </TableCell>
                   </TableRow>
@@ -323,6 +363,21 @@ export default function SuperAdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete Company Confirmation Dialog */}
+       <AlertDialog open={!!companyToDelete} onOpenChange={(isOpen) => !isOpen && setCompanyToDelete(null)}>
+          <AlertDialogContent>
+              <AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the company <span className="font-bold">{companyToDelete?.name}</span> and all of its associated users and data.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleConfirmDeleteCompany} className={buttonVariants({ variant: "destructive" })}>Delete Company</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
       </div>
   );
 }

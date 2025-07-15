@@ -90,7 +90,7 @@ export const getCompany = async (companyId: string): Promise<Company | null> => 
     try {
         const companyDoc = await getDoc(doc(db, "companies", companyId));
         if (companyDoc.exists()) {
-            return { id: companyDoc.id, ...doc.data() } as Company;
+            return { id: companyDoc.id, ...companyDoc.data() } as Company;
         }
         return null;
     } catch (e) {
@@ -114,6 +114,7 @@ export const addCompany = async (data: { companyName: string, adminName: string,
             transaction.set(newCompanyRef, { name: data.companyName });
 
             // 3. Create the admin user document for that company
+            // We can't know the ID ahead of time, so we just create a new doc ref.
             const newAdminUserRef = doc(collection(db, "users"));
             transaction.set(newAdminUserRef, {
                 companyId: newCompanyRef.id,
@@ -131,12 +132,45 @@ export const addCompany = async (data: { companyName: string, adminName: string,
     }
 }
 
-export const updateCompany = async (id: string, data: { name: string }): Promise<void> => {
+export const updateCompany = async (id: string, data: Partial<Company>): Promise<void> => {
     try {
         const companyDoc = doc(db, "companies", id);
         await updateDoc(companyDoc, data);
     } catch (e) {
         console.error("Error updating company: ", e);
+        throw e;
+    }
+};
+
+export const deleteCompany = async (companyId: string): Promise<void> => {
+    try {
+        const batch = writeBatch(db);
+
+        // 1. Find and delete all users for the company
+        const usersQuery = query(usersCollection, where("companyId", "==", companyId));
+        const usersSnapshot = await getDocs(usersQuery);
+        usersSnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        // 2. Find and delete all invites for the company
+        const invitesQuery = query(invitesCollection, where("companyId", "==", companyId));
+        const invitesSnapshot = await getDocs(invitesQuery);
+        invitesSnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        
+        // TODO: Delete usage data, allocations, etc. as well in a real application.
+        // For now, we just delete users and the company itself.
+
+        // 3. Delete the company document
+        const companyDocRef = doc(db, "companies", companyId);
+        batch.delete(companyDocRef);
+
+        // 4. Commit the batch
+        await batch.commit();
+    } catch (e) {
+        console.error("Error deleting company and its users: ", e);
         throw e;
     }
 };
@@ -315,10 +349,12 @@ export const getUsers = async (companyId: string): Promise<User[]> => {
   }
 };
 
-export const updateUser = async (id: string, user: Partial<Pick<User, 'name' | 'shares' | 'role'>>): Promise<void> => {
+export const updateUser = async (id: string, user: Partial<User>): Promise<void> => {
   try {
     const userDoc = doc(db, "users", id);
-    await updateDoc(userDoc, user);
+    // We remove fields that shouldn't be editable this way, like email, id, companyId
+    const { email, id: userId, companyId, ...updateData } = user;
+    await updateDoc(userDoc, updateData);
   } catch (e) {
     console.error("Error updating user: ", e);
     throw e;
