@@ -1,3 +1,4 @@
+
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,7 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { DateRangeSelector } from './date-range-selector';
 import { NotificationSettings } from './notification-settings';
 import { Input } from './ui/input';
-import { Dialog, DialogClose, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 
 type UserData = User | Invite;
 
@@ -698,10 +699,11 @@ export default function AdminDashboard() {
                     <AlertDialogHeader><AlertDialogTitle>Gap Detected in Allocations</AlertDialogTitle><AlertDialogDescription>{gapConfirmation.message}</AlertDialogDescription></AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { if (gapConfirmation.data) { proceedWithSave(gapConfirmation.data); } setGapConfirmation({ isOpen: false, data: null, message: '' }); }}>Continue Anyway</AlertDialogAction>
-                    </AlertDialogFooter>
+                        <AlertDialogAction onClick={() => { if (gapConfirmation.data) { proceedWithSave(gapConfirmation.data); } setGapConfirmation({ isOpen: false, data: null, message: '' }); }}>Continue Anyway</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </div>
     );
 }
+
+    
