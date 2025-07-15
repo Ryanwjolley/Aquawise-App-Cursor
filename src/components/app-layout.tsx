@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { LogOut, LayoutDashboard, Users, Shield, Building, Droplets } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, Building, Droplets, Eye, LogIn } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/tooltip';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { userDetails, logout } = useAuth();
+  const { userDetails, logout, impersonatingCompanyId, impersonatedCompanyDetails, stopImpersonation } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -42,6 +42,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isSuperAdmin = userDetails?.companyId === 'system-admin';
   const isAdmin = userDetails?.role === 'admin';
+  
+  const handleStopImpersonation = () => {
+    stopImpersonation();
+    router.push('/superadmin');
+  }
 
   return (
     <SidebarProvider>
@@ -130,6 +135,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
+        {impersonatingCompanyId && (
+            <div className="w-full bg-accent text-accent-foreground p-2 text-center text-sm flex items-center justify-center gap-4">
+                <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    <span>Viewing as <b>{impersonatedCompanyDetails?.name}</b></span>
+                </div>
+                <Button variant="ghost" size="sm" className="h-auto px-2 py-1" onClick={handleStopImpersonation}>
+                    <LogIn className="h-4 w-4 mr-1" />
+                    Exit View
+                </Button>
+            </div>
+        )}
         <header className="flex h-12 items-center border-b bg-background px-4">
             <SidebarTrigger />
         </header>

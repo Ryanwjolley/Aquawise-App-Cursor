@@ -37,8 +37,11 @@ import { NotificationSettings } from './notification-settings';
 type UserData = User | Invite;
 
 export default function AdminDashboard() {
-    const { user: authUser, userDetails, companyDetails } = useAuth();
-    const selectedCompanyId = userDetails?.companyId;
+    const { user: authUser, userDetails, companyDetails, impersonatingCompanyId, impersonatedCompanyDetails } = useAuth();
+    
+    // Determine the active company ID and details based on impersonation status
+    const selectedCompanyId = impersonatingCompanyId || userDetails?.companyId;
+    const activeCompanyDetails = impersonatedCompanyDetails || companyDetails;
 
     const [userData, setUserData] = useState<UserData[]>([]);
     const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
@@ -386,7 +389,7 @@ export default function AdminDashboard() {
             <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-                    <p className="text-muted-foreground">{companyDetails?.name || 'Your Company'}</p>
+                    <p className="text-muted-foreground">{activeCompanyDetails?.name || 'Your Company'}</p>
                 </div>
             </header>
             

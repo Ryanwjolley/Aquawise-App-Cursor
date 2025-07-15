@@ -7,7 +7,7 @@ import AppLayout from '@/components/app-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Building } from 'lucide-react';
+import { PlusCircle, Building, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getCompanies, addCompany, Company } from '@/firestoreService';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,10 +23,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 export default function SuperAdminPage() {
-  const { user, userDetails, loading: authLoading } = useAuth();
+  const { user, userDetails, loading: authLoading, startImpersonation } = useAuth();
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +72,11 @@ export default function SuperAdminPage() {
     } catch (error) {
       toast({ variant: 'destructive', title: 'Failed to Create Company' });
     }
+  };
+  
+  const handleViewSystem = (companyId: string) => {
+    startImpersonation(companyId);
+    router.push('/admin');
   };
 
   if (authLoading || loading) {
@@ -136,6 +142,7 @@ export default function SuperAdminPage() {
                 <TableRow>
                   <TableHead>Company Name</TableHead>
                   <TableHead>Company ID</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -147,6 +154,20 @@ export default function SuperAdminPage() {
                     </TableCell>
                     <TableCell>
                         <code className="text-xs p-1 bg-muted rounded-sm">{company.id}</code>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleViewSystem(company.id)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>View System</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
                   </TableRow>
                 ))}

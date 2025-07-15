@@ -16,6 +16,10 @@ interface AuthContextType {
   loading: boolean;
   logout: () => Promise<void>;
   refreshCompanies: () => Promise<void>;
+  impersonatingCompanyId: string | null;
+  impersonatedCompanyDetails: Company | null;
+  startImpersonation: (companyId: string) => void;
+  stopImpersonation: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,7 +32,7 @@ const MOCK_COMPANIES: Company[] = [
 ];
 const MOCK_ADMIN_USER: User = {
   id: 'admin-001',
-  companyId: MOCK_COMPANY_ID, // Manages a specific company now
+  companyId: MOCK_COMPANY_ID,
   name: 'Water Master Admin',
   email: 'admin@aquawise.com',
   role: 'admin',
@@ -37,16 +41,16 @@ const MOCK_ADMIN_USER: User = {
 };
 const MOCK_SUPER_ADMIN_USER: User = {
   id: 'super-admin-001',
-  companyId: 'system-admin', // Special ID for a super admin
+  companyId: 'system-admin',
   name: 'Super Admin',
   email: 'super@aquawise.com',
-  role: 'admin', // Role is still admin, but companyId distinguishes them
+  role: 'admin',
   shares: 0,
   status: 'active',
 }
 
 const MOCK_FIREBASE_USER = {
-    uid: 'super-admin-001', // This should match the ID of the desired mock user
+    uid: 'super-admin-001',
     email: 'super@aquawise.com',
 } as FirebaseUser;
 
@@ -59,6 +63,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(false);
   const auth = getAuth(app);
   const router = useRouter();
+
+  const [impersonatingCompanyId, setImpersonatingCompanyId] = useState<string | null>(null);
+  const [impersonatedCompanyDetails, setImpersonatedCompanyDetails] = useState<Company | null>(null);
 
   const fetchCompanies = useCallback(async () => {
     // In a real app, this would fetch from Firestore.
@@ -75,8 +82,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const fetchCompanyDetails = async () => {
         if (userDetails && userDetails.companyId !== 'system-admin') {
-            // const details = await getCompany(userDetails.companyId);
-            // Mocking this for now
             const details = MOCK_COMPANIES.find(c => c.id === userDetails.companyId) || null;
             setCompanyDetails(details);
         } else {
@@ -85,22 +90,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     fetchCompanyDetails();
   }, [userDetails]);
+  
+  useEffect(() => {
+    const fetchImpersonatedCompanyDetails = async () => {
+      if (impersonatingCompanyId) {
+        // In a real app, you might use getCompany(impersonatingCompanyId)
+        const details = MOCK_COMPANIES.find(c => c.id === impersonatingCompanyId) || null;
+        setImpersonatedCompanyDetails(details);
+      } else {
+        setImpersonatedCompanyDetails(null);
+      }
+    };
+    fetchImpersonatedCompanyDetails();
+  }, [impersonatingCompanyId]);
 
   const logout = async () => {
+    stopImpersonation();
     setUser(null);
     setUserDetails(null);
     setCompanyDetails(null);
     router.push('/');
   };
+  
+  const startImpersonation = (companyId: string) => {
+    if (userDetails?.companyId === 'system-admin') {
+      setImpersonatingCompanyId(companyId);
+    }
+  };
+
+  const stopImpersonation = () => {
+    setImpersonatingCompanyId(null);
+  };
 
   const refreshCompanies = async () => {
-      // This function can be called after adding a new company to update the list.
       await fetchCompanies();
   }
 
 
   return (
-    <AuthContext.Provider value={{ user, userDetails, loading, logout, companies, companyDetails, refreshCompanies }}>
+    <AuthContext.Provider value={{ 
+        user, 
+        userDetails, 
+        loading, 
+        logout, 
+        companies, 
+        companyDetails, 
+        refreshCompanies,
+        impersonatingCompanyId,
+        impersonatedCompanyDetails,
+        startImpersonation,
+        stopImpersonation
+    }}>
       {children}
     </AuthContext.Provider>
   );

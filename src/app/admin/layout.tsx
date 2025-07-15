@@ -6,23 +6,22 @@ import { useEffect } from 'react';
 import AppLayout from '@/components/app-layout';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, userDetails, loading } = useAuth();
+  const { user, userDetails, loading, impersonatingCompanyId } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
-      // Redirect if not an admin or super admin, or if a super admin tries to access the regular admin page
-      if (!user || !userDetails || userDetails.role !== 'admin') {
-         router.replace('/dashboard'); // Or a login page in a real app
-      }
-      if(userDetails.companyId === 'system-admin') {
-          router.replace('/superadmin');
+      const isSuperAdminImpersonating = userDetails?.companyId === 'system-admin' && !!impersonatingCompanyId;
+      const isRegularAdmin = userDetails?.role === 'admin' && userDetails?.companyId !== 'system-admin';
+
+      if (!user || !userDetails || (!isRegularAdmin && !isSuperAdminImpersonating)) {
+         router.replace('/dashboard');
       }
     }
-  }, [user, userDetails, loading, router]);
+  }, [user, userDetails, loading, router, impersonatingCompanyId]);
 
 
-  if (loading || !userDetails || userDetails.role !== 'admin' || userDetails.companyId === 'system-admin') {
+  if (loading || !userDetails) {
       return null; // Or a loading spinner
   }
 
