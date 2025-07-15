@@ -11,22 +11,31 @@ function SuperAdminAuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      if (!userDetails || userDetails.companyId !== 'system-admin') {
-        router.replace('/dashboard');
-      }
+    if (!loading && (!userDetails || userDetails.companyId !== 'system-admin')) {
+      router.replace('/dashboard');
     }
   }, [userDetails, loading, router]);
 
-  if (loading || !userDetails || userDetails.companyId !== 'system-admin') {
+  if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Droplets className="h-12 w-12 text-primary animate-pulse" />
-          <p className="text-muted-foreground">Access Denied. Redirecting...</p>
+          <p className="text-muted-foreground">Loading Portal...</p>
         </div>
       </div>
     );
+  }
+
+  if (!userDetails || userDetails.companyId !== 'system-admin') {
+      return (
+          <div className="flex h-screen w-full items-center justify-center bg-background">
+              <div className="flex flex-col items-center gap-4">
+                  <Droplets className="h-12 w-12 text-primary animate-pulse" />
+                  <p className="text-muted-foreground">Access Denied. Redirecting...</p>
+              </div>
+          </div>
+      );
   }
 
   return <>{children}</>;
