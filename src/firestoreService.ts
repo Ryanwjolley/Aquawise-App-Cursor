@@ -46,11 +46,75 @@ export interface Allocation {
 
 export type AllocationData = Omit<Allocation, 'id'> & { id?: string };
 
+export interface NotificationRule {
+    id: string;
+    type: 'usage' | 'allocation';
+    threshold: number | null; // e.g. 75 for 75%
+    message: string; // Message template
+    enabled: boolean;
+    createdAt: Date;
+}
+
+export type NotificationRuleData = Omit<NotificationRule, 'id'>;
+
 
 const usersCollection = collection(db, "users");
 const usageCollection = collection(db, "usageData");
 const invitesCollection = collection(db, "invites");
 const allocationsCollection = collection(db, "allocations");
+const notificationRulesCollection = collection(db, "notificationRules");
+
+// Notification Rules Service
+export const getNotificationRules = async (): Promise<NotificationRule[]> => {
+    try {
+        const q = query(notificationRulesCollection, orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                createdAt: (data.createdAt as Timestamp).toDate(),
+            } as NotificationRule;
+        });
+    } catch (e) {
+        console.error("Error getting notification rules: ", e);
+        throw e;
+    }
+};
+
+export const addNotificationRule = async (rule: NotificationRuleData): Promise<void> => {
+    try {
+        await addDoc(notificationRulesCollection, {
+            ...rule,
+            createdAt: Timestamp.fromDate(rule.createdAt),
+        });
+    } catch (e) {
+        console.error("Error adding notification rule: ", e);
+        throw e;
+    }
+};
+
+export const updateNotificationRule = async (id: string, data: Partial<NotificationRuleData>): Promise<void> => {
+    try {
+        const ruleDoc = doc(db, "notificationRules", id);
+        await updateDoc(ruleDoc, data);
+    } catch (e) {
+        console.error("Error updating notification rule: ", e);
+        throw e;
+    }
+};
+
+export const deleteNotificationRule = async (id: string): Promise<void> => {
+    try {
+        const ruleDoc = doc(db, "notificationRules", id);
+        await deleteDoc(ruleDoc);
+    } catch (e) {
+        console.error("Error deleting notification rule: ", e);
+        throw e;
+    }
+};
+
 
 export const createUserDocument = async (
   uid: string,
@@ -380,5 +444,3 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
       gallons: dailyUsageMap.get(format(day, 'yyyy-MM-dd')) || 0,
     }));
 };
-
-    

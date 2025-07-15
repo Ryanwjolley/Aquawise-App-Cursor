@@ -2,7 +2,7 @@
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets } from 'lucide-react';
+import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets, Bell } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, AllocationData, deleteAllocation } from '../firestoreService';
@@ -32,12 +32,12 @@ import { useUnit } from '@/context/unit-context';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { DateRangeSelector } from './date-range-selector';
+import { NotificationSettings } from './notification-settings';
 
 type UserData = User | Invite;
 
 export default function AdminDashboard() {
     const [userData, setUserData] = useState<UserData[]>([]);
-    const [allocations, setAllocations] = useState<Allocation[]>([]);
     const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
     const [loading, setLoading] = useState(true);
     const [waterDataLoading, setWaterDataLoading] = useState(false);
@@ -145,9 +145,12 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         fetchWaterData();
+    }, [date, fetchWaterData]);
+
+    useEffect(() => {
         const totalAllocation = periodAllocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
         setTotalPeriodAllocation(totalAllocation);
-    }, [date, periodAllocations, fetchWaterData]);
+    }, [periodAllocations]);
 
 
     const onTabChange = async (tab: string) => {
@@ -473,9 +476,19 @@ export default function AdminDashboard() {
             </header>
 
             <Tabs defaultValue="users" onValueChange={onTabChange}>
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="users">User Management</TabsTrigger>
-                    <TabsTrigger value="water">Water Management</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 mb-6">
+                    <TabsTrigger value="users">
+                        <Users className='mr-2 h-4 w-4' />
+                        User Management
+                    </TabsTrigger>
+                    <TabsTrigger value="water">
+                        <Droplets className='mr-2 h-4 w-4' />
+                        Water Management
+                    </TabsTrigger>
+                     <TabsTrigger value="notifications">
+                        <Bell className='mr-2 h-4 w-4' />
+                        Notification Center
+                    </TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="users">
@@ -772,6 +785,9 @@ export default function AdminDashboard() {
                             </CardContent>
                         </Card>
                     </div>
+                </TabsContent>
+                <TabsContent value="notifications">
+                    <NotificationSettings />
                 </TabsContent>
             </Tabs>
 
