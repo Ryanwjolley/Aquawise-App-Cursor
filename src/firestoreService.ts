@@ -99,9 +99,9 @@ export const addCompany = async (name: string): Promise<string> => {
 // Notification Rules Service
 export const getNotificationRules = async (companyId: string): Promise<NotificationRule[]> => {
     try {
-        const q = query(notificationRulesCollection, where("companyId", "==", companyId), orderBy("createdAt", "desc"));
+        const q = query(notificationRulesCollection, where("companyId", "==", companyId));
         const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => {
+        const rules = querySnapshot.docs.map(doc => {
             const data = doc.data();
             return {
                 id: doc.id,
@@ -109,6 +109,7 @@ export const getNotificationRules = async (companyId: string): Promise<Notificat
                 createdAt: (data.createdAt as Timestamp).toDate(),
             } as NotificationRule;
         });
+        return rules.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     } catch (e) {
         console.error("Error getting notification rules: ", e);
         throw e;
