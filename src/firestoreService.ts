@@ -131,6 +131,16 @@ export const addCompany = async (data: { companyName: string, adminName: string,
     }
 }
 
+export const updateCompany = async (id: string, data: { name: string }): Promise<void> => {
+    try {
+        const companyDoc = doc(db, "companies", id);
+        await updateDoc(companyDoc, data);
+    } catch (e) {
+        console.error("Error updating company: ", e);
+        throw e;
+    }
+};
+
 
 // Notification Rules Service
 export const getNotificationRules = async (companyId: string): Promise<NotificationRule[]> => {

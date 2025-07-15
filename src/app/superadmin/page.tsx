@@ -7,9 +7,9 @@ import AppLayout from '@/components/app-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Building, Eye } from 'lucide-react';
+import { PlusCircle, Building, Eye, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getCompanies, addCompany, Company } from '@/firestoreService';
+import { getCompanies, addCompany, Company, updateCompany } from '@/firestoreService';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -31,11 +31,19 @@ export default function SuperAdminPage() {
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isCompanyFormOpen, setIsCompanyFormOpen] = useState(false);
+  const [isAddCompanyFormOpen, setIsAddCompanyFormOpen] = useState(false);
+  const [isEditCompanyFormOpen, setIsEditCompanyFormOpen] = useState(false);
+  
+  // State for adding a company
   const [newCompanyName, setNewCompanyName] = useState('');
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminMobile, setAdminMobile] = useState('');
+
+  // State for editing a company
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editedCompanyName, setEditedCompanyName] = useState('');
+
 
   const { toast } = useToast();
 
@@ -62,7 +70,7 @@ export default function SuperAdminPage() {
     }
   }, [user, userDetails, authLoading, router, fetchCompanies]);
   
-  const resetForm = () => {
+  const resetAddForm = () => {
       setNewCompanyName('');
       setAdminName('');
       setAdminEmail('');
@@ -82,11 +90,34 @@ export default function SuperAdminPage() {
       });
       await fetchCompanies(); // Re-fetch to show the new company
       await refreshCompanies(); // Re-fetch in auth context as well
-      resetForm();
-      setIsCompanyFormOpen(false);
+      resetAddForm();
+      setIsAddCompanyFormOpen(false);
       toast({ title: 'Company Created', description: `Successfully created ${newCompanyName} and its admin.` });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Failed to Create Company', description: (error as Error).message || 'An unknown error occurred.' });
+    }
+  };
+
+  const handleEditCompany = (company: Company) => {
+    setEditingCompany(company);
+    setEditedCompanyName(company.name);
+    setIsEditCompanyFormOpen(true);
+  };
+
+  const handleUpdateCompany = async () => {
+    if (!editingCompany || !editedCompanyName.trim()) {
+        toast({ variant: 'destructive', title: 'Invalid Input', description: 'Company name cannot be empty.' });
+        return;
+    }
+    try {
+        await updateCompany(editingCompany.id, { name: editedCompanyName });
+        await fetchCompanies();
+        await refreshCompanies();
+        setIsEditCompanyFormOpen(false);
+        setEditingCompany(null);
+        toast({ title: 'Company Updated', description: 'The company name has been successfully updated.' });
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the company name.' });
     }
   };
   
@@ -127,7 +158,8 @@ export default function SuperAdminPage() {
                 <h1 className="text-3xl font-bold text-foreground">Super Admin Portal</h1>
                 <p className="text-muted-foreground">Manage all companies on the platform.</p>
             </div>
-            <Dialog open={isCompanyFormOpen} onOpenChange={setIsCompanyFormOpen}>
+            {/* Add Company Dialog */}
+            <Dialog open={isAddCompanyFormOpen} onOpenChange={setIsAddCompanyFormOpen}>
                 <DialogTrigger asChild>
                     <Button><PlusCircle className="mr-2 h-4 w-4" />New Company</Button>
                 </DialogTrigger>
@@ -155,7 +187,7 @@ export default function SuperAdminPage() {
                         </div>
                     </div>
                     <DialogFooter>
-                        <DialogClose asChild><Button variant="outline" onClick={resetForm}>Cancel</Button></DialogClose>
+                        <DialogClose asChild><Button variant="outline" onClick={resetAddForm}>Cancel</Button></DialogClose>
                         <Button onClick={handleAddCompany}>Create Company & Admin</Button>
                     </DialogFooter>
                 </DialogContent>
@@ -188,6 +220,14 @@ export default function SuperAdminPage() {
                     <TableCell className="text-right">
                       <TooltipProvider>
                         <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => handleEditCompany(company)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Edit Company Name</p></TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
                           <TooltipTrigger asChild>
                             <Button variant="ghost" size="icon" onClick={() => handleViewSystem(company.id)}>
                               <Eye className="h-4 w-4" />
@@ -211,6 +251,32 @@ export default function SuperAdminPage() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Edit Company Dialog */}
+      <Dialog open={isEditCompanyFormOpen} onOpenChange={setIsEditCompanyFormOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Company</DialogTitle>
+            <DialogDescription>Update the name for this company.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-company-name">Company Name</Label>
+              <Input
+                id="edit-company-name"
+                value={editedCompanyName}
+                onChange={(e) => setEditedCompanyName(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleUpdateCompany}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
