@@ -46,14 +46,14 @@ const MOCK_SUPER_ADMIN_USER: User = {
 }
 
 const MOCK_FIREBASE_USER = {
-    uid: 'admin-001', // Change this to 'super-admin-001' to test super admin view
-    email: 'admin@aquawise.com',
+    uid: 'super-admin-001', // Change this to 'admin-001' to test regular admin view
+    email: 'super@aquawise.com',
 } as FirebaseUser;
 
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(MOCK_FIREBASE_USER);
-  const [userDetails, setUserDetails] = useState<User | null>(MOCK_ADMIN_USER); // Change to MOCK_SUPER_ADMIN_USER to test
+  const [userDetails, setUserDetails] = useState<User | null>(MOCK_SUPER_ADMIN_USER); // Change to MOCK_ADMIN_USER to test
   const [companies, setCompanies] = useState<Company[]>(MOCK_COMPANIES);
   const [companyDetails, setCompanyDetails] = useState<Company | null>(null);
   const [loading, setLoading] = useState(false);
