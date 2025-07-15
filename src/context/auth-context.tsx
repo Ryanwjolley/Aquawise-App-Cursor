@@ -53,46 +53,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [impersonatingCompanyId, setImpersonatingCompanyId] = useState<string | null>(null);
   const [impersonatedCompanyDetails, setImpersonatedCompanyDetails] = useState<Company | null>(null);
 
-  const fetchCompaniesAndBootstrapData = useCallback(async () => {
+  const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
       const fetchedCompanies = await getCompanies();
       setCompanies(fetchedCompanies);
 
-      // --- Data Bootstrap Logic ---
-      // This ensures the two mock companies have an admin user in the database if they don't exist.
-      // This is a more robust way to handle mock data initialization.
-      const allUsers = await getUsers('system-admin'); // Fetch all users
-      const existingEmails = new Set(allUsers.map(u => u.email));
-
-      const mockCompanyConfigs = [
-        { name: 'JDE Irrigation', adminEmail: 'admin@jde.com', adminName: 'JDE Admin' },
-        { name: 'Aqua-Agri Inc.', adminEmail: 'admin@aqua-agri.com', adminName: 'Aqua-Agri Admin' }
-      ];
-
-      for (const config of mockCompanyConfigs) {
-        if (!existingEmails.has(config.adminEmail)) {
-            const targetCompany = fetchedCompanies.find(c => c.name === config.name);
-            if (targetCompany) {
-                // Check if admin for this company already exists
-                const companyAdminExists = allUsers.some(u => u.companyId === targetCompany.id && u.role === 'admin');
-                if (!companyAdminExists) {
-                    console.log(`Bootstrapping admin for ${config.name}...`);
-                    await createUserDocument(`mock-admin-${targetCompany.id}`, {
-                        companyId: targetCompany.id,
-                        name: config.adminName,
-                        email: config.adminEmail,
-                        shares: 0,
-                        role: 'admin',
-                    });
-                }
-            }
-        }
-      }
-      // --- End Bootstrap Logic ---
-      
     } catch (error) {
-      console.error("Error during initial data fetch and bootstrap:", error);
+      console.error("Error fetching initial company data:", error);
     } finally {
       setLoading(false);
     }
@@ -100,8 +68,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   // Initial fetch
   useEffect(() => {
-    fetchCompaniesAndBootstrapData();
-  }, [fetchCompaniesAndBootstrapData]);
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   useEffect(() => {
     const fetchCompanyDetails = async () => {
@@ -146,7 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshCompanies = async () => {
-      await fetchCompaniesAndBootstrapData();
+      await fetchInitialData();
   }
 
 
