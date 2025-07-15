@@ -61,7 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-             {isSuperAdmin ? (
+             {isSuperAdmin && !impersonatingCompanyId ? (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => router.push('/superadmin')}
@@ -72,7 +72,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     Companies
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-            ) : isAdmin ? (
+            ) : (
               <>
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -95,17 +95,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </>
-            ) : (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => router.push('/dashboard')}
-                  isActive={pathname === '/dashboard'}
-                  tooltip="My Dashboard"
-                >
-                  <LayoutDashboard />
-                  My Dashboard
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             )}
           </SidebarMenu>
         </SidebarContent>
