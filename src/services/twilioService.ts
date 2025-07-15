@@ -40,12 +40,12 @@ export async function sendSms(to: string, body: string): Promise<void> {
   }
 
   try {
-    const message = await client.messages.create({
+    await client.messages.create({
       body,
       from: twilioPhoneNumber,
       to,
     });
-    console.log(`SMS sent successfully to ${to}. SID: ${message.sid}`);
+    // console.log(`SMS sent successfully to ${to}. SID: ${message.sid}`);
   } catch (error) {
     console.error(`Failed to send SMS to ${to}:`, error);
     throw new Error('Failed to send SMS.');
