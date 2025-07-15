@@ -46,30 +46,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userDetails, setUserDetails] = useState<User | null>(MOCK_SUPER_ADMIN_USER);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyDetails, setCompanyDetails] = useState<Company | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Set to false since we are using mock data.
   const auth = getAuth(app);
   const router = useRouter();
 
   const [impersonatingCompanyId, setImpersonatingCompanyId] = useState<string | null>(null);
   const [impersonatedCompanyDetails, setImpersonatedCompanyDetails] = useState<Company | null>(null);
 
-  const fetchInitialData = useCallback(async () => {
-    setLoading(true);
+  const fetchAllCompanies = useCallback(async () => {
     try {
       const fetchedCompanies = await getCompanies();
       setCompanies(fetchedCompanies);
-
     } catch (error) {
       console.error("Error fetching initial company data:", error);
-    } finally {
-      setLoading(false);
     }
   }, []);
-  
-  // Initial fetch
+
+  // Fetch companies initially
   useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+    fetchAllCompanies();
+  }, [fetchAllCompanies]);
 
   useEffect(() => {
     const fetchCompanyDetails = async () => {
@@ -114,7 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshCompanies = async () => {
-      await fetchInitialData();
+      await fetchAllCompanies();
   }
 
 

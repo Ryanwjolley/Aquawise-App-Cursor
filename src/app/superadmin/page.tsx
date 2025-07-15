@@ -36,7 +36,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 
 export default function SuperAdminPage() {
-  const { user, userDetails, loading: authLoading, startImpersonation, refreshCompanies } = useAuth();
+  const { user, userDetails, loading: authLoading, startImpersonation, refreshCompanies: refreshAuthContext } = useAuth();
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,10 +75,8 @@ export default function SuperAdminPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (refreshCompanies) {
-        refreshCompanies().then(() => fetchCompanies());
-    }
-  }, [fetchCompanies, refreshCompanies]);
+    fetchCompanies();
+  }, [fetchCompanies]);
   
   const resetAddForm = () => {
       setNewCompanyName('');
@@ -99,7 +97,7 @@ export default function SuperAdminPage() {
         adminEmail: newAdminEmail,
       });
       await fetchCompanies(); // Re-fetch to show the new company
-      await refreshCompanies(); // Re-fetch in auth context as well
+      await refreshAuthContext(); // Re-fetch in auth context as well
       resetAddForm();
       setIsAddCompanyFormOpen(false);
       toast({ title: 'Company Created', description: `Successfully created ${newCompanyName} and its admin.` });
@@ -147,7 +145,7 @@ export default function SuperAdminPage() {
         await updateUser(editingAdmin.id, adminUpdateData);
 
         await fetchCompanies();
-        await refreshCompanies();
+        await refreshAuthContext();
         
         setIsEditCompanyFormOpen(false);
         setEditingCompany(null);
@@ -171,7 +169,7 @@ export default function SuperAdminPage() {
         await deleteCompany(companyToDelete.id);
         toast({ title: 'Company Deleted', description: `${companyToDelete.name} and all its data have been removed.` });
         fetchCompanies();
-        refreshCompanies();
+        refreshAuthContext();
     } catch (error) {
         toast({ variant: 'destructive', title: 'Deletion Failed', description: 'Could not delete the company.' });
     } finally {
