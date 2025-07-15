@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -14,7 +15,7 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { LogOut, LayoutDashboard, Users, Droplets } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, Shield, Building } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -39,6 +40,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return name.substring(0, 2);
   };
 
+  const isSuperAdmin = userDetails?.companyId === 'system-admin';
   const isAdmin = userDetails?.role === 'admin';
 
   return (
@@ -54,7 +56,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            {isAdmin ? (
+             {isSuperAdmin ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => router.push('/superadmin')}
+                    isActive={pathname === '/superadmin'}
+                    tooltip="Company Management"
+                  >
+                    <Building />
+                    Companies
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+            ) : isAdmin ? (
               <>
                 <SidebarMenuItem>
                   <SidebarMenuButton

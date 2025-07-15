@@ -2,11 +2,11 @@
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets, Bell, Building } from 'lucide-react';
+import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets, Bell } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, AllocationData, deleteAllocation, addCompany } from '../firestoreService';
-import type { User, Invite, Company } from '../firestoreService';
+import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, AllocationData, deleteAllocation } from '../firestoreService';
+import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { DateRange } from 'react-day-picker';
@@ -33,14 +33,12 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { DateRangeSelector } from './date-range-selector';
 import { NotificationSettings } from './notification-settings';
-import { Input } from './ui/input';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 
 type UserData = User | Invite;
 
 export default function AdminDashboard() {
-    const { user: authUser, companies, refreshCompanies } = useAuth();
-    const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+    const { user: authUser, userDetails, companyDetails } = useAuth();
+    const selectedCompanyId = userDetails?.companyId;
 
     const [userData, setUserData] = useState<UserData[]>([]);
     const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
@@ -51,8 +49,6 @@ export default function AdminDashboard() {
     
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
     const [isAllocationFormOpen, setIsAllocationFormOpen] = useState(false);
-    const [isCompanyFormOpen, setIsCompanyFormOpen] = useState(false);
-    const [newCompanyName, setNewCompanyName] = useState('');
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
@@ -66,29 +62,24 @@ export default function AdminDashboard() {
     const userFileInputRef = React.useRef<HTMLInputElement>(null);
     const [date, setDate] = useState<DateRange | undefined>(undefined);
 
-    // Set default company on initial load
-    useEffect(() => {
-        if (companies.length > 0 && !selectedCompanyId) {
-            setSelectedCompanyId(companies[0].id);
-        }
-    }, [companies, selectedCompanyId]);
-    
-    const fetchUserData = useCallback(async () => {
+    const fetchCompanyData = useCallback(async () => {
         if (!selectedCompanyId) return;
         setLoading(true);
         try {
-            const [fetchedUsers, fetchedInvites] = await Promise.all([
+            const [fetchedUsers, fetchedInvites, fetchedAllocations] = await Promise.all([
                 getUsers(selectedCompanyId),
                 getInvites(selectedCompanyId),
+                getAllocations(selectedCompanyId),
             ]);
             
             const combinedData = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
             setUserData(combinedData);
+            setAllTimeAllocations(fetchedAllocations);
         } catch(error) {
             toast({
                 variant: 'destructive',
-                title: 'User Data Fetch Failed',
-                description: 'Could not load user and invitation list.',
+                title: 'Data Fetch Failed',
+                description: 'Could not load company data.',
             });
             console.error(error);
         } finally {
@@ -96,23 +87,12 @@ export default function AdminDashboard() {
         }
     }, [selectedCompanyId, toast]);
 
-    const fetchAllTimeAllocations = useCallback(async () => {
-        if (!selectedCompanyId) return;
-        setWaterDataLoading(true);
-        try {
-            const fetchedAllocations = await getAllocations(selectedCompanyId);
-            setAllTimeAllocations(fetchedAllocations);
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Allocation Fetch Failed',
-                description: 'Could not load the list of allocations.',
-            });
-        } finally {
-            setWaterDataLoading(false);
+    useEffect(() => {
+        if (selectedCompanyId) {
+            fetchCompanyData();
         }
-    }, [selectedCompanyId, toast]);
-
+    }, [selectedCompanyId, fetchCompanyData]);
+    
     const fetchWaterData = useCallback(async () => {
         if (!date?.from || !date.to || !selectedCompanyId) {
             setTotalWaterConsumed(0);
@@ -140,15 +120,7 @@ export default function AdminDashboard() {
             setWaterDataLoading(false);
         }
     }, [date, toast, userData, selectedCompanyId]);
-    
-    // Refetch data when company changes
-    useEffect(() => {
-        if (selectedCompanyId) {
-            fetchUserData();
-            fetchAllTimeAllocations();
-        }
-    }, [selectedCompanyId, fetchUserData, fetchAllTimeAllocations]);
-    
+        
     const periodAllocations = useMemo(() => {
         if (!date?.from || !date.to) return [];
         return allTimeAllocations.filter(alloc => alloc.endDate >= date.from! && alloc.startDate <= date.to!);
@@ -165,9 +137,8 @@ export default function AdminDashboard() {
 
 
     const onTabChange = async (tab: string) => {
-        if (tab === 'water' && selectedCompanyId) {
-            await fetchAllTimeAllocations();
-        }
+        // Data is now fetched all at once, so this may not be needed
+        // but can be kept for future tab-specific fetching logic.
     }
     
     const handleUsageCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,7 +226,7 @@ export default function AdminDashboard() {
                 
                 if (usersToCreate.length > 0) {
                     await Promise.all(usersToCreate.map(user => createUserDocument(user.id, user.data)));
-                    fetchUserData();
+                    fetchCompanyData();
                     toast({ title: 'Upload Successful', description: `Created or updated ${usersToCreate.length} user(s).` });
                 } else {
                      toast({ variant: 'destructive', title: 'No Users Created', description: 'CSV data was invalid or empty. Expected format: User,Email,User ID,Role,Shares.' });
@@ -281,7 +252,7 @@ export default function AdminDashboard() {
                 await setAllocation(allocationData);
                 toast({ title: 'Allocation Created', description: `Successfully created new allocation period.` });
             }
-            fetchAllTimeAllocations();
+            fetchCompanyData();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the allocation.' });
         }
@@ -329,7 +300,7 @@ export default function AdminDashboard() {
                 await inviteUser({ ...formData, companyId: selectedCompanyId });
                 toast({ title: 'User Invited', description: `An invitation has been created for ${formData.email}.` });
             }
-            fetchUserData();
+            fetchCompanyData();
             setEditingUser(null);
         } catch (error) {
             const action = editingUser && editingUser.status !== 'invited' ? 'save' : 'invite';
@@ -346,7 +317,7 @@ export default function AdminDashboard() {
         const newStatus = (userToToggle.status ?? 'active') === 'active' ? 'inactive' : 'active';
         try {
             await updateUserStatus(userToToggle.id, newStatus);
-            fetchUserData();
+            fetchCompanyData();
             toast({ title: 'User Status Updated', description: `${userToToggle.name} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}.` });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update user status.' });
@@ -364,7 +335,7 @@ export default function AdminDashboard() {
                 await deleteUser(userToDelete.id);
                 toast({ title: 'User Deleted', description: `${userToDelete.name} has been successfully deleted.` });
             }
-            fetchUserData();
+            fetchCompanyData();
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Deletion Failed', description: error.message || 'Could not perform delete action.' });
         } finally {
@@ -377,30 +348,13 @@ export default function AdminDashboard() {
         try {
             await deleteAllocation(allocationToDelete.id);
             toast({ title: 'Allocation Deleted', description: `The allocation period has been successfully deleted.` });
-            fetchAllTimeAllocations();
+            fetchCompanyData();
         } catch (error) {
             toast({ variant: 'destructive', title: 'Deletion Failed', description: 'Could not delete the allocation.' });
         } finally {
             setAllocationToDelete(null);
         }
     };
-
-    const handleAddCompany = async () => {
-        if (!newCompanyName.trim()) {
-            toast({ variant: 'destructive', title: 'Company Name Required', description: 'Please enter a name for the new company.'});
-            return;
-        }
-        try {
-            const newCompanyId = await addCompany(newCompanyName);
-            await refreshCompanies();
-            setSelectedCompanyId(newCompanyId);
-            setNewCompanyName('');
-            setIsCompanyFormOpen(false);
-            toast({ title: 'Company Created', description: `Successfully created ${newCompanyName}.` });
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Failed to Create Company', description: 'Could not create the new company.' });
-        }
-    }
 
     const activeUsers = useMemo(() => {
         return userData.filter(u => u.status === 'active');
@@ -419,59 +373,23 @@ export default function AdminDashboard() {
         }
     };
     
-    const selectedCompanyName = companies.find(c => c.id === selectedCompanyId)?.name || 'Select a Company';
+    if (!selectedCompanyId) {
+        return (
+             <div className="flex h-screen w-full items-center justify-center bg-background">
+                <p className="text-muted-foreground">Loading Company...</p>
+            </div>
+        )
+    }
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
             <header className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Water Master Dashboard</h1>
-                    <p className="text-muted-foreground">{selectedCompanyName}</p>
-                </div>
-                 <div className="flex items-center gap-2">
-                    <Select onValueChange={setSelectedCompanyId} value={selectedCompanyId || ''}>
-                        <SelectTrigger className="w-[280px]">
-                            <SelectValue placeholder="Select a company to manage" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {companies.map(company => (
-                                <SelectItem key={company.id} value={company.id}>
-                                    {company.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Dialog open={isCompanyFormOpen} onOpenChange={setIsCompanyFormOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="icon"><Building className="h-4 w-4" /></Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Add New Company</DialogTitle>
-                                <DialogDescription>Create a new company to manage users and water allocations.</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-2 py-4">
-                                <Label htmlFor='company-name'>Company Name</Label>
-                                <Input id="company-name" placeholder="e.g. Sterling Irrigation Inc." value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} />
-                            </div>
-                            <DialogFooter>
-                                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                                <Button onClick={handleAddCompany}>Create Company</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+                    <p className="text-muted-foreground">{companyDetails?.name || 'Your Company'}</p>
                 </div>
             </header>
             
-            {!selectedCompanyId ? (
-                <Card className="rounded-xl shadow-md flex items-center justify-center p-16">
-                    <div className="text-center">
-                        <Building className="mx-auto h-12 w-12 text-muted-foreground" />
-                        <h2 className="mt-4 text-xl font-semibold">No Company Selected</h2>
-                        <p className="mt-2 text-muted-foreground">Please select a company from the dropdown above to begin.</p>
-                    </div>
-                </Card>
-            ) : (
             <Tabs defaultValue="users" onValueChange={onTabChange}>
                 <TabsList className="grid w-full grid-cols-3 mb-6">
                     <TabsTrigger value="users"><Users className='mr-2 h-4 w-4' />User Management</TabsTrigger>
@@ -613,7 +531,7 @@ export default function AdminDashboard() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {waterDataLoading ? (
+                                        {loading ? (
                                              Array.from({length: 3}).map((_, i) => (<TableRow key={`alloc-skel-${i}`}><TableCell><Skeleton className="h-5 w-40" /></TableCell><TableCell><Skeleton className="h-5 w-40" /></TableCell><TableCell className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableCell><TableCell><Skeleton className="h-8 w-20" /></TableCell></TableRow>))
                                         ) : allTimeAllocations.map((alloc) => (
                                             <TableRow key={alloc.id}>
@@ -659,7 +577,6 @@ export default function AdminDashboard() {
                     <NotificationSettings companyId={selectedCompanyId} />
                 </TabsContent>
             </Tabs>
-            )}
 
             <UserForm
                 isOpen={isUserFormOpen}
@@ -705,5 +622,3 @@ export default function AdminDashboard() {
         </div>
     );
 }
-
-    

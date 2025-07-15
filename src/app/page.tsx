@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth } from '@/context/auth-context';
@@ -6,13 +7,23 @@ import { useEffect } from 'react';
 import { Droplets } from 'lucide-react';
 
 export default function HomePage() {
-  const { loading } = useAuth();
+  const { userDetails, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect directly to the admin dashboard, bypassing login.
-    router.replace('/admin');
-  }, [router]);
+    if (!loading && userDetails) {
+        if (userDetails.companyId === 'system-admin') {
+            router.replace('/superadmin');
+        } else if (userDetails.role === 'admin') {
+            router.replace('/admin');
+        } else {
+            router.replace('/dashboard');
+        }
+    }
+    // If not logged in, a real app would redirect to /login.
+    // For now, with mock data, we assume a user is always logged in.
+    // If loading or no userDetails, the loading screen will show.
+  }, [userDetails, loading, router]);
 
   // Render a loading indicator while the redirect happens.
   return (

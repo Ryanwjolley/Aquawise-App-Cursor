@@ -1,3 +1,4 @@
+
 'use server';
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebaseConfig";
@@ -77,13 +78,26 @@ const notificationRulesCollection = collection(db, "notificationRules");
 // Company Service
 export const getCompanies = async (): Promise<Company[]> => {
     try {
-        const querySnapshot = await getDocs(companiesCollection);
+        const querySnapshot = await getDocs(query(companiesCollection, orderBy("name")));
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Company));
     } catch(e) {
         console.error("Error getting companies: ", e);
         throw e;
     }
 }
+
+export const getCompany = async (companyId: string): Promise<Company | null> => {
+    try {
+        const companyDoc = await getDoc(doc(db, "companies", companyId));
+        if (companyDoc.exists()) {
+            return { id: companyDoc.id, ...companyDoc.data() } as Company;
+        }
+        return null;
+    } catch (e) {
+        console.error("Error getting company: ", e);
+        throw e;
+    }
+};
 
 export const addCompany = async (name: string): Promise<string> => {
     try {
