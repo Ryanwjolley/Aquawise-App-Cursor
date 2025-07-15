@@ -3,7 +3,6 @@
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import AppLayout from '@/components/app-layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -63,15 +62,8 @@ export default function SuperAdminPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!authLoading) {
-      // Simple auth guard
-      if (!user || !userDetails || userDetails.companyId !== 'system-admin') {
-        router.replace('/dashboard');
-      } else {
-        fetchCompanies();
-      }
-    }
-  }, [user, userDetails, authLoading, router, fetchCompanies]);
+    fetchCompanies();
+  }, [fetchCompanies]);
   
   const resetAddForm = () => {
       setNewCompanyName('');
@@ -159,7 +151,6 @@ export default function SuperAdminPage() {
 
   if (authLoading || loading) {
     return (
-      <AppLayout>
         <div className="p-4 sm:p-6 lg:p-8">
             <header className="flex justify-between items-center mb-8">
                 <div>
@@ -177,12 +168,10 @@ export default function SuperAdminPage() {
                 </CardContent>
             </Card>
         </div>
-      </AppLayout>
     );
   }
 
   return (
-    <AppLayout>
       <div className="p-4 sm:p-6 lg:p-8">
         <header className="flex justify-between items-center mb-8">
             <div>
@@ -281,7 +270,6 @@ export default function SuperAdminPage() {
             )}
           </CardContent>
         </Card>
-      </div>
       
       {/* Edit Company Dialog */}
       <Dialog open={isEditCompanyFormOpen} onOpenChange={setIsEditCompanyFormOpen}>
@@ -335,6 +323,6 @@ export default function SuperAdminPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+      </div>
   );
 }
