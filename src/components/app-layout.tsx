@@ -15,7 +15,7 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { LogOut, LayoutDashboard, Users, Shield, Building } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, Shield, Building, Droplets } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
