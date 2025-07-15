@@ -26,10 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // MOCK DATA for development without real authentication
 const MOCK_COMPANY_ID = 'manti-irrigation-co';
-const MOCK_COMPANIES: Company[] = [
-    { id: 'manti-irrigation-co', name: 'Manti Irrigation Company' },
-    { id: 'another-co-id', name: 'Another Irrigation Co' },
-];
+
 const MOCK_ADMIN_USER: User = {
   id: 'admin-001',
   companyId: MOCK_COMPANY_ID,
@@ -58,7 +55,7 @@ const MOCK_FIREBASE_USER = {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(MOCK_FIREBASE_USER);
   const [userDetails, setUserDetails] = useState<User | null>(MOCK_SUPER_ADMIN_USER);
-  const [companies, setCompanies] = useState<Company[]>(MOCK_COMPANIES);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [companyDetails, setCompanyDetails] = useState<Company | null>(null);
   const [loading, setLoading] = useState(false);
   const auth = getAuth(app);
@@ -69,9 +66,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchCompanies = useCallback(async () => {
     // In a real app, this would fetch from Firestore.
-    // For now, we use the mock data.
-    // const fetchedCompanies = await getCompanies();
-    // setCompanies(fetchedCompanies);
+    const fetchedCompanies = await getCompanies();
+    setCompanies(fetchedCompanies);
   }, []);
   
   // Initial fetch
