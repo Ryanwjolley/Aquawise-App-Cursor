@@ -41,7 +41,7 @@ export default function AdminDashboard() {
     
     // Determine the active company ID and details based on impersonation status
     const selectedCompanyId = impersonatingCompanyId || userDetails?.companyId;
-    const activeCompanyDetails = impersonatedCompanyDetails || companyDetails;
+    const activeCompanyDetails = impersonatingCompanyId ? impersonatedCompanyDetails : companyDetails;
 
     const [userData, setUserData] = useState<UserData[]>([]);
     const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
