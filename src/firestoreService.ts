@@ -240,9 +240,11 @@ export const getUser = async (uid: string): Promise<User | null> => {
 
 export const getUsers = async (companyId: string): Promise<User[]> => {
   try {
-    const q = query(usersCollection, where("companyId", "==", companyId), orderBy('name'));
+    const q = query(usersCollection, where("companyId", "==", companyId));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+    const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+    // Sort by name in the application code to avoid needing a composite index
+    return users.sort((a, b) => a.name.localeCompare(b.name));
   } catch (e) {
     console.error("Error getting users: ", e);
     throw e;
