@@ -1,10 +1,11 @@
 'use server';
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebaseConfig";
 import { format, eachDayOfInterval } from 'date-fns';
 
 interface UsageData {
   userId: string;
+  companyId: string;
   date: Timestamp;
   consumption: number;
 }
@@ -14,8 +15,15 @@ export interface DailyUsage {
   gallons: number;
 }
 
+export interface Company {
+    id: string;
+    name: string;
+    // Add other company-specific details here later
+}
+
 export interface User {
   id: string; // This will be the Firebase Auth UID
+  companyId: string;
   name: string;
   shares: number;
   email: string;
@@ -25,6 +33,7 @@ export interface User {
 
 export interface Invite {
   id: string;
+  companyId: string;
   name: string;
   email: string;
   shares: number;
@@ -33,11 +42,11 @@ export interface Invite {
 }
 
 export interface Allocation {
-  id: string;
+  id:string;
+  companyId: string;
   startDate: Date;
   endDate: Date;
   totalAllocationGallons: number;
-  // Optional fields to store original input
   inputType?: 'volume' | 'flow';
   inputValue?: number;
   volumeUnit?: 'gallons' | 'acre-feet';
@@ -48,6 +57,7 @@ export type AllocationData = Omit<Allocation, 'id'> & { id?: string };
 
 export interface NotificationRule {
     id: string;
+    companyId: string;
     type: 'usage' | 'allocation';
     threshold: number | null; // e.g. 75 for 75%
     message: string; // Message template
@@ -57,17 +67,39 @@ export interface NotificationRule {
 
 export type NotificationRuleData = Omit<NotificationRule, 'id'>;
 
-
+const companiesCollection = collection(db, "companies");
 const usersCollection = collection(db, "users");
 const usageCollection = collection(db, "usageData");
 const invitesCollection = collection(db, "invites");
 const allocationsCollection = collection(db, "allocations");
 const notificationRulesCollection = collection(db, "notificationRules");
 
-// Notification Rules Service
-export const getNotificationRules = async (): Promise<NotificationRule[]> => {
+// Company Service
+export const getCompanies = async (): Promise<Company[]> => {
     try {
-        const q = query(notificationRulesCollection, orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(companiesCollection);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Company));
+    } catch(e) {
+        console.error("Error getting companies: ", e);
+        throw e;
+    }
+}
+
+export const addCompany = async (name: string): Promise<string> => {
+    try {
+        const docRef = await addDoc(companiesCollection, { name });
+        return docRef.id;
+    } catch(e) {
+        console.error("Error adding company: ", e);
+        throw e;
+    }
+}
+
+
+// Notification Rules Service
+export const getNotificationRules = async (companyId: string): Promise<NotificationRule[]> => {
+    try {
+        const q = query(notificationRulesCollection, where("companyId", "==", companyId), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => {
             const data = doc.data();
@@ -118,7 +150,7 @@ export const deleteNotificationRule = async (id: string): Promise<void> => {
 
 export const createUserDocument = async (
   uid: string,
-  data: { name: string; email: string; shares: number; role: 'admin' | 'customer' }
+  data: { companyId: string, name: string; email: string; shares: number; role: 'admin' | 'customer' }
 ): Promise<void> => {
   try {
     const userDocRef = doc(db, 'users', uid);
@@ -132,9 +164,9 @@ export const createUserDocument = async (
   }
 };
 
-export const inviteUser = async (data: {name: string, email: string, shares: number, role: 'customer' | 'admin'}): Promise<void> => {
+export const inviteUser = async (data: {companyId: string, name: string, email: string, shares: number, role: 'customer' | 'admin'}): Promise<void> => {
   try {
-    // Check if user with this email already exists
+    // Check if user with this email already exists across all companies
     const userQuery = query(usersCollection, where("email", "==", data.email), limit(1));
     const userSnapshot = await getDocs(userQuery);
     if (!userSnapshot.empty) {
@@ -169,9 +201,10 @@ export const getInvite = async (email: string): Promise<Invite | null> => {
   }
 };
 
-export const getInvites = async (): Promise<Invite[]> => {
+export const getInvites = async (companyId: string): Promise<Invite[]> => {
   try {
-    const querySnapshot = await getDocs(invitesCollection);
+    const q = query(invitesCollection, where("companyId", "==", companyId));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), status: 'invited' } as Invite));
   } catch (e) {
     console.error("Error getting invites: ", e);
@@ -205,9 +238,9 @@ export const getUser = async (uid: string): Promise<User | null> => {
   }
 };
 
-export const getUsers = async (): Promise<User[]> => {
+export const getUsers = async (companyId: string): Promise<User[]> => {
   try {
-    const q = query(usersCollection, orderBy('name'));
+    const q = query(usersCollection, where("companyId", "==", companyId), orderBy('name'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
   } catch (e) {
@@ -219,7 +252,7 @@ export const getUsers = async (): Promise<User[]> => {
 export const updateUser = async (id: string, user: { name: string; shares: number; role: 'admin' | 'customer' }): Promise<void> => {
   try {
     const userDoc = doc(db, "users", id);
-    await setDoc(userDoc, user, { merge: true });
+    await updateDoc(userDoc, user);
   } catch (e) {
     console.error("Error updating user: ", e);
     throw e;
@@ -229,7 +262,7 @@ export const updateUser = async (id: string, user: { name: string; shares: numbe
 export const updateUserStatus = async (id: string, status: 'active' | 'inactive'): Promise<void> => {
   try {
     const userDoc = doc(db, "users", id);
-    await setDoc(userDoc, { status }, { merge: true });
+    await updateDoc(userDoc, { status });
   } catch (e) {
     console.error("Error updating user status: ", e);
     throw e;
@@ -246,21 +279,17 @@ export const deleteUser = async (userId: string): Promise<void> => {
       throw new Error("Cannot delete a user with usage history. Please deactivate them instead.");
     }
 
-    // If no usage history, delete the user document from Firestore
     const userDocRef = doc(db, 'users', userId);
     await deleteDoc(userDocRef);
     
-    // Note: This does not delete the user from Firebase Authentication.
-    // That requires admin privileges and a secure backend environment.
   } catch (e) {
     console.error("Error deleting user: ", e);
-    throw e; // re-throw to be caught by the component
+    throw e;
   }
 };
 
-export const addUsageEntry = async (usageEntry: {userId: string, date: string, consumption: number}): Promise<void> => {
+export const addUsageEntry = async (usageEntry: {userId: string, companyId: string, date: string, consumption: number}): Promise<void> => {
   try {
-    // Ensure date is treated as UTC to avoid timezone issues
     const date = new Date(usageEntry.date);
     const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
     const dataWithTimestamp: UsageData = {
@@ -275,7 +304,7 @@ export const addUsageEntry = async (usageEntry: {userId: string, date: string, c
 };
 
 
-export const getUsageForDateRange = async (userIds: string[], startDate: Date, endDate: Date): Promise<Record<string, number>> => {
+export const getUsageForDateRange = async (userIds: string[], companyId: string, startDate: Date, endDate: Date): Promise<Record<string, number>> => {
     const usageMap: Record<string, number> = {};
     userIds.forEach(id => (usageMap[id] = 0));
 
@@ -286,6 +315,7 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
     try {
         const q = query(
           usageCollection,
+          where("companyId", "==", companyId),
           where("userId", "in", userIds),
           where("date", ">=", startDate),
           where("date", "<=", endDate),
@@ -307,7 +337,7 @@ export const getUsageForDateRange = async (userIds: string[], startDate: Date, e
 
 export const setAllocation = async (data: AllocationData): Promise<void> => {
   try {
-    const { id, ...rest } = data; // exclude id from data being saved
+    const { id, ...rest } = data;
     await addDoc(allocationsCollection, { 
         ...rest,
         startDate: Timestamp.fromDate(data.startDate),
@@ -322,7 +352,7 @@ export const setAllocation = async (data: AllocationData): Promise<void> => {
 export const updateAllocation = async (id: string, data: AllocationData): Promise<void> => {
   try {
     const allocationDoc = doc(db, "allocations", id);
-    const { id: dataId, ...rest } = data; // exclude id from data being saved
+    const { id: dataId, ...rest } = data;
     await updateDoc(allocationDoc, {
       ...rest,
       startDate: Timestamp.fromDate(data.startDate),
@@ -344,12 +374,11 @@ export const deleteAllocation = async (id: string): Promise<void> => {
   }
 };
 
-export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): Promise<Allocation[]> => {
+export const getAllocationsForPeriod = async (companyId: string, startDate: Date, endDate: Date): Promise<Allocation[]> => {
     try {
-        // Firestore doesn't allow range filters on multiple fields without a composite index.
-        // We query for allocations that start before the end of our range.
         const q = query(
             allocationsCollection,
+            where("companyId", "==", companyId),
             where("startDate", "<=", endDate)
         );
 
@@ -365,7 +394,7 @@ export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): P
                 startDate: (data.startDate as Timestamp).toDate(),
                 endDate: (data.endDate as Timestamp).toDate(),
                 totalAllocationGallons: data.totalAllocationGallons,
-                // include optional fields
+                companyId: data.companyId,
                 inputType: data.inputType,
                 inputValue: data.inputValue,
                 volumeUnit: data.volumeUnit,
@@ -373,8 +402,6 @@ export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): P
             } as Allocation;
         });
 
-        // Then, we filter in-memory to find the ones that also end after our range starts,
-        // effectively finding all overlapping periods.
         return allocations.filter(alloc => alloc.endDate >= startDate);
 
     } catch (e) {
@@ -383,9 +410,9 @@ export const getAllocationsForPeriod = async (startDate: Date, endDate: Date): P
     }
 };
 
-export const getAllocations = async (): Promise<Allocation[]> => {
+export const getAllocations = async (companyId: string): Promise<Allocation[]> => {
     try {
-        const q = query(allocationsCollection, orderBy("startDate", "asc"));
+        const q = query(allocationsCollection, where("companyId", "==", companyId), orderBy("startDate", "asc"));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => {
             const data = doc.data();
@@ -394,7 +421,7 @@ export const getAllocations = async (): Promise<Allocation[]> => {
                 startDate: (data.startDate as Timestamp).toDate(),
                 endDate: (data.endDate as Timestamp).toDate(),
                 totalAllocationGallons: data.totalAllocationGallons,
-                 // include optional fields
+                companyId: data.companyId,
                 inputType: data.inputType,
                 inputValue: data.inputValue,
                 volumeUnit: data.volumeUnit,
@@ -408,7 +435,7 @@ export const getAllocations = async (): Promise<Allocation[]> => {
 };
 
 
-export const getDailyUsageForDateRange = async (userId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
+export const getDailyUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
     
     const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
     const dailyUsageMap = new Map<string, number>();
@@ -421,6 +448,7 @@ export const getDailyUsageForDateRange = async (userId: string, startDate: Date,
         const q = query(
             usageCollection,
             where("userId", "==", userId),
+            where("companyId", "==", companyId),
             where("date", ">=", startDate),
             where("date", "<=", endDate),
             orderBy("date")

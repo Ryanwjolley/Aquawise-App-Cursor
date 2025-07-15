@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
 import {
@@ -34,7 +32,7 @@ import { Textarea } from './ui/textarea';
 import { Skeleton } from './ui/skeleton';
 import { generateNotificationMessage } from '@/ai/flows/generate-notification-message';
 
-export function NotificationSettings() {
+export function NotificationSettings({ companyId }: { companyId: string }) {
   const [rules, setRules] = useState<NotificationRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -49,16 +47,17 @@ export function NotificationSettings() {
   const { toast } = useToast();
 
   const fetchRules = useCallback(async () => {
+    if (!companyId) return;
     setLoading(true);
     try {
-      const fetchedRules = await getNotificationRules();
+      const fetchedRules = await getNotificationRules(companyId);
       setRules(fetchedRules);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Failed to fetch rules', description: 'Could not load notification rules.' });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, companyId]);
 
   useEffect(() => {
     fetchRules();
@@ -92,6 +91,10 @@ export function NotificationSettings() {
   };
 
   const handleSaveRule = async () => {
+    if (!companyId) {
+        toast({ variant: 'destructive', title: 'No Company Selected', description: 'Cannot save a rule without a company.' });
+        return;
+    }
     if (type === 'usage' && (threshold <= 0 || threshold > 100)) {
         toast({ variant: 'destructive', title: 'Invalid Threshold', description: 'Usage threshold must be between 1 and 100.' });
         return;
@@ -114,6 +117,7 @@ export function NotificationSettings() {
       } else {
         const newRule: NotificationRuleData = {
           ...ruleData,
+          companyId: companyId,
           enabled: true,
           createdAt: new Date(),
         } as NotificationRuleData;
@@ -164,7 +168,7 @@ export function NotificationSettings() {
                 <div>
                     <CardTitle className="text-xl">Notification Rules</CardTitle>
                     <CardDescription>
-                        Set up automated notifications for customers.
+                        Set up automated notifications for customers in this company.
                     </CardDescription>
                 </div>
                  <Button onClick={() => handleOpenDialog(null)}><PlusCircle className='mr-2 h-4 w-4' /> New Rule</Button>
@@ -224,7 +228,7 @@ export function NotificationSettings() {
                 </Table>
                  { !loading && rules.length === 0 && (
                     <div className="text-center py-12 text-muted-foreground">
-                        <p>No notification rules created yet.</p>
+                        <p>No notification rules created yet for this company.</p>
                         <p className="text-sm">Click "New Rule" to get started.</p>
                     </div>
                 )}

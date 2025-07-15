@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,15 +34,20 @@ export default function CustomerDashboard() {
   const { toast } = useToast();
 
   const customerUsers = useMemo(() => {
-    return allUsers.filter(u => u.role !== 'admin');
-  }, [allUsers]);
+    // Admins can see all users in their company, customers can only see themselves.
+    if (userDetails?.role === 'admin') {
+      return allUsers.filter(u => u.companyId === userDetails.companyId);
+    }
+    return allUsers.filter(u => u.id === userDetails?.id);
+  }, [allUsers, userDetails]);
 
   const fetchInitialData = useCallback(async () => {
+    if (!userDetails?.companyId) return;
     setLoading(true);
     try {
         const [fetchedUsers, fetchedAllocations] = await Promise.all([
-            getUsers(),
-            getAllocations()
+            getUsers(userDetails.companyId),
+            getAllocations(userDetails.companyId)
         ]);
         
         setAllUsers(fetchedUsers);
@@ -57,7 +61,7 @@ export default function CustomerDashboard() {
     } finally {
         setLoading(false);
     }
-  }, [toast]);
+  }, [toast, userDetails]);
 
   useEffect(() => {
     fetchInitialData();
@@ -67,24 +71,26 @@ export default function CustomerDashboard() {
   useEffect(() => {
     if (userDetails) {
         if (userDetails.role === 'admin') {
-            if (customerUsers.length > 0) {
-                setSelectedUser(customerUsers[0]);
+            // Admins default to viewing the first customer in their company
+            const companyCustomers = allUsers.filter(u => u.companyId === userDetails.companyId && u.role === 'customer');
+            if (companyCustomers.length > 0) {
+                setSelectedUser(companyCustomers[0]);
             } else {
                 setSelectedUser(null);
             }
         } else {
-            // Find the full user object from the allUsers list
+            // Customers can only see themselves
             const currentUser = allUsers.find(u => u.id === userDetails.id);
             setSelectedUser(currentUser || null);
         }
     }
-  }, [userDetails, customerUsers, allUsers]);
+  }, [userDetails, allUsers]);
 
 
   // Effect to fetch data when dependencies change
   useEffect(() => {
     const fetchPeriodData = async () => {
-        if (!date?.from || !date?.to || !selectedUser) {
+        if (!date?.from || !date?.to || !selectedUser || !selectedUser.companyId) {
           setLoading(false);
           setDailyUsage([]);
           setWaterUsed(0);
@@ -95,10 +101,10 @@ export default function CustomerDashboard() {
         setLoading(true);
 
         try {
-            const allocations = await getAllocationsForPeriod(date.from, date.to);
+            const allocations = await getAllocationsForPeriod(selectedUser.companyId, date.from, date.to);
             const totalSystemAllocationForPeriod = allocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
             
-            const activeUsers = allUsers.filter(u => u.status === 'active');
+            const activeUsers = allUsers.filter(u => u.status === 'active' && u.companyId === selectedUser.companyId);
             const totalSystemShares = activeUsers.reduce((acc, user) => acc + user.shares, 0);
 
             if (totalSystemShares > 0) {
@@ -108,7 +114,7 @@ export default function CustomerDashboard() {
                setTotalPeriodAllocation(0);
             }
 
-            const dailyData = await getDailyUsageForDateRange(selectedUser.id, date.from, date.to);
+            const dailyData = await getDailyUsageForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to);
             setDailyUsage(dailyData);
             
             const totalUsed = dailyData.reduce((acc, day) => acc + day.gallons, 0);
