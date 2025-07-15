@@ -90,7 +90,7 @@ export const getCompany = async (companyId: string): Promise<Company | null> => 
     try {
         const companyDoc = await getDoc(doc(db, "companies", companyId));
         if (companyDoc.exists()) {
-            return { id: companyDoc.id, ...companyDoc.data() } as Company;
+            return { id: companyDoc.id, ...doc.data() } as Company;
         }
         return null;
     } catch (e) {
@@ -315,7 +315,7 @@ export const getUsers = async (companyId: string): Promise<User[]> => {
   }
 };
 
-export const updateUser = async (id: string, user: { name: string; shares: number; role: 'admin' | 'customer' }): Promise<void> => {
+export const updateUser = async (id: string, user: Partial<Pick<User, 'name' | 'shares' | 'role'>>): Promise<void> => {
   try {
     const userDoc = doc(db, "users", id);
     await updateDoc(userDoc, user);

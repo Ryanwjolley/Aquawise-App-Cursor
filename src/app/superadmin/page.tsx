@@ -128,17 +128,16 @@ export default function SuperAdminPage() {
         return;
     }
     try {
-        // Prepare promises
-        const companyUpdatePromise = updateCompany(editingCompany.id, { name: editedCompanyName });
-        const adminUpdatePromise = updateUser(editingAdmin.id, { 
+        // Prepare update objects
+        const companyUpdateData = { name: editedCompanyName };
+        const adminUpdateData = { 
             name: editedAdminName,
-            // Retain existing fields not being edited
-            shares: editingAdmin.shares, 
-            role: editingAdmin.role 
-        });
+            mobile: editedAdminMobile // Assuming you might want to save this later
+        };
 
         // Run updates
-        await Promise.all([companyUpdatePromise, adminUpdatePromise]);
+        await updateCompany(editingCompany.id, companyUpdateData);
+        await updateUser(editingAdmin.id, adminUpdateData);
 
         await fetchCompanies();
         await refreshCompanies();
@@ -291,41 +290,43 @@ export default function SuperAdminPage() {
             <DialogTitle>Edit Company & Admin</DialogTitle>
             <DialogDescription>Update the details for this company and its administrator.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-company-name">Company Name</Label>
-              <Input
-                id="edit-company-name"
-                value={editedCompanyName}
-                onChange={(e) => setEditedCompanyName(e.target.value)}
-              />
+          {editingCompany && editingAdmin && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-company-name">Company Name</Label>
+                <Input
+                  id="edit-company-name"
+                  value={editedCompanyName}
+                  onChange={(e) => setEditedCompanyName(e.target.value)}
+                />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="edit-admin-name">Admin Name</Label>
+                <Input
+                  id="edit-admin-name"
+                  value={editedAdminName}
+                  onChange={(e) => setEditedAdminName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-admin-email">Admin Email</Label>
+                <Input
+                  id="edit-admin-email"
+                  value={editingAdmin?.email || ''}
+                  disabled
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-admin-mobile">Admin Mobile (Optional)</Label>
+                <Input
+                  id="edit-admin-mobile"
+                  type="tel"
+                  value={editedAdminMobile}
+                  onChange={(e) => setEditedAdminMobile(e.target.value)}
+                />
+              </div>
             </div>
-             <div className="space-y-2">
-              <Label htmlFor="edit-admin-name">Admin Name</Label>
-              <Input
-                id="edit-admin-name"
-                value={editedAdminName}
-                onChange={(e) => setEditedAdminName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-admin-email">Admin Email</Label>
-              <Input
-                id="edit-admin-email"
-                value={editingAdmin?.email || ''}
-                disabled
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-admin-mobile">Admin Mobile (Optional)</Label>
-              <Input
-                id="edit-admin-mobile"
-                type="tel"
-                value={editedAdminMobile}
-                onChange={(e) => setEditedAdminMobile(e.target.value)}
-              />
-            </div>
-          </div>
+          )}
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
