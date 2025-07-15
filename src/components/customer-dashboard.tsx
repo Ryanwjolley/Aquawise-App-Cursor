@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Droplets, LineChart, Scale, Users, TrendingUp } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
@@ -24,54 +24,64 @@ export default function CustomerDashboard() {
 
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   
-  const [users, setUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [totalPeriodAllocation, setTotalPeriodAllocation] = useState(0);
   const [waterUsed, setWaterUsed] = useState(0);
   const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
   const { toast } = useToast();
 
-  const fetchInitialData = useCallback(async () => {
-    if (userDetails) {
-        try {
-            const [fetchedUsers, fetchedAllocations] = await Promise.all([
-                getUsers(),
-                getAllocations()
-            ]);
-            
-            setAllUsers(fetchedUsers);
-            setAllTimeAllocations(fetchedAllocations);
+  const customerUsers = useMemo(() => {
+    return allUsers.filter(u => u.role !== 'admin');
+  }, [allUsers]);
 
-            if (userDetails.role === 'admin') {
-                const customerUsers = fetchedUsers.filter(u => u.role !== 'admin');
-                setUsers(customerUsers);
-                if (customerUsers.length > 0) {
-                    setSelectedUser(customerUsers[0]);
-                } else {
-                    setLoading(false); 
-                }
-            } else {
-                setSelectedUser(userDetails);
-            }
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Failed to fetch initial data',
-                description: 'Could not load required user and allocation data.',
-            });
-        }
+  const fetchInitialData = useCallback(async () => {
+    setLoading(true);
+    try {
+        const [fetchedUsers, fetchedAllocations] = await Promise.all([
+            getUsers(),
+            getAllocations()
+        ]);
+        
+        setAllUsers(fetchedUsers);
+        setAllTimeAllocations(fetchedAllocations);
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Failed to fetch initial data',
+            description: 'Could not load required user and allocation data.',
+        });
+    } finally {
+        setLoading(false);
     }
-  }, [userDetails, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
 
+  // Effect to set the initially selected user
+  useEffect(() => {
+    if (userDetails) {
+        if (userDetails.role === 'admin') {
+            if (customerUsers.length > 0) {
+                setSelectedUser(customerUsers[0]);
+            } else {
+                setSelectedUser(null);
+            }
+        } else {
+            // Find the full user object from the allUsers list
+            const currentUser = allUsers.find(u => u.id === userDetails.id);
+            setSelectedUser(currentUser || null);
+        }
+    }
+  }, [userDetails, customerUsers, allUsers]);
 
+
+  // Effect to fetch data when dependencies change
   useEffect(() => {
     const fetchPeriodData = async () => {
         if (!date?.from || !date?.to || !selectedUser) {
@@ -118,16 +128,12 @@ export default function CustomerDashboard() {
         }
     };
     
-    if (selectedUser && allUsers.length > 0) {
-      fetchPeriodData();
-    } else if (userDetails?.role === 'admin' && users.length === 0){
-        // Admin view, but no customers yet
-        setLoading(false);
-    }
-  }, [date, toast, selectedUser, userDetails, users, allUsers]);
+    fetchPeriodData();
+    
+  }, [date, toast, selectedUser, allUsers]);
   
   const handleUserChange = (userId: string) => {
-      const user = users.find(u => u.id === userId);
+      const user = allUsers.find(u => u.id === userId);
       if (user) {
           setSelectedUser(user);
       }
@@ -171,7 +177,7 @@ export default function CustomerDashboard() {
       );
   }
 
-  if (userDetails?.role === 'customer' && !selectedUser) {
+  if (userDetails?.role === 'customer' && !selectedUser && !loading) {
        return (
           <div className="flex flex-col items-center justify-center h-screen">
               <h1 className="text-2xl font-bold text-foreground">User not found</h1>
@@ -188,7 +194,7 @@ export default function CustomerDashboard() {
           <p className="text-muted-foreground">{subMessage}</p>
         </div>
         <div className="flex flex-col sm:flex-row items-end gap-4">
-          {userDetails?.role === 'admin' && users.length > 0 && (
+          {userDetails?.role === 'admin' && customerUsers.length > 0 && (
             <div className="flex flex-col gap-1 w-full sm:w-auto">
                 <Label>Viewing As</Label>
                 <div className="flex items-center gap-2">
@@ -198,7 +204,7 @@ export default function CustomerDashboard() {
                           <SelectValue placeholder="Select a user" />
                       </SelectTrigger>
                       <SelectContent>
-                          {users.map((user) => (
+                          {customerUsers.map((user) => (
                               <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                           ))}
                       </SelectContent>

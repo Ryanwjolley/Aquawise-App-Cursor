@@ -70,7 +70,6 @@ export default function AdminDashboard() {
             
             const combinedData = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
             setUserData(combinedData);
-            return combinedData;
         } catch(error) {
             toast({
                 variant: 'destructive',
@@ -78,7 +77,6 @@ export default function AdminDashboard() {
                 description: 'Could not load user and invitation list.',
             });
             console.error(error);
-            return [];
         } finally {
             setLoading(false);
         }
@@ -105,16 +103,11 @@ export default function AdminDashboard() {
             setTotalWaterConsumed(0);
             return;
         }
-        
-        let usersToFetch = userData.filter(u => u.status !== 'invited') as User[];
-        if (usersToFetch.length === 0 && !loading) {
-            const fetchedData = await fetchUserData();
-            usersToFetch = fetchedData.filter(u => u.status !== 'invited') as User[];
-        }
 
         setWaterDataLoading(true);
         try {
-            const userIds = usersToFetch.filter(u => u.status === 'active').map(u => u.id);
+            const usersToFetch = userData.filter(u => u.status === 'active') as User[];
+            const userIds = usersToFetch.map(u => u.id);
 
             const usageDataById = userIds.length > 0 ? await getUsageForDateRange(userIds, date.from, date.to) : {};
             
@@ -131,7 +124,7 @@ export default function AdminDashboard() {
         } finally {
             setWaterDataLoading(false);
         }
-    }, [date, toast, userData, loading, fetchUserData]);
+    }, [date, toast, userData]);
     
     useEffect(() => {
         fetchUserData();
