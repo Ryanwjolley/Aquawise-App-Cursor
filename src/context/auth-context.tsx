@@ -46,44 +46,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userDetails, setUserDetails] = useState<User | null>(MOCK_SUPER_ADMIN_USER);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyDetails, setCompanyDetails] = useState<Company | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const auth = getAuth(app);
   const router = useRouter();
 
   const [impersonatingCompanyId, setImpersonatingCompanyId] = useState<string | null>(null);
   const [impersonatedCompanyDetails, setImpersonatedCompanyDetails] = useState<Company | null>(null);
 
-  const fetchCompaniesAndBootstrapAdmins = useCallback(async () => {
+  const fetchCompaniesAndBootstrapData = useCallback(async () => {
     setLoading(true);
     try {
       const fetchedCompanies = await getCompanies();
       setCompanies(fetchedCompanies);
 
       // --- Data Bootstrap Logic ---
-      // This ensures the two mock companies have an admin user.
+      // This ensures the two mock companies have an admin user in the database if they don't exist.
+      // This is a more robust way to handle mock data initialization.
+      const allUsers = await getUsers('system-admin'); // Fetch all users
+      const existingEmails = new Set(allUsers.map(u => u.email));
+
       const mockCompanyConfigs = [
         { name: 'JDE Irrigation', adminEmail: 'admin@jde.com', adminName: 'JDE Admin' },
         { name: 'Aqua-Agri Inc.', adminEmail: 'admin@aqua-agri.com', adminName: 'Aqua-Agri Admin' }
       ];
 
-      const allUsers = await getUsers('system-admin'); // Fetch all users to check against
-      const existingEmails = new Set(allUsers.map(u => u.email));
-
       for (const config of mockCompanyConfigs) {
-        const targetCompany = fetchedCompanies.find(c => c.name === config.name);
-        if (targetCompany && !existingEmails.has(config.adminEmail)) {
-          // Check if an admin for this company already exists by another email
-          const companyUsers = allUsers.filter(u => u.companyId === targetCompany.id && u.role === 'admin');
-          if (companyUsers.length === 0) {
-            console.log(`Bootstrapping admin for ${config.name}...`);
-            await createUserDocument(`mock-admin-${targetCompany.id}`, {
-              companyId: targetCompany.id,
-              name: config.adminName,
-              email: config.adminEmail,
-              shares: 0,
-              role: 'admin',
-            });
-          }
+        if (!existingEmails.has(config.adminEmail)) {
+            const targetCompany = fetchedCompanies.find(c => c.name === config.name);
+            if (targetCompany) {
+                // Check if admin for this company already exists
+                const companyAdminExists = allUsers.some(u => u.companyId === targetCompany.id && u.role === 'admin');
+                if (!companyAdminExists) {
+                    console.log(`Bootstrapping admin for ${config.name}...`);
+                    await createUserDocument(`mock-admin-${targetCompany.id}`, {
+                        companyId: targetCompany.id,
+                        name: config.adminName,
+                        email: config.adminEmail,
+                        shares: 0,
+                        role: 'admin',
+                    });
+                }
+            }
         }
       }
       // --- End Bootstrap Logic ---
@@ -97,8 +100,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   // Initial fetch
   useEffect(() => {
-    fetchCompaniesAndBootstrapAdmins();
-  }, [fetchCompaniesAndBootstrapAdmins]);
+    fetchCompaniesAndBootstrapData();
+  }, [fetchCompaniesAndBootstrapData]);
 
   useEffect(() => {
     const fetchCompanyDetails = async () => {
@@ -143,7 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshCompanies = async () => {
-      await fetchCompaniesAndBootstrapAdmins();
+      await fetchCompaniesAndBootstrapData();
   }
 
 
