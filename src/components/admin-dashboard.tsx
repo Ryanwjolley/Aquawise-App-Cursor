@@ -428,7 +428,7 @@ export default function AdminDashboard() {
                                             <TableHead>Role</TableHead>
                                             <TableHead>Shares</TableHead>
                                             <TableHead>Status</TableHead>
-                                            <TableHead>Actions</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -441,7 +441,7 @@ export default function AdminDashboard() {
                                                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                                                     <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                                                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                                                    <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                                                    <TableCell><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
                                                 </TableRow>
                                             ))
                                         ) : userData.map((user) => (
@@ -456,8 +456,8 @@ export default function AdminDashboard() {
                                                         {((user as User).status ?? 'invited').charAt(0).toUpperCase() + ((user as User).status ?? 'invited').slice(1)}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1">
+                                                <TableCell className="text-right">
+                                                    <div className="flex items-center justify-end gap-1">
                                                         <TooltipProvider>
                                                         {user.status !== 'invited' && (
                                                             <>
@@ -530,18 +530,18 @@ export default function AdminDashboard() {
                                             <TableHead>Start Date & Time</TableHead>
                                             <TableHead>End Date & Time</TableHead>
                                             <TableHead className="text-right">Total Allocation</TableHead>
-                                            <TableHead>Actions</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {loading ? (
-                                             Array.from({length: 3}).map((_, i) => (<TableRow key={`alloc-skel-${i}`}><TableCell><Skeleton className="h-5 w-40" /></TableCell><TableCell><Skeleton className="h-5 w-40" /></TableCell><TableCell className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableCell><TableCell><Skeleton className="h-8 w-20" /></TableCell></TableRow>))
+                                             Array.from({length: 3}).map((_, i) => (<TableRow key={`alloc-skel-${i}`}><TableCell><Skeleton className="h-5 w-40" /></TableCell><TableCell><Skeleton className="h-5 w-40" /></TableCell><TableCell className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableCell><TableCell><Skeleton className="h-8 w-20 ml-auto" /></TableCell></TableRow>))
                                         ) : allTimeAllocations.map((alloc) => (
                                             <TableRow key={alloc.id}>
                                                 <TableCell>{format(alloc.startDate, 'MMM d, yyyy, h:mm a')}</TableCell>
                                                 <TableCell>{format(alloc.endDate, 'MMM d, yyyy, h:mm a')}</TableCell>
                                                 <TableCell className="text-right">{convertAndFormat(alloc.totalAllocationGallons, unit)} <span className="text-xs text-muted-foreground">{getUnitLabel()}</span></TableCell>
-                                                <TableCell>
+                                                <TableCell className="text-right">
                                                     <div className="flex items-center gap-1 justify-end">
                                                         <TooltipProvider>
                                                             <Tooltip>

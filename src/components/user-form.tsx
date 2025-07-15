@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -99,6 +100,7 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
                   <FormControl>
                     <Input placeholder="e.g. user@example.com" {...field} disabled={isEditMode} />
                   </FormControl>
+                   {isEditMode && <FormDescription>The user's email cannot be changed.</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}
@@ -122,7 +124,7 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={!isEditMode || isSelf}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value} disabled={isSelf}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a role" />
@@ -133,7 +135,7 @@ export function UserForm({ isOpen, onOpenChange, onSave, user }: UserFormProps) 
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
-                  {isSelf && isEditMode && <FormDescription>You cannot change your own role.</FormDescription>}
+                  {isSelf && <FormDescription>You cannot change your own role.</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}
