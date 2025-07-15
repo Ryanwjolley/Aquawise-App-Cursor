@@ -4,7 +4,6 @@ import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Droplets } from 'lucide-react';
-import AppLayout from '@/components/app-layout';
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const { user, userDetails, loading } = useAuth();
