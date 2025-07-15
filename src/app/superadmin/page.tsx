@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Building, Eye, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getCompanies, addCompany, Company, updateCompany } from '@/firestoreService';
+import { getCompanies, addCompany, Company, updateCompany, User, getAdminForCompany, updateUser } from '@/firestoreService';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -36,13 +36,16 @@ export default function SuperAdminPage() {
   
   // State for adding a company
   const [newCompanyName, setNewCompanyName] = useState('');
-  const [adminName, setAdminName] = useState('');
-  const [adminEmail, setAdminEmail] = useState('');
-  const [adminMobile, setAdminMobile] = useState('');
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminMobile, setNewAdminMobile] = useState('');
 
   // State for editing a company
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editingAdmin, setEditingAdmin] = useState<User | null>(null);
   const [editedCompanyName, setEditedCompanyName] = useState('');
+  const [editedAdminName, setEditedAdminName] = useState('');
+  const [editedAdminMobile, setEditedAdminMobile] = useState('');
 
 
   const { toast } = useToast();
@@ -72,21 +75,21 @@ export default function SuperAdminPage() {
   
   const resetAddForm = () => {
       setNewCompanyName('');
-      setAdminName('');
-      setAdminEmail('');
-      setAdminMobile('');
+      setNewAdminName('');
+      setNewAdminEmail('');
+      setNewAdminMobile('');
   }
 
   const handleAddCompany = async () => {
-    if (!newCompanyName.trim() || !adminName.trim() || !adminEmail.trim()) {
+    if (!newCompanyName.trim() || !newAdminName.trim() || !newAdminEmail.trim()) {
       toast({ variant: 'destructive', title: 'All Fields Required', description: 'Please fill out all fields to create a company.' });
       return;
     }
     try {
       await addCompany({
         companyName: newCompanyName,
-        adminName,
-        adminEmail,
+        adminName: newAdminName,
+        adminEmail: newAdminEmail,
       });
       await fetchCompanies(); // Re-fetch to show the new company
       await refreshCompanies(); // Re-fetch in auth context as well
@@ -98,26 +101,55 @@ export default function SuperAdminPage() {
     }
   };
 
-  const handleEditCompany = (company: Company) => {
+  const handleEditCompany = async (company: Company) => {
     setEditingCompany(company);
     setEditedCompanyName(company.name);
+
+    try {
+        const adminUser = await getAdminForCompany(company.id);
+        if (adminUser) {
+            setEditingAdmin(adminUser);
+            setEditedAdminName(adminUser.name);
+            setEditedAdminMobile((adminUser as any).mobile || ''); // Assuming mobile might not exist
+        } else {
+            toast({ variant: 'destructive', title: 'Admin Not Found', description: 'Could not find an administrator for this company.' });
+            setEditingAdmin(null);
+        }
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch admin details.' });
+    }
+
     setIsEditCompanyFormOpen(true);
   };
 
   const handleUpdateCompany = async () => {
-    if (!editingCompany || !editedCompanyName.trim()) {
-        toast({ variant: 'destructive', title: 'Invalid Input', description: 'Company name cannot be empty.' });
+    if (!editingCompany || !editedCompanyName.trim() || !editingAdmin || !editedAdminName.trim()) {
+        toast({ variant: 'destructive', title: 'Invalid Input', description: 'Company and Admin names cannot be empty.' });
         return;
     }
     try {
-        await updateCompany(editingCompany.id, { name: editedCompanyName });
+        // Prepare promises
+        const companyUpdatePromise = updateCompany(editingCompany.id, { name: editedCompanyName });
+        const adminUpdatePromise = updateUser(editingAdmin.id, { 
+            name: editedAdminName,
+            // Retain existing fields not being edited
+            shares: editingAdmin.shares, 
+            role: editingAdmin.role 
+        });
+
+        // Run updates
+        await Promise.all([companyUpdatePromise, adminUpdatePromise]);
+
         await fetchCompanies();
         await refreshCompanies();
+        
         setIsEditCompanyFormOpen(false);
         setEditingCompany(null);
-        toast({ title: 'Company Updated', description: 'The company name has been successfully updated.' });
+        setEditingAdmin(null);
+
+        toast({ title: 'Company Updated', description: 'The company and admin details have been successfully updated.' });
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the company name.' });
+        toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update the company details.' });
     }
   };
   
@@ -175,15 +207,15 @@ export default function SuperAdminPage() {
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor='admin-name'>Admin Full Name</Label>
-                            <Input id="admin-name" placeholder="e.g. John Watermaster" value={adminName} onChange={(e) => setAdminName(e.target.value)} />
+                            <Input id="admin-name" placeholder="e.g. John Watermaster" value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor='admin-email'>Admin Email</Label>
-                            <Input id="admin-email" type="email" placeholder="e.g. admin@sterling.com" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} />
+                            <Input id="admin-email" type="email" placeholder="e.g. admin@sterling.com" value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} />
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor='admin-mobile'>Admin Mobile (Optional)</Label>
-                            <Input id="admin-mobile" type="tel" placeholder="e.g. (555) 123-4567" value={adminMobile} onChange={(e) => setAdminMobile(e.target.value)} />
+                            <Input id="admin-mobile" type="tel" placeholder="e.g. (555) 123-4567" value={newAdminMobile} onChange={(e) => setNewAdminMobile(e.target.value)} />
                         </div>
                     </div>
                     <DialogFooter>
@@ -225,7 +257,7 @@ export default function SuperAdminPage() {
                                     <Edit className="h-4 w-4" />
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent><p>Edit Company Name</p></TooltipContent>
+                            <TooltipContent><p>Edit Company & Admin</p></TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -256,8 +288,8 @@ export default function SuperAdminPage() {
       <Dialog open={isEditCompanyFormOpen} onOpenChange={setIsEditCompanyFormOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Company</DialogTitle>
-            <DialogDescription>Update the name for this company.</DialogDescription>
+            <DialogTitle>Edit Company & Admin</DialogTitle>
+            <DialogDescription>Update the details for this company and its administrator.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -266,6 +298,31 @@ export default function SuperAdminPage() {
                 id="edit-company-name"
                 value={editedCompanyName}
                 onChange={(e) => setEditedCompanyName(e.target.value)}
+              />
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="edit-admin-name">Admin Name</Label>
+              <Input
+                id="edit-admin-name"
+                value={editedAdminName}
+                onChange={(e) => setEditedAdminName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-admin-email">Admin Email</Label>
+              <Input
+                id="edit-admin-email"
+                value={editingAdmin?.email || ''}
+                disabled
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-admin-mobile">Admin Mobile (Optional)</Label>
+              <Input
+                id="edit-admin-mobile"
+                type="tel"
+                value={editedAdminMobile}
+                onChange={(e) => setEditedAdminMobile(e.target.value)}
               />
             </div>
           </div>

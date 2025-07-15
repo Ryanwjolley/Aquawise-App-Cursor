@@ -104,7 +104,7 @@ export const addCompany = async (data: { companyName: string, adminName: string,
         await runTransaction(db, async (transaction) => {
             // 1. Check if a user with the admin's email already exists
             const userQuery = query(usersCollection, where("email", "==", data.adminEmail));
-            const userSnapshot = await transaction.get(userQuery);
+            const userSnapshot = await getDocs(userQuery); // Note: cannot use transaction.get() with queries in web sdk
             if (!userSnapshot.empty) {
                 throw new Error("An active user with this email already exists.");
             }
@@ -283,6 +283,21 @@ export const getUser = async (uid: string): Promise<User | null> => {
     console.error("Error getting user: ", e);
     throw e;
   }
+};
+
+export const getAdminForCompany = async (companyId: string): Promise<User | null> => {
+    try {
+        const q = query(usersCollection, where("companyId", "==", companyId), where("role", "==", "admin"), limit(1));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const adminDoc = querySnapshot.docs[0];
+            return { id: adminDoc.id, ...adminDoc.data() } as User;
+        }
+        return null;
+    } catch (e) {
+        console.error("Error getting admin for company: ", e);
+        throw e;
+    }
 };
 
 export const getUsers = async (companyId: string): Promise<User[]> => {
