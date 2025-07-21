@@ -563,14 +563,12 @@ export default function AdminDashboard() {
                         </Card>
 
                          <Card className="rounded-xl shadow-md">
-                            <CardHeader><CardTitle className="text-xl">Upload Usage Data</CardTitle><CardDescription>Upload a CSV file with individual water usage records for the period.</CardDescription></CardHeader>
+                            <CardHeader>
+                                <CardTitle className="text-xl">Upload Usage Data</CardTitle>
+                                <CardDescription>Upload a CSV file with columns: `userId`, `consumption` (gallons), `date` (YYYY-MM-DD).</CardDescription>
+                            </CardHeader>
                             <CardContent>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild><Button variant="outline" onClick={() => usageFileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload Usage CSV</Button></TooltipTrigger>
-                                        <TooltipContent><p>Upload a CSV with columns: `userId`, `consumption`, `date` (YYYY-MM-DD).</p></TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <Button variant="outline" onClick={() => usageFileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload Usage CSV</Button>
                                 <input ref={usageFileInputRef} type="file" id="csv-upload" className="hidden" accept=".csv" onChange={handleUsageCsvUpload}/>
                             </CardContent>
                         </Card>
