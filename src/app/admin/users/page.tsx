@@ -44,7 +44,9 @@ export default function UserManagementPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
+    if (currentUser?.companyId) {
+        fetchUsers();
+    }
   }, [currentUser]);
 
   const handleAddUser = () => {
