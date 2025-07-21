@@ -1,33 +1,28 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { AppLayout } from "@/components/AppLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function HomePage() {
-  const { currentUser } = useAuth();
-
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-background p-8">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl">AquaWise Rebuild</CardTitle>
-          <CardDescription>
-            The application contexts have been created.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p>
-            The next step is to build the application layout and sidebar.
-          </p>
-          {currentUser ? (
-            <p className="mt-4 text-sm text-primary">
-              Logged in as: <strong>{currentUser.name}</strong>
+    <AppLayout>
+      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <h2 className="text-3xl font-bold tracking-tight">
+          Welcome to AquaWise
+        </h2>
+        <Card>
+          <CardHeader>
+            <CardTitle>Rebuild In Progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>
+              The main application layout and sidebar have been successfully
+              built. We are now ready to create the individual dashboard
+              components.
             </p>
-          ) : (
-            <p>Loading user...</p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+      </div>
+    </AppLayout>
   );
 }
