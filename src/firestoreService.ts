@@ -443,45 +443,6 @@ export const getUsageForDateRange = async (userIds: string[], companyId: string,
     return usageMap;
 }
 
-export const setAllocation = async (data: AllocationData): Promise<void> => {
-  try {
-    const { id, ...rest } = data;
-    await addDoc(allocationsCollection, { 
-        ...rest,
-        startDate: data.startDate,
-        endDate: data.endDate,
-     });
-  } catch (e) {
-    console.error("Error setting allocation: ", e);
-    throw e;
-  }
-};
-
-export const updateAllocation = async (id: string, data: AllocationData): Promise<void> => {
-  try {
-    const allocationDoc = doc(db, "allocations", id);
-    const { id: dataId, ...rest } = data;
-    await updateDoc(allocationDoc, {
-      ...rest,
-      startDate: data.startDate,
-      endDate: data.endDate,
-    });
-  } catch (e) {
-    console.error("Error updating allocation: ", e);
-    throw e;
-  }
-};
-
-export const deleteAllocation = async (id: string): Promise<void> => {
-  try {
-    const allocationDoc = doc(db, "allocations", id);
-    await deleteDoc(allocationDoc);
-  } catch (e) {
-    console.error("Error deleting allocation: ", e);
-    throw e;
-  }
-};
-
 export const getTotalUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<number> => {
     let totalUsage = 0;
     try {
@@ -511,8 +472,7 @@ export const getUsageEntriesForDateRange = async (userId: string, companyId: str
             where("userId", "==", userId),
             where("companyId", "==", companyId),
             where("date", ">=", startDate),
-            where("date", "<=", endDate),
-            orderBy("date", "desc")
+            where("date", "<=", endDate)
         );
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
@@ -527,7 +487,8 @@ export const getUsageEntriesForDateRange = async (userId: string, companyId: str
         console.error("Error fetching usage entries: ", error);
         throw error;
     }
-    return entries;
+    // Sort entries by date in descending order (most recent first) in the application
+    return entries.sort((a, b) => b.date.getTime() - a.date.getTime());
 };
 
 export const getDailyUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
