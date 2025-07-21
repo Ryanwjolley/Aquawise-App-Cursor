@@ -7,11 +7,11 @@ export default function HomePage() {
         <CardHeader>
           <CardTitle className="text-2xl">AquaWise Rebuild</CardTitle>
           <CardDescription>
-            The global styles and fonts have been applied.
+            The global styles and mock data service have been created.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p>The next step is to create our mock data service to simulate a database.</p>
+          <p>The next step is to create our application context providers.</p>
         </CardContent>
       </Card>
     </div>
