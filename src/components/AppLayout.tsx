@@ -73,15 +73,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
+                     <SidebarMenuItem>
+                        <Link href="/admin/settings">
+                            <SidebarMenuButton tooltip="Settings" isActive={pathname.startsWith('/admin/settings')}>
+                                <Settings />
+                                <span>Settings</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
                 </>
-              )}
-              {currentUser?.role === 'Admin' && (
-                 <SidebarMenuItem>
-                    <SidebarMenuButton tooltip="Settings">
-                      <Settings />
-                      <span>Settings</span>
-                    </SidebarMenuButton>
-                 </SidebarMenuItem>
               )}
                {/* Show link only for Super Admins. For now, we simulate this with Alice. */}
                {currentUser?.email.includes('alice') && (
