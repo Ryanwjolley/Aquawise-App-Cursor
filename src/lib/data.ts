@@ -1,3 +1,4 @@
+
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 
@@ -86,8 +87,18 @@ let allocations: Allocation[] = [
         startDate: getRecentDateTime(30, 0, 0), 
         endDate: getRecentDateTime(-30, 23, 59), // 30 days from now
         gallons: 500000,
-        // Applies to all users
-    }
+    },
+    // Weekly allocations for June 2024 for company '1'
+    { id: 'a2', companyId: '1', startDate: '2024-06-03T00:00:00Z', endDate: '2024-06-09T23:59:59Z', gallons: 350000 },
+    { id: 'a3', companyId: '1', startDate: '2024-06-10T00:00:00Z', endDate: '2024-06-16T23:59:59Z', gallons: 420000 },
+    { id: 'a4', companyId: '1', startDate: '2024-06-17T00:00:00Z', endDate: '2024-06-23T23:59:59Z', gallons: 380000 },
+    { id: 'a5', companyId: '1', startDate: '2024-06-24T00:00:00Z', endDate: '2024-06-30T23:59:59Z', gallons: 480000 },
+    
+    // Weekly allocations for July 2024 for company '1'
+    { id: 'a6', companyId: '1', startDate: '2024-07-01T00:00:00Z', endDate: '2024-07-07T23:59:59Z', gallons: 450000 },
+    { id: 'a7', companyId: '1', startDate: '2024-07-08T00:00:00Z', endDate: '2024-07-14T23:59:59Z', gallons: 320000 },
+    { id: 'a8', companyId: '1', startDate: '2024-07-15T00:00:00Z', endDate: '2024-07-21T23:59:59Z', gallons: 500000 },
+    { id: 'a9', companyId: '1', startDate: '2024-07-22T00:00:00Z', endDate: '2024-07-28T23:59:59Z', gallons: 390000 },
 ];
 
 
