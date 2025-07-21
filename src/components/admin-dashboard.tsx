@@ -2,18 +2,16 @@
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets, Bell } from 'lucide-react';
+import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, Users, BarChart, Droplets, Bell } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, AllocationData, deleteAllocation } from '../firestoreService';
+import { getUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { DateRange } from 'react-day-picker';
-import { format, differenceInMinutes } from 'date-fns';
 import { cn, convertAndFormat } from '@/lib/utils';
 import { UserForm } from './user-form';
-import { AllocationForm } from './allocation-form';
 import { useAuth } from '@/context/auth-context';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -31,7 +29,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUnit } from '@/context/unit-context';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { DateRangeSelector } from './date-range-selector';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { CalendarDays } from 'lucide-react';
+import { format } from 'date-fns';
+import { Calendar } from './ui/calendar';
 import { NotificationSettings } from './notification-settings';
 
 type UserData = User | Invite;
@@ -44,40 +45,36 @@ export default function AdminDashboard() {
     const activeCompanyDetails = impersonatingCompanyId ? impersonatedCompanyDetails : companyDetails;
 
     const [userData, setUserData] = useState<UserData[]>([]);
-    const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
     const [loading, setLoading] = useState(true);
     const [waterDataLoading, setWaterDataLoading] = useState(false);
     const [totalWaterConsumed, setTotalWaterConsumed] = useState(0);
-    const [totalPeriodAllocation, setTotalPeriodAllocation] = useState(0);
     
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
-    const [isAllocationFormOpen, setIsAllocationFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
-    const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
-    const [allocationToDelete, setAllocationToDelete] = useState<Allocation | null>(null);
 
-    const [gapConfirmation, setGapConfirmation] = useState<{ isOpen: boolean, data: AllocationData | null, message: string }>({ isOpen: false, data: null, message: '' });
-    
     const { toast } = useToast();
     const { unit, setUnit, getUnitLabel } = useUnit();
     const usageFileInputRef = React.useRef<HTMLInputElement>(null);
     const userFileInputRef = React.useRef<HTMLInputElement>(null);
-    const [date, setDate] = useState<DateRange | undefined>(undefined);
+    const [date, setDate] = useState<DateRange | undefined>(() => {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 30);
+        return { from: startDate, to: endDate };
+    });
 
     const fetchCompanyData = useCallback(async () => {
         if (!selectedCompanyId) return;
         setLoading(true);
         try {
-            const [fetchedUsers, fetchedInvites, fetchedAllocations] = await Promise.all([
+            const [fetchedUsers, fetchedInvites] = await Promise.all([
                 getUsers(selectedCompanyId),
                 getInvites(selectedCompanyId),
-                getAllocations(selectedCompanyId),
             ]);
             
             const combinedData = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
             setUserData(combinedData);
-            setAllTimeAllocations(fetchedAllocations);
         } catch(error) {
             toast({
                 variant: 'destructive',
@@ -124,19 +121,9 @@ export default function AdminDashboard() {
         }
     }, [date, toast, userData, selectedCompanyId]);
         
-    const periodAllocations = useMemo(() => {
-        if (!date?.from || !date.to) return [];
-        return allTimeAllocations.filter(alloc => alloc.endDate >= date.from! && alloc.startDate <= date.to!);
-    }, [allTimeAllocations, date]);
-
     useEffect(() => {
         fetchWaterData();
     }, [date, fetchWaterData]);
-
-    useEffect(() => {
-        const totalAllocation = periodAllocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
-        setTotalPeriodAllocation(totalAllocation);
-    }, [periodAllocations]);
 
 
     const onTabChange = async (tab: string) => {
@@ -243,55 +230,6 @@ export default function AdminDashboard() {
         };
         reader.readAsText(file);
     };
-
-    const proceedWithSave = async (data: AllocationData) => {
-        if (!selectedCompanyId) return;
-        try {
-            const allocationData = { ...data, companyId: selectedCompanyId };
-            if (data.id) {
-                await updateAllocation(data.id, allocationData);
-                toast({ title: 'Allocation Updated', description: `Successfully updated allocation period.` });
-            } else {
-                await setAllocation(allocationData);
-                toast({ title: 'Allocation Created', description: `Successfully created new allocation period.` });
-            }
-            fetchCompanyData();
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save the allocation.' });
-        }
-    };
-
-
-    const handleAllocationSave = (data: AllocationData) => {
-        if (!selectedCompanyId) return;
-        const otherAllocations = allTimeAllocations.filter(alloc => alloc.id !== data.id);
-        const hasOverlap = otherAllocations.some(alloc => data.startDate < alloc.endDate && data.endDate > alloc.startDate);
-
-        if (hasOverlap) {
-            toast({ variant: 'destructive', title: 'Validation Error', description: 'The provided time period overlaps with an existing allocation. Please adjust the dates and times.' });
-            return;
-        }
-
-        const sortedAllocations = [...otherAllocations, { ...data, id: data.id || 'new' }].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
-        const currentIndex = sortedAllocations.findIndex(alloc => (alloc.id === data.id || alloc.id === 'new'));
-
-        const prevAllocation = sortedAllocations[currentIndex - 1];
-        const nextAllocation = sortedAllocations[currentIndex + 1];
-        
-        let gapMessage = '';
-        if (prevAllocation && differenceInMinutes(data.startDate, prevAllocation.endDate) > 1) {
-            gapMessage += `This creates a gap between this allocation and the previous one ending at ${format(prevAllocation.endDate, 'PPp')}. `;
-        }
-        if (nextAllocation && differenceInMinutes(nextAllocation.startDate, data.endDate) > 1) {
-            gapMessage += `This creates a gap between this allocation and the next one starting at ${format(nextAllocation.startDate, 'PPp')}.`;
-        }
-        
-        if (gapMessage) {
-            setGapConfirmation({ isOpen: true, data, message: `${gapMessage.trim()} Are you sure you want to continue?` });
-        } else {
-            proceedWithSave(data);
-        }
-    };
     
     const handleFormSave = async (formData: { name: string; email: string; shares: number; role: 'admin' | 'customer' }) => {
         if (!selectedCompanyId) return;
@@ -346,18 +284,6 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleConfirmAllocationDelete = async () => {
-        if (!allocationToDelete) return;
-        try {
-            await deleteAllocation(allocationToDelete.id);
-            toast({ title: 'Allocation Deleted', description: `The allocation period has been successfully deleted.` });
-            fetchCompanyData();
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Deletion Failed', description: 'Could not delete the allocation.' });
-        } finally {
-            setAllocationToDelete(null);
-        }
-    };
 
     const activeUsers = useMemo(() => {
         return userData.filter(u => u.status === 'active');
@@ -505,60 +431,49 @@ export default function AdminDashboard() {
                                             <SelectContent><SelectItem value="gallons">Gallons</SelectItem><SelectItem value="acre-feet">Acre-Feet</SelectItem></SelectContent>
                                         </Select>
                                     </div>
-                                    <DateRangeSelector date={date} setDate={setDate} allocations={allTimeAllocations}/>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                id="date"
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "w-[280px] justify-start text-left font-normal",
+                                                    !date && "text-muted-foreground"
+                                                )}
+                                            >
+                                                <CalendarDays className="mr-2 h-4 w-4" />
+                                                {date?.from ? (
+                                                    date.to ? (
+                                                        <>
+                                                            {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                                                        </>
+                                                    ) : (
+                                                        format(date.from, "LLL dd, y")
+                                                    )
+                                                ) : (
+                                                    <span>Pick a date range</span>
+                                                )}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="end">
+                                            <Calendar
+                                                initialFocus
+                                                mode="range"
+                                                defaultMonth={date?.from}
+                                                selected={date}
+                                                onSelect={setDate}
+                                                numberOfMonths={2}
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </CardHeader>
                              <CardContent className="space-y-4 pt-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                      <Card className="rounded-lg"><CardHeader className="pb-2 flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Total Active Users</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><p className="text-2xl font-bold">{activeUsers.length}</p></CardContent></Card>
                                      <Card className="rounded-lg"><CardHeader className="pb-2 flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Total Shares Issued</CardTitle><BarChart className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><p className="text-2xl font-bold">{totalSharesIssued.toLocaleString()}</p></CardContent></Card>
-                                     <Card className="rounded-lg"><CardHeader className="pb-2 flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Total Allocation for Period</CardTitle><Droplets className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent>{waterDataLoading ? <Skeleton className="h-7 w-2/3" /> : <p className="text-2xl font-bold">{convertAndFormat(totalPeriodAllocation, unit)} <span className="text-base font-normal text-muted-foreground">{getUnitLabel()}</span></p>}</CardContent></Card>
                                      <Card className="rounded-lg"><CardHeader className="pb-2 flex-row items-center justify-between"><CardTitle className="text-sm font-medium">Total Consumed for Period</CardTitle><Droplets className="h-4 w-4 text-primary" /></CardHeader><CardContent>{waterDataLoading ? <Skeleton className="h-7 w-2/3" /> : <p className="text-2xl font-bold">{convertAndFormat(totalWaterConsumed, unit)} <span className="text-base font-normal text-muted-foreground">{getUnitLabel()}</span></p>}</CardContent></Card>
                                 </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="rounded-xl shadow-md">
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <div><CardTitle className="text-xl">Allocation Management</CardTitle><CardDescription>Create and view allocation periods.</CardDescription></div>
-                                <Button onClick={() => { setEditingAllocation(null); setIsAllocationFormOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" />New Allocation</Button>
-                            </CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Start Date & Time</TableHead>
-                                            <TableHead>End Date & Time</TableHead>
-                                            <TableHead className="text-right">Total Allocation</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {loading ? (
-                                             Array.from({length: 3}).map((_, i) => (<TableRow key={`alloc-skel-${i}`}><TableCell><Skeleton className="h-5 w-40" /></TableCell><TableCell><Skeleton className="h-5 w-40" /></TableCell><TableCell className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableCell><TableCell><Skeleton className="h-8 w-20 ml-auto" /></TableCell></TableRow>))
-                                        ) : allTimeAllocations.map((alloc) => (
-                                            <TableRow key={alloc.id}>
-                                                <TableCell>{format(alloc.startDate, 'MMM d, yyyy, h:mm a')}</TableCell>
-                                                <TableCell>{format(alloc.endDate, 'MMM d, yyyy, h:mm a')}</TableCell>
-                                                <TableCell className="text-right">{convertAndFormat(alloc.totalAllocationGallons, unit)} <span className="text-xs text-muted-foreground">{getUnitLabel()}</span></TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex items-center gap-1 justify-end">
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => { setEditingAllocation(alloc); setIsAllocationFormOpen(true); }}><Edit className="h-4 w-4" /></Button></TooltipTrigger>
-                                                                <TooltipContent><p>Edit Allocation</p></TooltipContent>
-                                                            </Tooltip>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setAllocationToDelete(alloc)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TooltipTrigger>
-                                                                <TooltipContent><p>Delete Allocation</p></TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
                             </CardContent>
                         </Card>
 
@@ -586,13 +501,6 @@ export default function AdminDashboard() {
                 user={editingUser}
             />
 
-            <AllocationForm
-                isOpen={isAllocationFormOpen}
-                onOpenChange={(isOpen) => { setIsAllocationFormOpen(isOpen); if (!isOpen) { setEditingAllocation(null); }}}
-                onSave={handleAllocationSave}
-                allocation={editingAllocation}
-            />
-
             <AlertDialog open={!!userToDelete} onOpenChange={(isOpen) => !isOpen && setUserToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -602,22 +510,6 @@ export default function AdminDashboard() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleConfirmUserDelete} className={buttonVariants({ variant: "destructive" })}>Delete</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            <AlertDialog open={!!allocationToDelete} onOpenChange={(isOpen) => !isOpen && setAllocationToDelete(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone. This will permanently delete this allocation period.</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleConfirmAllocationDelete} className={buttonVariants({ variant: "destructive" })}>Delete</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            <AlertDialog open={gapConfirmation.isOpen} onOpenChange={(isOpen) => !isOpen && setGapConfirmation({ isOpen: false, data: null, message: '' })}>
-                <AlertDialogContent>
-                    <AlertDialogHeader><AlertDialogTitle>Gap Detected in Allocations</AlertDialogTitle><AlertDialogDescription>{gapConfirmation.message}</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => { if (gapConfirmation.data) { proceedWithSave(gapConfirmation.data); } setGapConfirmation({ isOpen: false, data: null, message: '' }); }}>Continue Anyway</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </div>
