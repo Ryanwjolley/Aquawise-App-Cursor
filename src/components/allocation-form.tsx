@@ -38,6 +38,9 @@ const formSchema = z.object({
   volumeUnit: z.enum(['gallons', 'acre-feet']).optional(),
   flowUnit: z.enum(['gpm', 'cfs']).optional(),
 }).refine(data => {
+  if (!data.startDate || !data.endDate) {
+    return true; // Let the required fields handle this.
+  }
   const startDateTime = set(data.startDate, {
     hours: parseInt(data.startTime.split(':')[0]),
     minutes: parseInt(data.startTime.split(':')[1]),
@@ -291,7 +294,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                         <FormItem>
                             <FormLabel>{inputType === 'volume' ? 'Total Volume' : 'Flow Rate'}</FormLabel>
                             <FormControl>
-                                <Input type="number" placeholder="e.g. 1000" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} />
+                                <Input type="number" placeholder="e.g. 1000" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.valueAsNumber)} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
