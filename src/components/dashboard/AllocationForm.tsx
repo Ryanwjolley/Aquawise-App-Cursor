@@ -24,25 +24,31 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { Allocation, User } from "@/lib/data";
-import { DateRangeSelector } from "./DateRangeSelector";
-import type { DateRange } from "react-day-picker";
-import { format, differenceInMinutes, addMinutes, subMinutes } from "date-fns";
+import { format, differenceInMinutes, addMinutes, subMinutes, parseISO } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 
 type Unit = "gallons" | "acre-feet" | "gpm" | "cfs" | "ac-ft/day";
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 const allocationFormSchema = z.object({
-  dateRange: z.custom<DateRange>(val => val && (val as DateRange).from && (val as DateRange).to, {
-      message: "Please select a start and end date."
-  }),
+  startDate: z.string().regex(dateRegex, "Invalid date format. Use YYYY-MM-DD."),
+  endDate: z.string().regex(dateRegex, "Invalid date format. Use YYYY-MM-DD."),
   startTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   endTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }),
   unit: z.enum(["gallons", "acre-feet", "gpm", "cfs", "ac-ft/day"]),
   userId: z.string().min(1, { message: "Please select who this applies to." }),
+}).refine(data => {
+    const start = combineDateTime(data.startDate, data.startTime);
+    const end = combineDateTime(data.endDate, data.endTime);
+    return start && end && start < end;
+}, {
+    message: "End date and time must be after start date and time.",
+    path: ["endDate"],
 });
+
 
 type AllocationFormValues = z.infer<typeof allocationFormSchema>;
 
@@ -72,6 +78,11 @@ function convertToGallons(amount: number, unit: Unit, minutes: number): number {
 
 const GAP_THRESHOLD_MINUTES = 5;
 
+const combineDateTime = (dateStr: string, timeStr: string): Date | null => {
+    if (!dateStr || !timeStr || !dateStr.match(dateRegex) || !timeStr.match(timeRegex)) return null;
+    return parseISO(`${dateStr}T${timeStr}:00`);
+};
+
 export function AllocationForm({
   isOpen,
   onOpenChange,
@@ -94,29 +105,23 @@ export function AllocationForm({
       amount: 0,
       unit: "gallons",
       userId: "all",
-      dateRange: undefined,
+      startDate: format(new Date(), "yyyy-MM-dd"),
+      endDate: format(new Date(), "yyyy-MM-dd"),
       startTime: "00:00",
       endTime: "23:59",
     },
   });
 
-  const selectedDateRange = watch("dateRange");
+  const selectedStartDate = watch("startDate");
+  const selectedEndDate = watch("endDate");
   const selectedUserId = watch("userId");
   const startTime = watch("startTime");
   const endTime = watch("endTime");
 
-  const combineDateTime = (date: Date, time: string): Date | null => {
-    if (!time.match(timeRegex)) return null;
-    const newDate = new Date(date);
-    const [hours, minutes] = time.split(':').map(Number);
-    newDate.setHours(hours, minutes, 0, 0);
-    return newDate;
-  }
-
   useEffect(() => {
-    if (isOpen && selectedDateRange?.from && selectedDateRange?.to && startTime && endTime) {
-      const newStart = combineDateTime(selectedDateRange.from, startTime);
-      const newEnd = combineDateTime(selectedDateRange.to, endTime);
+    if (isOpen && selectedStartDate && selectedEndDate && startTime && endTime) {
+      const newStart = combineDateTime(selectedStartDate, startTime);
+      const newEnd = combineDateTime(selectedEndDate, endTime);
 
       if (!newStart || !newEnd || newStart >= newEnd) {
          setOverlapWarning(null);
@@ -163,7 +168,7 @@ export function AllocationForm({
       setGapWarning(null);
     }
 
-  }, [selectedDateRange, startTime, endTime, selectedUserId, existingAllocations, isOpen]);
+  }, [selectedStartDate, selectedEndDate, startTime, endTime, selectedUserId, existingAllocations, isOpen]);
 
 
   useEffect(() => {
@@ -175,8 +180,8 @@ export function AllocationForm({
   }, [isOpen, reset]);
   
   const handleFormSubmit = (data: AllocationFormValues) => {
-    const startDate = combineDateTime(data.dateRange.from!, data.startTime);
-    const endDate = combineDateTime(data.dateRange.to!, data.endTime);
+    const startDate = combineDateTime(data.startDate, data.startTime);
+    const endDate = combineDateTime(data.endDate, data.endTime);
 
     if (!startDate || !endDate || startDate >= endDate) {
         // Should be caught by validation, but as a safeguard.
@@ -210,23 +215,18 @@ export function AllocationForm({
           </SheetHeader>
           <div className="flex-1 space-y-6 overflow-y-auto py-6 pr-6 pl-1">
             <div className="space-y-4 pl-5">
-                <div className="grid gap-2">
-                    <Label htmlFor="dateRange">Allocation Period Dates</Label>
-                    <Controller
-                        name="dateRange"
-                        control={control}
-                        render={({ field }) => (
-                            <DateRangeSelector
-                                onUpdate={field.onChange}
-                                selectedRange={field.value}
-                            />
-                        )}
-                    />
-                     {errors.dateRange && (
-                        <p className="text-sm text-destructive">{errors.dateRange.message}</p>
-                    )}
-                </div>
                 <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="startDate">Start Date</Label>
+                        <Controller
+                            name="startDate"
+                            control={control}
+                            render={({ field }) => <Input id="startDate" type="date" {...field} />}
+                        />
+                         {errors.startDate && (
+                            <p className="text-sm text-destructive">{errors.startDate.message}</p>
+                        )}
+                    </div>
                      <div className="grid gap-2">
                         <Label htmlFor="startTime">Start Time</Label>
                         <Controller
@@ -236,6 +236,19 @@ export function AllocationForm({
                         />
                          {errors.startTime && (
                             <p className="text-sm text-destructive">{errors.startTime.message}</p>
+                        )}
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                     <div className="grid gap-2">
+                        <Label htmlFor="endDate">End Date</Label>
+                        <Controller
+                            name="endDate"
+                            control={control}
+                            render={({ field }) => <Input id="endDate" type="date" {...field} />}
+                        />
+                         {errors.endDate && (
+                            <p className="text-sm text-destructive">{errors.endDate.message}</p>
                         )}
                     </div>
                      <div className="grid gap-2">
