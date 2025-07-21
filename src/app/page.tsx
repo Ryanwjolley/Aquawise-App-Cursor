@@ -19,7 +19,8 @@ import { Progress } from "@/components/ui/progress";
 export default function CustomerDashboardPage() {
   const { currentUser } = useAuth();
   const [usageData, setUsageData] = useState<UsageEntry[]>([]);
-  const [allocation, setAllocation] = useState<Allocation | null>(null);
+  const [allAllocations, setAllAllocations] = useState<Allocation[]>([]);
+  const [currentAllocation, setCurrentAllocation] = useState<Allocation | null>(null);
   const [loading, setLoading] = useState(true);
   
   const [queryRange, setQueryRange] = useState<DateRange>({
@@ -42,18 +43,20 @@ export default function CustomerDashboardPage() {
         ]);
 
         setUsageData(data);
+        setAllAllocations(allocs);
 
         // Find the allocation that applies to the current date
         const today = new Date();
-        const currentAllocation = allocs.find(a => 
+        const activeAllocation = allocs.find(a => 
             isWithinInterval(today, { start: parseISO(a.startDate), end: parseISO(a.endDate) })
         );
-        setAllocation(currentAllocation || null);
+        setCurrentAllocation(activeAllocation || null);
 
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
         setUsageData([]);
-        setAllocation(null);
+        setCurrentAllocation(null);
+        setAllAllocations([]);
       } finally {
         setLoading(false);
       }
@@ -70,8 +73,14 @@ export default function CustomerDashboardPage() {
     date: entry.date,
     usage: entry.usage
   }));
+
+  const allocationForPeriod = allAllocations.find(a => 
+    queryRange.from && queryRange.to &&
+    format(parseISO(a.startDate), 'yyyy-MM-dd') === format(queryRange.from, 'yyyy-MM-dd') &&
+    format(parseISO(a.endDate), 'yyyy-MM-dd') === format(queryRange.to, 'yyyy-MM-dd')
+  ) || currentAllocation;
   
-  const allocationUsagePercent = allocation ? (totalUsage / allocation.gallons) * 100 : 0;
+  const allocationUsagePercent = allocationForPeriod ? (totalUsage / allocationForPeriod.gallons) * 100 : 0;
 
   return (
     <AppLayout>
@@ -81,7 +90,11 @@ export default function CustomerDashboardPage() {
                 Hi, Welcome back {currentUser?.name?.split(' ')[0]} 👋
             </h2>
             <div className="hidden md:flex items-center space-x-2">
-                <DateRangeSelector onUpdate={(range) => setQueryRange(range)} selectedRange={queryRange} />
+                <DateRangeSelector 
+                  onUpdate={(range) => setQueryRange(range)} 
+                  selectedRange={queryRange} 
+                  allocations={allAllocations}
+                />
             </div>
         </div>
         {loading ? (
@@ -113,7 +126,7 @@ export default function CustomerDashboardPage() {
                     icon={CalendarDays}
                     description="Days with reported usage in the selected period"
                 />
-                {allocation ? (
+                {allocationForPeriod ? (
                      <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Period Allocation Usage</CardTitle>
@@ -122,7 +135,7 @@ export default function CustomerDashboardPage() {
                         <CardContent>
                             <div className="text-2xl font-bold">{Math.round(allocationUsagePercent)}%</div>
                             <p className="text-xs text-muted-foreground">
-                                {totalUsage.toLocaleString()} of {allocation.gallons.toLocaleString()} gal used
+                                {totalUsage.toLocaleString()} of {allocationForPeriod.gallons.toLocaleString()} gal used
                             </p>
                             <Progress value={allocationUsagePercent} className="mt-2 h-2" />
                         </CardContent>
@@ -132,7 +145,7 @@ export default function CustomerDashboardPage() {
                         title="Period Allocation" 
                         metric="N/A"
                         icon={Target}
-                        description="No allocation set for the current period"
+                        description="No allocation set for this period"
                     />
                 )}
             </div>
