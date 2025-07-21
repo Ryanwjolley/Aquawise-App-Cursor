@@ -2,7 +2,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +23,7 @@ import { cn, GALLONS_PER_ACRE_FOOT, GPM_TO_GALLONS_PER_SECOND, CFS_TO_GALLONS_PE
 import { CalendarIcon } from 'lucide-react';
 import type { Allocation, AllocationData } from '@/firestoreService';
 import React, { useEffect } from 'react';
-import { format, parse, set, differenceInSeconds } from 'date-fns';
+import { format, set, differenceInSeconds } from 'date-fns';
 
 const timeRegex = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
@@ -91,6 +91,8 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
         } else {
             reset({
               id: undefined,
+              startDate: undefined,
+              endDate: undefined,
               startTime: '00:00',
               endTime: '23:59',
               inputType: 'volume',
@@ -172,7 +174,11 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                         </Button>
                                     </FormControl>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent 
+                                    className="w-auto p-0" 
+                                    align="start"
+                                    onInteractOutside={(e) => e.preventDefault()}
+                                >
                                     <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
                                 </PopoverContent>
                             </Popover>
@@ -213,7 +219,11 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                         </Button>
                                     </FormControl>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent 
+                                    className="w-auto p-0" 
+                                    align="start"
+                                    onInteractOutside={(e) => e.preventDefault()}
+                                >
                                     <Calendar
                                         mode="single"
                                         selected={field.value}
