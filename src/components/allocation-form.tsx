@@ -77,49 +77,37 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
   });
   
   const { reset } = form;
-
   const inputType = form.watch('inputType');
 
   React.useEffect(() => {
     if (isOpen) {
         if (isEditMode && allocation) {
-            if (allocation.inputType && allocation.inputValue) {
-                reset({
-                    startDate: allocation.startDate,
-                    startTime: format(allocation.startDate, 'HH:mm'),
-                    endDate: allocation.endDate,
-                    endTime: format(allocation.endDate, 'HH:mm'),
-                    inputType: allocation.inputType,
-                    inputValue: allocation.inputValue,
-                    volumeUnit: allocation.volumeUnit,
-                    flowUnit: allocation.flowUnit,
-                });
-            } else {
-                reset({
-                    startDate: allocation.startDate,
-                    startTime: format(allocation.startDate, 'HH:mm'),
-                    endDate: allocation.endDate,
-                    endTime: format(allocation.endDate, 'HH:mm'),
-                    inputType: 'volume',
-                    inputValue: allocation.totalAllocationGallons,
-                    volumeUnit: 'gallons',
-                    flowUnit: undefined,
-                });
-            }
+             const defaultValues = {
+                startDate: allocation.startDate,
+                startTime: format(allocation.startDate, 'HH:mm'),
+                endDate: allocation.endDate,
+                endTime: format(allocation.endDate, 'HH:mm'),
+                inputType: allocation.inputType || 'volume',
+                inputValue: allocation.inputValue || allocation.totalAllocationGallons,
+                volumeUnit: allocation.volumeUnit || (allocation.inputType === 'volume' || !allocation.inputType ? 'gallons' : undefined),
+                flowUnit: allocation.flowUnit,
+            };
+            reset(defaultValues);
         } else {
             reset({
+                startDate: undefined,
+                endDate: undefined,
                 startTime: '00:00',
                 endTime: '23:59',
                 inputType: 'volume',
                 inputValue: 1000000,
                 volumeUnit: 'gallons',
                 flowUnit: undefined,
-                startDate: undefined,
-                endDate: undefined,
             });
         }
     }
   }, [isOpen, isEditMode, allocation, reset]);
+
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     const { startDate, startTime, endDate, endTime, inputType, inputValue, volumeUnit, flowUnit } = values;
@@ -206,6 +194,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
+                                defaultMonth={field.value}
                                 initialFocus
                             />
                             </PopoverContent>
@@ -257,6 +246,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
+                                defaultMonth={field.value}
                                 disabled={(date) =>
                                   form.getValues('startDate') ? date < form.getValues('startDate') : false
                                 }
@@ -345,7 +335,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                         render={({ field }) => (
                             <FormItem>
                             <FormLabel>Unit</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                 <FormControl>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a unit" />
@@ -368,7 +358,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                         render={({ field }) => (
                             <FormItem>
                             <FormLabel>Unit</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                 <FormControl>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a unit" />
