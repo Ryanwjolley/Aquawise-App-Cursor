@@ -1,3 +1,4 @@
+
 'use server';
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc, writeBatch, runTransaction } from "firebase/firestore";
 import { db } from "./firebaseConfig";
@@ -411,25 +412,21 @@ export const findExistingUsageForUsersAndDates = async (entries: ParsedUsageEntr
     const existingEntries = new Map<string, string>();
     if (entries.length === 0) return existingEntries;
 
-    // Create a set of unique user IDs and a set of dates to check for each user.
     const userIds = [...new Set(entries.map(e => e.userId))];
-    const datesToCheck = [...new Set(entries.map(e => e.date))];
+    const datesToCheck = new Set(entries.map(e => e.date));
 
-    // Batch queries by user to avoid hitting Firestore query limits and improve performance.
     const queryPromises = userIds.map(userId => 
         getDocs(query(usageCollection, where("userId", "==", userId)))
     );
     
     const snapshots = await Promise.all(queryPromises);
 
-    // Filter the results in memory.
     for (const snapshot of snapshots) {
         snapshot.forEach(docSnap => {
             const data = docSnap.data();
             const dateStr = format(data.date.toDate(), 'yyyy-MM-dd');
-
-            // Only consider entries that are in our list of dates to check
-            if (datesToCheck.includes(dateStr)) {
+            
+            if (datesToCheck.has(dateStr)) {
                 const key = `${data.userId}-${dateStr}`;
                 existingEntries.set(key, docSnap.id);
             }
