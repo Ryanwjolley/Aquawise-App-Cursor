@@ -2,17 +2,16 @@
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, Users, BarChart, Droplets, Bell, PlusCircle } from 'lucide-react';
+import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, Users, BarChart, Droplets, Bell } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, deleteAllocation, setAllocation, updateAllocation, AllocationData } from '../firestoreService';
+import { getUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { DateRange } from 'react-day-picker';
 import { cn, convertAndFormat } from '@/lib/utils';
 import { UserForm } from './user-form';
-import { AllocationForm } from './allocation-form';
 import { useAuth } from '@/context/auth-context';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -46,18 +45,13 @@ export default function AdminDashboard() {
     const activeCompanyDetails = impersonatingCompanyId ? impersonatedCompanyDetails : companyDetails;
 
     const [userData, setUserData] = useState<UserData[]>([]);
-    const [allocations, setAllocations] = useState<Allocation[]>([]);
     const [loading, setLoading] = useState(true);
     const [waterDataLoading, setWaterDataLoading] = useState(false);
     const [totalWaterConsumed, setTotalWaterConsumed] = useState(0);
     
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
-    const [isAllocationFormOpen, setIsAllocationFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
-    const [editingAllocation, setEditingAllocation] = useState<Allocation | null>(null);
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
-    const [allocationToDelete, setAllocationToDelete] = useState<Allocation | null>(null);
-
 
     const { toast } = useToast();
     const { unit, setUnit, getUnitLabel } = useUnit();
@@ -74,15 +68,13 @@ export default function AdminDashboard() {
         if (!selectedCompanyId) return;
         setLoading(true);
         try {
-            const [fetchedUsers, fetchedInvites, fetchedAllocations] = await Promise.all([
+            const [fetchedUsers, fetchedInvites] = await Promise.all([
                 getUsers(selectedCompanyId),
                 getInvites(selectedCompanyId),
-                getAllocations(selectedCompanyId),
             ]);
             
             const combinedData = [...fetchedUsers, ...fetchedInvites].sort((a, b) => a.name.localeCompare(b.name));
             setUserData(combinedData);
-            setAllocations(fetchedAllocations);
         } catch(error) {
             toast({
                 variant: 'destructive',
@@ -251,41 +243,6 @@ export default function AdminDashboard() {
         }
     };
     
-    const handleSaveAllocation = async (data: AllocationData) => {
-        if (!selectedCompanyId) return;
-
-        const otherAllocations = allocations.filter(a => a.id !== data.id);
-        const isOverlapping = otherAllocations.some(a => 
-            (data.startDate < a.endDate && data.endDate > a.startDate)
-        );
-
-        if (isOverlapping) {
-            toast({
-                variant: 'destructive',
-                title: 'Overlap Detected',
-                description: 'This allocation period overlaps with an existing one. Please adjust the dates.',
-            });
-            return;
-        }
-
-        try {
-            if (data.id) {
-                await updateAllocation(data.id, data);
-                toast({ title: 'Allocation Updated', description: 'The allocation period has been successfully updated.' });
-            } else {
-                await setAllocation({ ...data, companyId: selectedCompanyId });
-                toast({ title: 'Allocation Created', description: 'The new allocation period has been created.' });
-            }
-            fetchCompanyData();
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Save Failed',
-                description: 'Could not save the allocation period.',
-            });
-        }
-    };
-
     const handleToggleUserStatus = async (userToToggle: User) => {
         if (userToToggle.id === authUser?.uid) {
             toast({ variant: 'destructive', title: 'Action Forbidden', description: 'You cannot deactivate your own account.' });
@@ -320,20 +277,6 @@ export default function AdminDashboard() {
             setUserToDelete(null);
         }
     };
-    
-    const handleConfirmAllocationDelete = async () => {
-        if (!allocationToDelete) return;
-        try {
-            await deleteAllocation(allocationToDelete.id);
-            toast({ title: 'Allocation Deleted', description: `The allocation period has been removed.` });
-            fetchCompanyData();
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Delete Failed', description: 'Could not delete the allocation.' });
-        } finally {
-            setAllocationToDelete(null);
-        }
-    };
-
 
     const activeUsers = useMemo(() => {
         return userData.filter(u => u.status === 'active');
@@ -527,55 +470,6 @@ export default function AdminDashboard() {
                             </CardContent>
                         </Card>
                         
-                        <Card className="rounded-xl shadow-md">
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-xl">Allocation Periods</CardTitle>
-                                    <CardDescription>Define when and how much water is available for the entire system.</CardDescription>
-                                </div>
-                                <Button onClick={() => { setEditingAllocation(null); setIsAllocationFormOpen(true); }}><PlusCircle className='mr-2 h-4 w-4' /> New Allocation</Button>
-                            </CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Period</TableHead>
-                                            <TableHead>Total Allocation</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                    {loading ? (
-                                        Array.from({length: 2}).map((_, i) => (
-                                            <TableRow key={`alloc-skel-${i}`}>
-                                                <TableCell><Skeleton className="h-5 w-72" /></TableCell>
-                                                <TableCell><Skeleton className="h-5 w-40" /></TableCell>
-                                                <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : allocations.length > 0 ? (
-                                        allocations.map((alloc) => (
-                                            <TableRow key={alloc.id}>
-                                                <TableCell className="font-medium">{`${format(alloc.startDate, 'P p')} - ${format(alloc.endDate, 'P p')}`}</TableCell>
-                                                <TableCell>{convertAndFormat(alloc.totalAllocationGallons, unit)} {getUnitLabel()}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <Button variant="ghost" size="icon" onClick={() => { setEditingAllocation(alloc); setIsAllocationFormOpen(true); }}><Edit className="h-4 w-4" /></Button>
-                                                        <Button variant="ghost" size="icon" onClick={() => setAllocationToDelete(alloc)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={3} className="h-24 text-center">No allocation periods found.</TableCell>
-                                        </TableRow>
-                                    )}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                        </Card>
-
                          <Card className="rounded-xl shadow-md">
                             <CardHeader>
                                 <CardTitle className="text-xl">Upload Usage Data</CardTitle>
@@ -600,13 +494,6 @@ export default function AdminDashboard() {
                 user={editingUser}
             />
 
-            <AllocationForm
-                isOpen={isAllocationFormOpen}
-                onOpenChange={(isOpen) => { setIsAllocationFormOpen(isOpen); if (!isOpen) { setEditingAllocation(null); }}}
-                onSave={handleSaveAllocation}
-                allocation={editingAllocation}
-            />
-
             <AlertDialog open={!!userToDelete} onOpenChange={(isOpen) => !isOpen && setUserToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -618,23 +505,6 @@ export default function AdminDashboard() {
                     <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleConfirmUserDelete} className={buttonVariants({ variant: "destructive" })}>Delete</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-            
-            <AlertDialog open={!!allocationToDelete} onOpenChange={(isOpen) => !isOpen && setAllocationToDelete(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the allocation period from <span className="font-bold">{allocationToDelete ? format(allocationToDelete.startDate, 'P p') : ''}</span> to <span className="font-bold">{allocationToDelete ? format(allocationToDelete.endDate, 'P p') : ''}</span>.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmAllocationDelete} className={buttonVariants({ variant: "destructive" })}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }
-
-    
