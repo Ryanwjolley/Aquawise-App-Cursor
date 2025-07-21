@@ -17,7 +17,9 @@ export default function CustomerDashboardPage() {
   const { currentUser } = useAuth();
   const [usageData, setUsageData] = useState<UsageEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+  
+  // This state will trigger the data fetching
+  const [queryRange, setQueryRange] = useState<DateRange | undefined>({
     from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
     to: new Date(),
   });
@@ -26,15 +28,22 @@ export default function CustomerDashboardPage() {
     if (currentUser) {
       const fetchData = async () => {
         setLoading(true);
-        const fromDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
-        const toDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
-        const data = await getUsageForUser(currentUser.id, fromDate, toDate);
-        setUsageData(data);
-        setLoading(false);
+        const fromDate = queryRange?.from ? format(queryRange.from, "yyyy-MM-dd") : undefined;
+        const toDate = queryRange?.to ? format(queryRange.to, "yyyy-MM-dd") : undefined;
+        
+        try {
+            const data = await getUsageForUser(currentUser.id, fromDate, toDate);
+            setUsageData(data);
+        } catch (error) {
+            console.error("Failed to fetch usage data:", error);
+            setUsageData([]); // Clear data on error
+        } finally {
+            setLoading(false);
+        }
       };
       fetchData();
     }
-  }, [currentUser, dateRange]);
+  }, [currentUser, queryRange]);
 
   const totalUsage = usageData.reduce((acc, entry) => acc + entry.usage, 0);
   const avgDailyUsage = usageData.length > 0 ? totalUsage / usageData.length : 0;
@@ -53,7 +62,7 @@ export default function CustomerDashboardPage() {
                 Hi, Welcome back {currentUser?.name?.split(' ')[0]} 👋
             </h2>
             <div className="hidden md:flex items-center space-x-2">
-                <DateRangeSelector onUpdate={(range) => setDateRange(range)} />
+                <DateRangeSelector onUpdate={(range) => setQueryRange(range)} />
             </div>
         </div>
         {loading ? (
