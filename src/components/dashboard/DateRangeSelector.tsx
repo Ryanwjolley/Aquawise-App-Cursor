@@ -83,7 +83,7 @@ export function DateRangeSelector({ onUpdate, className, selectedRange, allocati
         <PopoverContent className="w-auto p-0" align="start">
           {allocations.length > 0 && (
             <div className="p-2 space-y-2">
-                <p className="text-sm font-medium text-center text-muted-foreground">Select a Period</p>
+                <p className="text-sm font-medium text-center text-muted-foreground">Allocation Periods</p>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                     {allocations.map(alloc => (
                         <Button

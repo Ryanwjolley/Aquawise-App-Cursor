@@ -88,7 +88,7 @@ const generateMockUsage = () => {
             // Generate random usage between 5000 and 7000 gallons for customers
             // And between 4000 and 6000 for admins to simulate different patterns
             const user = users.find(u => u.id === userId);
-            const baseUsage = user?.role === 'Admin' ? 4000 : 5000;
+            const baseUsage = user?.role === 'Admin' ? 8000 : 9000;
             const randomComponent = 2000;
             const dailyUsage = Math.floor(Math.random() * randomComponent) + baseUsage;
             
@@ -117,16 +117,16 @@ let allocations: Allocation[] = [
         gallons: 500000,
     },
     // Weekly allocations for June 2025 for company '1'
-    { id: 'a2', companyId: '1', startDate: '2025-06-02T00:00:00Z', endDate: '2025-06-08T23:59:59Z', gallons: 350000 },
-    { id: 'a3', companyId: '1', startDate: '2025-06-09T00:00:00Z', endDate: '2025-06-15T23:59:59Z', gallons: 420000 },
-    { id: 'a4', companyId: '1', startDate: '2025-06-16T00:00:00Z', endDate: '2025-06-22T23:59:59Z', gallons: 380000 },
-    { id: 'a5', companyId: '1', startDate: '2025-06-23T00:00:00Z', endDate: '2025-06-29T23:59:59Z', gallons: 480000 },
+    { id: 'a2', companyId: '1', startDate: '2025-06-02T00:00:00Z', endDate: '2025-06-08T23:59:59Z', gallons: 450000 },
+    { id: 'a3', companyId: '1', startDate: '2025-06-09T00:00:00Z', endDate: '2025-06-15T23:59:59Z', gallons: 500000 },
+    { id: 'a4', companyId: '1', startDate: '2025-06-16T00:00:00Z', endDate: '2025-06-22T23:59:59Z', gallons: 480000 },
+    { id: 'a5', companyId: '1', startDate: '2025-06-23T00:00:00Z', endDate: '2025-06-29T23:59:59Z', gallons: 490000 },
     
     // Weekly allocations for July 2025 for company '1'
-    { id: 'a6', companyId: '1', startDate: '2025-06-30T00:00:00Z', endDate: '2025-07-06T23:59:59Z', gallons: 450000 },
-    { id: 'a7', companyId: '1', startDate: '2025-07-07T00:00:00Z', endDate: '2025-07-13T23:59:59Z', gallons: 320000 },
+    { id: 'a6', companyId: '1', startDate: '2025-06-30T00:00:00Z', endDate: '2025-07-06T23:59:59Z', gallons: 470000 },
+    { id: 'a7', companyId: '1', startDate: '2025-07-07T00:00:00Z', endDate: '2025-07-13T23:59:59Z', gallons: 420000 },
     { id: 'a8', companyId: '1', startDate: '2025-07-14T00:00:00Z', endDate: '2025-07-20T23:59:59Z', gallons: 500000 },
-    { id: 'a9', companyId: '1', startDate: '2025-07-21T00:00:00Z', endDate: '2025-07-27T23:59:59Z', gallons: 390000 },
+    { id: 'a9', companyId: '1', startDate: '2025-07-21T00:00:00Z', endDate: '2025-07-27T23:59:59Z', gallons: 460000 },
 ];
 
 
