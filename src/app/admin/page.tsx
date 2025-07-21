@@ -129,9 +129,16 @@ function UserDashboard({ user, usageData, allocations, queryRange }) {
 
     return (
          <>
-            <h2 className="text-3xl font-bold tracking-tight">
-                {user?.name}'s Dashboard
-            </h2>
+            <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-bold tracking-tight">
+                    {user?.name}'s Dashboard
+                </h2>
+                {user?.shares && (
+                    <div className="text-lg text-muted-foreground font-medium">
+                        Shares - {user.shares}
+                    </div>
+                )}
+            </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricCard 
                     title="Total Usage" 

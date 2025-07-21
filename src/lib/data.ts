@@ -13,6 +13,7 @@ export type User = {
   email: string;
   role: 'Admin' | 'Customer';
   companyId: string;
+  shares?: number;
 };
 
 export type UsageEntry = {
@@ -39,18 +40,18 @@ const companies: Company[] = [
 
 let users: User[] = [
   // Golden Valley Agriculture
-  { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', role: 'Admin', companyId: '1' },
-  { id: '102', name: 'Bob Williams', email: 'bob@gva.com', role: 'Customer', companyId: '1' },
-  { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', role: 'Customer', companyId: '1' },
-  { id: '104', name: 'David Garcia', email: 'david@gva.com', role: 'Customer', companyId: '1' },
-  { id: '105', name: 'Emily Clark', email: 'emily@gva.com', role: 'Customer', companyId: '1' },
-  { id: '106', name: 'Frank Miller', email: 'frank@gva.com', role: 'Customer', companyId: '1' },
-  { id: '107', name: 'Grace Hall', email: 'grace@gva.com', role: 'Customer', companyId: '1' },
+  { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', role: 'Admin', companyId: '1', shares: 50 },
+  { id: '102', name: 'Bob Williams', email: 'bob@gva.com', role: 'Customer', companyId: '1', shares: 10 },
+  { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', role: 'Customer', companyId: '1', shares: 15 },
+  { id: '104', name: 'David Garcia', email: 'david@gva.com', role: 'Customer', companyId: '1', shares: 11 },
+  { id: '105', name: 'Emily Clark', email: 'emily@gva.com', role: 'Customer', companyId: '1', shares: 20 },
+  { id: '106', name: 'Frank Miller', email: 'frank@gva.com', role: 'Customer', companyId: '1', shares: 5 },
+  { id: '107', name: 'Grace Hall', email: 'grace@gva.com', role: 'Customer', companyId: '1', shares: 8 },
 
   // Sunrise Farms
-  { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', role: 'Admin', companyId: '2' },
-  { id: '202', name: 'Evan Davis', email: 'evan@sunrise.com', role: 'Customer', companyId: '2' },
-  { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', role: 'Customer', companyId: '2' },
+  { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', role: 'Admin', companyId: '2', shares: 30 },
+  { id: '202', name: 'Evan Davis', email: 'evan@sunrise.com', role: 'Customer', companyId: '2', shares: 12 },
+  { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', role: 'Customer', companyId: '2', shares: 18 },
 ];
 
 // Helper to get dates for the last week
@@ -244,5 +245,6 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
 
 
     
+
 
 
