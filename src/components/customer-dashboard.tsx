@@ -59,8 +59,8 @@ export default function CustomerDashboard() {
           getAllocations(companyId)
         ]);
         console.log('Fetched all users:', fetchedUsers);
-        console.log('Fetched all-time allocations:', fetchedAllocations);
         setAllUsers(fetchedUsers);
+        console.log('Fetched all-time allocations:', fetchedAllocations);
         setAllTimeAllocations(fetchedAllocations);
 
         // 2. Determine the user to display
@@ -137,9 +137,8 @@ export default function CustomerDashboard() {
         ]);
         
         console.log('Fetched Daily Usage Data:', dailyData);
-        console.log('Fetched Total Water Used:', totalUsed);
-
         setDailyUsage(dailyData);
+        console.log('Fetched Total Water Used:', totalUsed);
         setWaterUsed(totalUsed);
 
       } catch (error) {
@@ -205,11 +204,11 @@ export default function CustomerDashboard() {
 
   if (authLoading || loading) {
       return (
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
               <header className="flex flex-col sm:flex-row justify-between sm:items-end mb-8 gap-4">
                   <div>
                       <h1 className="text-3xl font-bold text-foreground"><Skeleton className="h-9 w-64" /></h1>
-                      <p className="text-muted-foreground"><Skeleton className="h-5 w-80 mt-2" /></p>
+                      <div className="text-muted-foreground mt-2"><Skeleton className="h-5 w-80" /></div>
                   </div>
               </header>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
