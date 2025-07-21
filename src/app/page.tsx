@@ -20,7 +20,7 @@ export default function CustomerDashboardPage() {
   const [loading, setLoading] = useState(true);
   
   const [queryRange, setQueryRange] = useState<DateRange | undefined>({
-    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+    from: new Date(new Date().setDate(new Date().getDate() - 30)),
     to: new Date(),
   });
 

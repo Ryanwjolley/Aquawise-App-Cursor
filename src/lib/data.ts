@@ -37,21 +37,28 @@ const users: User[] = [
   { id: '202', name: 'Evan Davis', email: 'evan@sunrise.com', role: 'Customer', companyId: '2' },
 ];
 
-let usageData: UsageEntry[] = [
-  // Alice (Admin)
-  { id: 'u1', userId: '101', date: '2024-05-15', usage: 4500 },
-  { id: 'u2', userId: '101', date: '2024-05-16', usage: 5200 },
-  
-  // Bob
-  { id: 'u3', userId: '102', date: '2024-05-15', usage: 7800 },
-  { id: 'u4', userId: '102', date: '2024-05-16', usage: 8100 },
-  { id: 'u5', userId: '102', date: '2024-05-17', usage: 7600 },
+// Helper to get dates for the last week
+const getRecentDate = (daysAgo: number): string => {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+}
 
-  // Charlie
+let usageData: UsageEntry[] = [
+  // Alice (Admin) - Recent Data
+  { id: 'u1', userId: '101', date: getRecentDate(2), usage: 4500 },
+  { id: 'u2', userId: '101', date: getRecentDate(1), usage: 5200 },
+  
+  // Bob - Recent Data
+  { id: 'u3', userId: '102', date: getRecentDate(3), usage: 7800 },
+  { id: 'u4', userId: '102', date: getRecentDate(2), usage: 8100 },
+  { id: 'u5', userId: '102', date: getRecentDate(1), usage: 7600 },
+
+  // Charlie - Older Data
   { id: 'u6', userId: '103', date: '2024-05-15', usage: 3200 },
   { id: 'u7', userId: '103', date: '2024-05-16', usage: 3500 },
   
-  // Diana (Admin)
+  // Diana (Admin) - Older Data
   { id: 'u8', userId: '201', date: '2024-05-16', usage: 6000 },
 ];
 
