@@ -39,13 +39,15 @@ export default function AllocationPage() {
       getAllocationsByCompany(currentUser.companyId),
       getUsersByCompany(currentUser.companyId),
     ]);
-    setAllocations(allocs);
+    setAllocations(allocs.sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()));
     setCompanyUsers(users);
     setLoading(false);
   };
   
   useEffect(() => {
-    fetchAndSetData();
+    if (currentUser?.companyId) {
+        fetchAndSetData();
+    }
   }, [currentUser]);
 
   const handleFormSubmit = async (data: Omit<Allocation, 'id' | 'companyId'>) => {
@@ -118,6 +120,7 @@ export default function AllocationPage() {
         onOpenChange={setIsFormOpen}
         onSubmit={handleFormSubmit}
         companyUsers={companyUsers}
+        existingAllocations={allocations}
       />
     </AppLayout>
   );
