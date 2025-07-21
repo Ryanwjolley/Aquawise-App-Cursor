@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { DataUploadForm } from "@/components/dashboard/DataUploadForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,14 +15,13 @@ export default function DataUploadPage() {
   const { toast } = useToast();
   const [companyUsers, setCompanyUsers] = useState<User[]>([]);
 
-  useState(() => {
+  useEffect(() => {
     if (currentUser?.companyId) {
       getUsersByCompany(currentUser.companyId).then(setCompanyUsers);
     }
-  });
+  }, [currentUser]);
 
   const handleDataUpload = async (data: any[], mode: 'overwrite' | 'new_only') => {
-    // This is where we will handle the final upload logic.
     console.log(`Preparing to upload ${data.length} records with mode: ${mode}`);
     
     // Map emails to user IDs
@@ -34,7 +33,7 @@ export default function DataUploadPage() {
       usage: parseInt(record.usage, 10),
     })).filter(entry => entry.userId); // Filter out records where user wasn't found
 
-    const { added, updated } = bulkAddUsageEntries(entriesToAdd, mode);
+    const { added, updated } = await bulkAddUsageEntries(entriesToAdd, mode);
     
     console.log(`Upload complete. Added: ${added}, Updated: ${updated}`);
     toast({

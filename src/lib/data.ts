@@ -95,7 +95,7 @@ export const getUsageForUser = async (userId: string, startDate?: string, endDat
 };
 
 // Function to simulate bulk adding/overwriting usage data
-export const bulkAddUsageEntries = (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only'): { added: number, updated: number } => {
+export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only'): Promise<{ added: number, updated: number }> => {
   let added = 0;
   let updated = 0;
 
@@ -115,7 +115,7 @@ export const bulkAddUsageEntries = (entries: Omit<UsageEntry, 'id'>[], mode: 'ov
     }
   });
   
-  return { added, updated };
+  return Promise.resolve({ added, updated });
 };
 
 // To support our mock implementation of checking for duplicates before upload.
