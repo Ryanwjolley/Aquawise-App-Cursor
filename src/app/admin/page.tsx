@@ -114,7 +114,7 @@ function AggregateDashboard({ company, companyUsers, allUsageData, queryRange })
 }
 
 // A component to render the individual user dashboard view
-function UserDashboard({ user, usageData, allocations, queryRange, setQueryRange }) {
+function UserDashboard({ user, usageData, allocations, queryRange }) {
     const totalUsage = usageData.reduce((acc, entry) => acc + entry.usage, 0);
     const avgDailyUsage = usageData.length > 0 ? totalUsage / usageData.length : 0;
     const daysWithUsage = usageData.length;
@@ -129,18 +129,9 @@ function UserDashboard({ user, usageData, allocations, queryRange, setQueryRange
 
     return (
          <>
-            <div className="flex items-center justify-between space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">
-                    {user?.name}'s Dashboard
-                </h2>
-                 <div className="hidden md:flex items-center space-x-2">
-                    <DateRangeSelector 
-                    onUpdate={(range) => setQueryRange(range)} 
-                    selectedRange={queryRange} 
-                    allocations={allocations}
-                    />
-                </div>
-            </div>
+            <h2 className="text-3xl font-bold tracking-tight">
+                {user?.name}'s Dashboard
+            </h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricCard 
                     title="Total Usage" 
@@ -303,11 +294,13 @@ export default function AdminDashboardPage() {
     if (selectedUser) {
         const userUsage = allUsageData[selectedUserId] || [];
         const userAllocations = allAllocations[selectedUserId] || [];
-        return <UserDashboard user={selectedUser} usageData={userUsage} allocations={userAllocations} queryRange={queryRange} setQueryRange={setQueryRange} />;
+        return <UserDashboard user={selectedUser} usageData={userUsage} allocations={userAllocations} queryRange={queryRange} />;
     }
 
     return <div>Select a user to begin.</div>;
   }
+  
+  const currentAllocations = selectedUser ? allAllocations[selectedUserId] || [] : [];
 
   return (
     <AppLayout>
@@ -321,6 +314,11 @@ export default function AdminDashboardPage() {
                     showAllOption={true}
                     defaultValue={selectedUserId}
                     triggerLabel="View Dashboard For..."
+                 />
+                 <DateRangeSelector 
+                    onUpdate={(range) => setQueryRange(range)} 
+                    selectedRange={queryRange} 
+                    allocations={currentAllocations}
                  />
             </div>
         </div>
