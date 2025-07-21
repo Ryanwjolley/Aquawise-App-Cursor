@@ -126,7 +126,6 @@ let allocations: Allocation[] = [
     { id: 'a6', companyId: '1', startDate: '2025-06-30T00:00:00Z', endDate: '2025-07-06T23:59:59Z', gallons: 470000 },
     { id: 'a7', companyId: '1', startDate: '2025-07-07T00:00:00Z', endDate: '2025-07-13T23:59:59Z', gallons: 420000 },
     { id: 'a8', companyId: '1', startDate: '2025-07-14T00:00:00Z', endDate: '2025-07-20T23:59:59Z', gallons: 500000 },
-    { id: 'a9', companyId: '1', startDate: '2025-07-21T00:00:00Z', endDate: '2025-07-27T23:59:59Z', gallons: 460000 },
 ];
 
 
