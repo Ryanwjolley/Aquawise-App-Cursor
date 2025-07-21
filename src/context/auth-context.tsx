@@ -18,7 +18,7 @@ interface AuthContextType {
   refreshCompanies: () => Promise<void>;
   impersonatingCompanyId: string | null;
   impersonatedCompanyDetails: Company | null;
-  startImpersonation: (userToImpersonate: User) => void;
+  startImpersonation: (target: User | string) => void;
   stopImpersonation: () => void;
   impersonatingUser: User | null;
 }
@@ -53,7 +53,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const [impersonatingUser, setImpersonatingUser] = useState<User | null>(null);
 
-  // Deprecated state, use impersonatingUser instead for full user object
   const [impersonatingCompanyId, setImpersonatingCompanyId] = useState<string | null>(null);
   const [impersonatedCompanyDetails, setImpersonatedCompanyDetails] = useState<Company | null>(null);
 
@@ -104,15 +103,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     router.push('/');
   };
   
-  const startImpersonation = (userToImpersonate: User) => {
-    if (userDetails?.role === 'admin' || userDetails?.companyId === 'system-admin') {
-      // Logic for regular admin impersonating a user
-      setImpersonatingUser(userToImpersonate);
+  const startImpersonation = (target: User | string) => {
+    if (!userDetails || (userDetails.role !== 'admin' && userDetails.companyId !== 'system-admin')) {
+      return; // Not authorized to impersonate
+    }
 
-      // Logic for superadmin impersonating a company
-      if (userDetails?.companyId === 'system-admin') {
-          setImpersonatingCompanyId(userToImpersonate.companyId);
+    if (typeof target === 'string') {
+      // Super Admin impersonating a company
+      if (userDetails.companyId === 'system-admin') {
+        setImpersonatingCompanyId(target);
+        setImpersonatingUser(null); // Not impersonating a specific user
       }
+    } else {
+      // Regular admin impersonating a user
+      setImpersonatingUser(target);
+      // Not setting company impersonation, as admin is within their own company
     }
   };
 
