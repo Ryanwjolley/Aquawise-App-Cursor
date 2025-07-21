@@ -451,11 +451,10 @@ export const findExistingUsageForUsersAndDates = async (entries: ParsedUsageEntr
     return existingEntries;
 };
 
-export const bulkAddUsageEntries = async (entries: ParsedUsageEntry[], mode: UploadMode): Promise<{ added: number; updated: number; }> => {
+export const bulkAddUsageEntries = async (entries: ParsedUsageEntry[], mode: UploadMode, existingEntriesMap: Map<string, string>): Promise<{ added: number; updated: number; }> => {
     let added = 0;
     let updated = 0;
     
-    const existingEntriesMap = await findExistingUsageForUsersAndDates(entries);
     const batch = writeBatch(db);
 
     for (const entry of entries) {

@@ -59,6 +59,7 @@ export default function AdminDashboard() {
     const [isUploadConfirmOpen, setIsUploadConfirmOpen] = useState(false);
     const [usageEntriesToUpload, setUsageEntriesToUpload] = useState<ParsedUsageEntry[]>([]);
     const [duplicateCount, setDuplicateCount] = useState(0);
+    const [existingEntriesMap, setExistingEntriesMap] = useState<Map<string, string>>(new Map());
 
     const { toast } = useToast();
     const { unit, setUnit, getUnitLabel } = useUnit();
@@ -169,16 +170,17 @@ export default function AdminDashboard() {
                 }
                 
                 if (parsedEntries.length > 0) {
-                    const existingEntries = await findExistingUsageForUsersAndDates(parsedEntries);
-                    const duplicateCount = existingEntries.size;
+                    const existingMap = await findExistingUsageForUsersAndDates(parsedEntries);
+                    const count = existingMap.size;
                     
-                    if (duplicateCount > 0) {
+                    if (count > 0) {
                         setUsageEntriesToUpload(parsedEntries);
-                        setDuplicateCount(duplicateCount);
+                        setExistingEntriesMap(existingMap);
+                        setDuplicateCount(count);
                         setIsUploadConfirmOpen(true);
                     } else {
                         // No duplicates, upload directly
-                        await handleConfirmUpload('new_only', parsedEntries);
+                        await handleConfirmUpload('new_only');
                     }
                 } else {
                      toast({ variant: 'destructive', title: 'No Valid Data Found', description: 'CSV data did not match any existing users or was invalid. Expected format: userId,consumption,date.' });
@@ -193,9 +195,9 @@ export default function AdminDashboard() {
         reader.readAsText(file);
     };
 
-    const handleConfirmUpload = async (mode: UploadMode, entries: ParsedUsageEntry[]) => {
+    const handleConfirmUpload = async (mode: UploadMode) => {
         try {
-            const { added, updated } = await bulkAddUsageEntries(entries, mode);
+            const { added, updated } = await bulkAddUsageEntries(usageEntriesToUpload, mode, existingEntriesMap);
             let description = '';
             if (added > 0 && updated > 0) {
                 description = `Added ${added} new and updated ${updated} existing records.`;
@@ -204,7 +206,7 @@ export default function AdminDashboard() {
             } else if (updated > 0) {
                 description = `Updated ${updated} existing records.`;
             } else {
-                description = `No changes were made. All ${entries.length} records were duplicates and you chose not to overwrite.`;
+                description = `No changes were made. All ${usageEntriesToUpload.length} records were duplicates and you chose not to overwrite.`;
             }
             toast({ title: 'Upload Complete', description });
             fetchWaterData(); // Refresh dashboard data
@@ -215,6 +217,7 @@ export default function AdminDashboard() {
             setIsUploadConfirmOpen(false);
             setUsageEntriesToUpload([]);
             setDuplicateCount(0);
+            setExistingEntriesMap(new Map());
         }
     };
 
@@ -570,8 +573,8 @@ export default function AdminDashboard() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel Upload</AlertDialogCancel>
-                        <Button variant="outline" onClick={() => handleConfirmUpload('new_only', usageEntriesToUpload)}>Add New Only</Button>
-                        <AlertDialogAction onClick={() => handleConfirmUpload('overwrite', usageEntriesToUpload)}>Overwrite Duplicates</AlertDialogAction>
+                        <Button variant="outline" onClick={() => handleConfirmUpload('new_only')}>Add New Only</Button>
+                        <AlertDialogAction onClick={() => handleConfirmUpload('overwrite')}>Overwrite Duplicates</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
