@@ -115,7 +115,17 @@ let allocations: Allocation[] = [
         startDate: getRecentDateTime(30, 0, 0), 
         endDate: getRecentDateTime(-30, 23, 59), // 30 days from now
         gallons: 500000,
-    }
+    },
+    // Weekly allocations for June 2025
+    { id: 'a_jun1', companyId: '1', startDate: '2025-06-02T00:00:00.000Z', endDate: '2025-06-08T23:59:00.000Z', gallons: 450000 },
+    { id: 'a_jun2', companyId: '1', startDate: '2025-06-09T00:00:00.000Z', endDate: '2025-06-15T23:59:00.000Z', gallons: 320000 },
+    { id: 'a_jun3', companyId: '1', startDate: '2025-06-16T00:00:00.000Z', endDate: '2025-06-22T23:59:00.000Z', gallons: 500000 },
+    { id: 'a_jun4', companyId: '1', startDate: '2025-06-23T00:00:00.000Z', endDate: '2025-06-29T23:59:00.000Z', gallons: 410000 },
+    // Weekly allocations for July 2025
+    { id: 'a_jul1', companyId: '1', startDate: '2025-06-30T00:00:00.000Z', endDate: '2025-07-06T23:59:00.000Z', gallons: 380000 },
+    { id: 'a_jul2', companyId: '1', startDate: '2025-07-07T00:00:00.000Z', endDate: '2025-07-13T23:59:00.000Z', gallons: 480000 },
+    { id: 'a_jul3', companyId: '1', startDate: '2025-07-14T00:00:00.000Z', endDate: '2025-07-20T23:59:00.000Z', gallons: 300000 },
+    { id: 'a_jul4', companyId: '1', startDate: '2025-07-21T00:00:00.000Z', endDate: '2025-07-27T23:59:00.000Z', gallons: 460000 },
 ];
 
 
