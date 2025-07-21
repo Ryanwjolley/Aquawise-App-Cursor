@@ -116,6 +116,7 @@ let allocations: Allocation[] = [
         endDate: getRecentDateTime(-30, 23, 59), // 30 days from now
         gallons: 500000,
     },
+    { id: 'a9', companyId: '1', startDate: '2025-07-21T00:00:00Z', endDate: '2025-08-20T23:59:59Z', gallons: 1500000 },
     // Weekly allocations for June 2025 for company '1'
     { id: 'a2', companyId: '1', startDate: '2025-06-02T00:00:00Z', endDate: '2025-06-08T23:59:59Z', gallons: 450000 },
     { id: 'a3', companyId: '1', startDate: '2025-06-09T00:00:00Z', endDate: '2025-06-15T23:59:59Z', gallons: 500000 },
@@ -249,3 +250,6 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
     allocations = allocations.filter(a => a.id !== allocationId);
     return Promise.resolve();
 };
+
+
+    
