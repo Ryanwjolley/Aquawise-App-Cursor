@@ -11,7 +11,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
-  role: 'Admin' | 'Customer';
+  role: 'Admin' | 'Customer' | 'Admin & Customer';
   companyId: string;
   shares?: number;
 };
@@ -40,7 +40,7 @@ const companies: Company[] = [
 
 let users: User[] = [
   // Golden Valley Agriculture
-  { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', role: 'Admin', companyId: '1', shares: 50 },
+  { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', role: 'Admin & Customer', companyId: '1', shares: 50 },
   { id: '102', name: 'Bob Williams', email: 'bob@gva.com', role: 'Customer', companyId: '1', shares: 10 },
   { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', role: 'Customer', companyId: '1', shares: 15 },
   { id: '104', name: 'David Garcia', email: 'david@gva.com', role: 'Customer', companyId: '1', shares: 11 },
@@ -49,7 +49,7 @@ let users: User[] = [
   { id: '107', name: 'Grace Hall', email: 'grace@gva.com', role: 'Customer', companyId: '1', shares: 8 },
 
   // Sunrise Farms
-  { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', role: 'Admin', companyId: '2', shares: 30 },
+  { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', role: 'Admin', companyId: '2' },
   { id: '202', name: 'Evan Davis', email: 'evan@sunrise.com', role: 'Customer', companyId: '2', shares: 12 },
   { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', role: 'Customer', companyId: '2', shares: 18 },
 ];
@@ -94,13 +94,16 @@ const generateMockUsage = () => {
             let randomComponent = 3200;
 
             if (user.companyId === '2') { // Sunrise Farms
-                 baseUsage = user.role === 'Admin' ? 2500 : 3500;
+                 baseUsage = user.role.includes('Admin') ? 2500 : 3500;
                  randomComponent = 1500;
             } else { // Golden Valley Agriculture (default)
-                 baseUsage = user.role === 'Admin' ? 6400 : 12800;
+                 baseUsage = user.role.includes('Admin') ? 6400 : 12800;
                  randomComponent = 3200;
             }
             
+            // Don't generate usage for admin-only users
+            if (user.role === 'Admin') continue;
+
             const dailyUsage = Math.floor(Math.random() * randomComponent) + baseUsage;
             
             generatedData.push({
@@ -263,10 +266,3 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
 
 
     
-
-
-
-
-
-
-

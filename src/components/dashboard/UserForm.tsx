@@ -1,3 +1,4 @@
+
 import {
   Sheet,
   SheetContent,
@@ -26,7 +27,7 @@ import { useEffect } from "react";
 const userFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email address." }),
-  role: z.enum(["Admin", "Customer"], {
+  role: z.enum(["Admin", "Customer", "Admin & Customer"], {
     required_error: "Please select a role.",
   }),
 });
@@ -119,8 +120,9 @@ export function UserForm({
                       <SelectValue placeholder="Select a role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Admin">Admin</SelectItem>
                       <SelectItem value="Customer">Customer</SelectItem>
+                      <SelectItem value="Admin">Admin</SelectItem>
+                      <SelectItem value="Admin & Customer">Admin & Customer</SelectItem>
                     </SelectContent>
                   </Select>
                 )}

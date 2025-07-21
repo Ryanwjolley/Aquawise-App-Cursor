@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isImpersonating, setIsImpersonating] = useState(false);
 
-  const defaultUserId = '101'; // Alice Johnson (Admin)
+  const defaultUserId = '101'; // Alice Johnson (Admin & Customer)
 
   useEffect(() => {
     // Check if we are currently impersonating on page load
@@ -38,13 +38,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loadUser(defaultUserId);
   }, []);
 
-  const loadUser = async (userId: string) => {
+  const loadUser = async (userId: string, redirect: boolean = false) => {
     setLoading(true);
     const user = await getUserById(userId);
     if (user) {
       setCurrentUser(user);
       const userCompany = await getCompanyById(user.companyId);
       setCompany(userCompany || null);
+       if (redirect) {
+        // If the user is only an admin, redirect to admin page, otherwise to customer page.
+        if (user.role === 'Admin') {
+          router.push('/admin');
+        } else {
+          router.push('/');
+        }
+      }
     } else {
       setCurrentUser(null);
       setCompany(null);
@@ -57,8 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         sessionStorage.setItem(impersonationStorageKey, currentUser.id);
     }
     setIsImpersonating(true);
-    await loadUser(userId);
-    router.push('/admin'); // Redirect to the dashboard after impersonating
+    await loadUser(userId, true);
   };
 
   const stopImpersonating = async () => {
@@ -66,7 +73,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (adminId) {
         sessionStorage.removeItem(impersonationStorageKey);
         setIsImpersonating(false);
-        await loadUser(adminId);
+        await loadUser(adminId, true);
     }
   }
 

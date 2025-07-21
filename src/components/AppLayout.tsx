@@ -38,7 +38,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, isImpersonating } = useAuth();
   const pathname = usePathname();
 
-  const isAdminView = currentUser?.role === 'Admin';
+  const isAdminView = currentUser?.role?.includes('Admin');
+  const isCustomerView = currentUser?.role?.includes('Customer');
 
   return (
     <SidebarProvider>
@@ -54,14 +55,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <Link href="/">
-                  <SidebarMenuButton tooltip="My Usage" isActive={pathname === '/'}>
-                    <Home />
-                    <span>My Usage</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
+              {isCustomerView && (
+                <SidebarMenuItem>
+                  <Link href="/">
+                    <SidebarMenuButton tooltip="My Usage" isActive={pathname === '/'}>
+                      <Home />
+                      <span>My Usage</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              )}
               {isAdminView && (
                 <>
                     <SidebarMenuItem>
