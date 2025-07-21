@@ -63,28 +63,16 @@ const getRecentDateTime = (daysAgo: number, hour = 0, minute = 0) => {
 }
 
 let usageData: UsageEntry[] = [
-  // Alice (Admin) - Recent Data
+  // A couple of recent entries for the default user to ensure dashboard has data on load
   { id: 'u1', userId: '101', date: getRecentDate(2), usage: 4500 },
   { id: 'u2', userId: '101', date: getRecentDate(1), usage: 5200 },
-  
-  // Bob - Recent Data
-  { id: 'u3', userId: '102', date: getRecentDate(3), usage: 7800 },
-  { id: 'u4', userId: '102', date: getRecentDate(2), usage: 8100 },
-  { id: 'u5', userId: '102', date: getRecentDate(1), usage: 7600 },
-
-  // Charlie - Older Data
-  { id: 'u6', userId: '103', date: '2024-05-15', usage: 3200 },
-  { id: 'u7', userId: '103', date: '2024-05-16', usage: 3500 },
-  
-  // Diana (Admin) - Older Data
-  { id: 'u8', userId: '201', date: '2024-05-16', usage: 6000 },
 ];
 
-// --- Generate extensive mock data for June and July 2024 ---
+// --- Generate extensive mock data for June and July 2025 ---
 const generateMockUsage = () => {
     const allUserIds = users.map(u => u.id);
-    const startDate = new Date('2024-06-01');
-    const endDate = new Date('2024-07-31');
+    const startDate = new Date('2025-06-01');
+    const endDate = new Date('2025-07-31');
 
     const generatedData: UsageEntry[] = [];
     let currentDate = new Date(startDate);
@@ -115,24 +103,25 @@ usageData.push(...generateMockUsage());
 
 
 let allocations: Allocation[] = [
+    // A current allocation for dashboard display
     { 
-        id: 'a1', 
+        id: 'a_current', 
         companyId: '1', 
         startDate: getRecentDateTime(30, 0, 0), 
         endDate: getRecentDateTime(-30, 23, 59), // 30 days from now
         gallons: 500000,
     },
-    // Weekly allocations for June 2024 for company '1'
-    { id: 'a2', companyId: '1', startDate: '2024-06-03T00:00:00Z', endDate: '2024-06-09T23:59:59Z', gallons: 350000 },
-    { id: 'a3', companyId: '1', startDate: '2024-06-10T00:00:00Z', endDate: '2024-06-16T23:59:59Z', gallons: 420000 },
-    { id: 'a4', companyId: '1', startDate: '2024-06-17T00:00:00Z', endDate: '2024-06-23T23:59:59Z', gallons: 380000 },
-    { id: 'a5', companyId: '1', startDate: '2024-06-24T00:00:00Z', endDate: '2024-06-30T23:59:59Z', gallons: 480000 },
+    // Weekly allocations for June 2025 for company '1'
+    { id: 'a2', companyId: '1', startDate: '2025-06-02T00:00:00Z', endDate: '2025-06-08T23:59:59Z', gallons: 350000 },
+    { id: 'a3', companyId: '1', startDate: '2025-06-09T00:00:00Z', endDate: '2025-06-15T23:59:59Z', gallons: 420000 },
+    { id: 'a4', companyId: '1', startDate: '2025-06-16T00:00:00Z', endDate: '2025-06-22T23:59:59Z', gallons: 380000 },
+    { id: 'a5', companyId: '1', startDate: '2025-06-23T00:00:00Z', endDate: '2025-06-29T23:59:59Z', gallons: 480000 },
     
-    // Weekly allocations for July 2024 for company '1'
-    { id: 'a6', companyId: '1', startDate: '2024-07-01T00:00:00Z', endDate: '2024-07-07T23:59:59Z', gallons: 450000 },
-    { id: 'a7', companyId: '1', startDate: '2024-07-08T00:00:00Z', endDate: '2024-07-14T23:59:59Z', gallons: 320000 },
-    { id: 'a8', companyId: '1', startDate: '2024-07-15T00:00:00Z', endDate: '2024-07-21T23:59:59Z', gallons: 500000 },
-    { id: 'a9', companyId: '1', startDate: '2024-07-22T00:00:00Z', endDate: '2024-07-28T23:59:59Z', gallons: 390000 },
+    // Weekly allocations for July 2025 for company '1'
+    { id: 'a6', companyId: '1', startDate: '2025-06-30T00:00:00Z', endDate: '2025-07-06T23:59:59Z', gallons: 450000 },
+    { id: 'a7', companyId: '1', startDate: '2025-07-07T00:00:00Z', endDate: '2025-07-13T23:59:59Z', gallons: 320000 },
+    { id: 'a8', companyId: '1', startDate: '2025-07-14T00:00:00Z', endDate: '2025-07-20T23:59:59Z', gallons: 500000 },
+    { id: 'a9', companyId: '1', startDate: '2025-07-21T00:00:00Z', endDate: '2025-07-27T23:59:59Z', gallons: 390000 },
 ];
 
 
