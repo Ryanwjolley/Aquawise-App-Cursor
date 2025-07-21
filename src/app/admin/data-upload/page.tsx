@@ -1,18 +1,46 @@
 
 "use client";
 
+import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { DataUploadForm } from "@/components/dashboard/DataUploadForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
+import { bulkAddUsageEntries, getUsersByCompany, User } from "@/lib/data";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function DataUploadPage() {
+  const { currentUser } = useAuth();
+  const { toast } = useToast();
+  const [companyUsers, setCompanyUsers] = useState<User[]>([]);
 
-  const handleDataUpload = async (data: any[]) => {
-    // This is where we will handle the final upload logic in a future step.
-    // For now, we'll just log it to the console.
-    console.log("Preparing to upload:", data);
-    alert(`${data.length} records ready for upload. Check console for details.`);
+  useState(() => {
+    if (currentUser?.companyId) {
+      getUsersByCompany(currentUser.companyId).then(setCompanyUsers);
+    }
+  });
+
+  const handleDataUpload = async (data: any[], mode: 'overwrite' | 'new_only') => {
+    // This is where we will handle the final upload logic.
+    console.log(`Preparing to upload ${data.length} records with mode: ${mode}`);
+    
+    // Map emails to user IDs
+    const userMap = new Map(companyUsers.map(u => [u.email, u.id]));
+    
+    const entriesToAdd = data.map(record => ({
+      userId: userMap.get(record.userEmail)!,
+      date: record.date,
+      usage: parseInt(record.usage, 10),
+    })).filter(entry => entry.userId); // Filter out records where user wasn't found
+
+    const { added, updated } = bulkAddUsageEntries(entriesToAdd, mode);
+    
+    console.log(`Upload complete. Added: ${added}, Updated: ${updated}`);
+    toast({
+      title: "Upload Successful",
+      description: `${added} new records added. ${updated} records updated.`,
+    });
   }
 
   return (
@@ -30,7 +58,7 @@ export default function DataUploadPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <DataUploadForm onUpload={handleDataUpload} />
+                <DataUploadForm onUpload={handleDataUpload} companyUsers={companyUsers} />
             </CardContent>
         </Card>
       </div>

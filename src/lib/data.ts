@@ -1,3 +1,4 @@
+
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 
@@ -98,35 +99,30 @@ export const bulkAddUsageEntries = (entries: Omit<UsageEntry, 'id'>[], mode: 'ov
   let added = 0;
   let updated = 0;
 
-  if (mode === 'overwrite') {
-    entries.forEach(newEntry => {
-      const existingIndex = usageData.findIndex(d => d.userId === newEntry.userId && d.date === newEntry.date);
-      if (existingIndex !== -1) {
+  entries.forEach(newEntry => {
+    const existingIndex = usageData.findIndex(d => d.userId === newEntry.userId && d.date === newEntry.date);
+    
+    if (existingIndex !== -1) {
+      if (mode === 'overwrite') {
         usageData[existingIndex] = { ...newEntry, id: usageData[existingIndex].id };
         updated++;
-      } else {
-        usageData.push({ ...newEntry, id: `u${Date.now()}${Math.random()}` });
-        added++;
       }
-    });
-  } else { // new_only
-    entries.forEach(newEntry => {
-      const exists = usageData.some(d => d.userId === newEntry.userId && d.date === newEntry.date);
-      if (!exists) {
-        usageData.push({ ...newEntry, id: `u${Date.now()}${Math.random()}` });
-        added++;
-      }
-    });
-  }
+      // If mode is 'new_only' and it exists, we do nothing.
+    } else {
+      // If it doesn't exist, we add it regardless of the mode.
+      usageData.push({ ...newEntry, id: `u${Date.now()}${Math.random()}` });
+      added++;
+    }
+  });
   
   return { added, updated };
 };
 
 // To support our mock implementation of checking for duplicates before upload.
-export const findExistingUsageForUsersAndDates = (entriesToCheck: { userId: string, date: string }[]): string[] => {
+export const findExistingUsageForUsersAndDates = async (entriesToCheck: { userId: string, date: string }[]): Promise<string[]> => {
     const existingKeys = new Set(usageData.map(entry => `${entry.userId}-${entry.date}`));
     const duplicates = entriesToCheck
         .filter(entry => existingKeys.has(`${entry.userId}-${entry.date}`))
         .map(entry => `${entry.userId}-${entry.date}`);
-    return duplicates;
+    return Promise.resolve(duplicates);
 }
