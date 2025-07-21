@@ -16,6 +16,12 @@ export interface DailyUsage {
   gallons: number;
 }
 
+export interface UsageEntry {
+  id: string;
+  date: Date;
+  consumption: number;
+}
+
 export interface Company {
     id: string;
     name: string;
@@ -561,6 +567,33 @@ export const getTotalUsageForDateRange = async (userId: string, companyId: strin
         throw error;
     }
     return totalUsage;
+};
+
+export const getUsageEntriesForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<UsageEntry[]> => {
+    const entries: UsageEntry[] = [];
+    try {
+        const q = query(
+            usageCollection,
+            where("userId", "==", userId),
+            where("companyId", "==", companyId),
+            where("date", ">=", startDate),
+            where("date", "<=", endDate),
+            orderBy("date", "desc")
+        );
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            entries.push({
+                id: doc.id,
+                date: (data.date as Timestamp).toDate(),
+                consumption: data.consumption
+            });
+        });
+    } catch (error) {
+        console.error("Error fetching usage entries: ", error);
+        throw error;
+    }
+    return entries;
 };
 
 export const getDailyUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {

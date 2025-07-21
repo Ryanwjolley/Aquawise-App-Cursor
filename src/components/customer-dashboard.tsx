@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Droplets, LineChart, Scale, Users, TrendingUp } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
-import { getAllocationsForPeriod, getDailyUsageForDateRange, DailyUsage, User, getUsers, getAllocations, Allocation, getTotalUsageForDateRange } from '@/firestoreService';
+import { getAllocationsForPeriod, getDailyUsageForDateRange, DailyUsage, User, getUsers, getAllocations, Allocation, getTotalUsageForDateRange, getUsageEntriesForDateRange, UsageEntry } from '@/firestoreService';
 import type { DateRange } from 'react-day-picker';
-import { differenceInMinutes, differenceInSeconds } from 'date-fns';
+import { differenceInMinutes, differenceInSeconds, format } from 'date-fns';
 import { convertAndFormat, GALLONS_PER_CUBIC_FOOT } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useUnit } from '@/context/unit-context';
 import { Label } from './ui/label';
 import { DateRangeSelector } from './date-range-selector';
+import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 
 export default function CustomerDashboard() {
   const { userDetails, loading: authLoading, impersonatingUser } = useAuth();
@@ -31,6 +32,7 @@ export default function CustomerDashboard() {
   const [totalPeriodAllocation, setTotalPeriodAllocation] = useState(0);
   const [waterUsed, setWaterUsed] = useState(0);
   const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([]);
+  const [usageEntries, setUsageEntries] = useState<UsageEntry[]>([]);
   const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
   const { toast } = useToast();
 
@@ -50,7 +52,6 @@ export default function CustomerDashboard() {
         return;
       }
 
-      console.log('--- Initializing Dashboard ---');
       setLoading(true);
       try {
         // 1. Fetch company-wide data first
@@ -58,9 +59,8 @@ export default function CustomerDashboard() {
           getUsers(companyId),
           getAllocations(companyId)
         ]);
-        console.log('Fetched all users:', fetchedUsers);
+
         setAllUsers(fetchedUsers);
-        console.log('Fetched all-time allocations:', fetchedAllocations);
         setAllTimeAllocations(fetchedAllocations);
 
         // 2. Determine the user to display
@@ -77,7 +77,6 @@ export default function CustomerDashboard() {
             userToDisplay = userDetails;
           }
         }
-        console.log('User to display:', userToDisplay);
         setSelectedUser(userToDisplay);
 
       } catch (error) {
@@ -102,44 +101,36 @@ export default function CustomerDashboard() {
         setDailyUsage([]);
         setWaterUsed(0);
         setTotalPeriodAllocation(0);
+        setUsageEntries([]);
         if (allUsers.length > 0) setLoading(false);
         return;
       }
       
-      console.log(`--- Fetching Period Data ---`);
-      console.log('Selected User:', selectedUser.name, `(${selectedUser.id})`);
-      console.log('Date Range:', date);
-
       setLoading(true);
       try {
         const allocations = await getAllocationsForPeriod(selectedUser.companyId, date.from, date.to);
-        console.log('Fetched allocations for period:', allocations);
         
         const totalSystemAllocationForPeriod = allocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
-        console.log('Total System Allocation for Period (Gallons):', totalSystemAllocationForPeriod);
 
         const activeUsersInCompany = allUsers.filter(u => u.status === 'active' && u.companyId === selectedUser.companyId);
         const totalSystemShares = activeUsersInCompany.reduce((acc, user) => acc + user.shares, 0);
-        console.log('Total System Shares:', totalSystemShares);
 
         if (totalSystemShares > 0) {
           const userAllocation = totalSystemAllocationForPeriod * (selectedUser.shares / totalSystemShares);
           setTotalPeriodAllocation(userAllocation);
-          console.log('Calculated User Allocation:', userAllocation);
         } else {
           setTotalPeriodAllocation(0);
-          console.log('Total system shares is 0, setting user allocation to 0.');
         }
 
-        const [dailyData, totalUsed] = await Promise.all([
+        const [dailyData, totalUsed, entries] = await Promise.all([
           getDailyUsageForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to),
-          getTotalUsageForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to)
+          getTotalUsageForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to),
+          getUsageEntriesForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to)
         ]);
         
-        console.log('Fetched Daily Usage Data:', dailyData);
         setDailyUsage(dailyData);
-        console.log('Fetched Total Water Used:', totalUsed);
         setWaterUsed(totalUsed);
+        setUsageEntries(entries);
 
       } catch (error) {
         console.error("Error fetching period data:", error);
@@ -151,9 +142,9 @@ export default function CustomerDashboard() {
         setTotalPeriodAllocation(0);
         setWaterUsed(0);
         setDailyUsage([]);
+        setUsageEntries([]);
       } finally {
         setLoading(false);
-        console.log('--- Finished Fetching Period Data ---');
       }
     };
 
@@ -375,6 +366,41 @@ export default function CustomerDashboard() {
                 </CardContent>
             </Card>
         </div>
+      </div>
+      <div className="mt-6">
+        <Card className="rounded-xl shadow-md">
+            <CardHeader>
+                <CardTitle>Usage Data Log</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Time</TableHead>
+                            <TableHead className="text-right">Consumption ({getUnitLabel()})</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {usageEntries.length > 0 ? (
+                            usageEntries.map((entry) => (
+                                <TableRow key={entry.id}>
+                                    <TableCell>{format(entry.date, 'PPP')}</TableCell>
+                                    <TableCell>{format(entry.date, 'p')}</TableCell>
+                                    <TableCell className="text-right">{convertAndFormat(entry.consumption, unit)}</TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                                    No usage data for the selected period.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
       </div>
     </div>
   );
