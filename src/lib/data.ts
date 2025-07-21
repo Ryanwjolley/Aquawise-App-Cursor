@@ -42,10 +42,15 @@ let users: User[] = [
   { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', role: 'Admin', companyId: '1' },
   { id: '102', name: 'Bob Williams', email: 'bob@gva.com', role: 'Customer', companyId: '1' },
   { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', role: 'Customer', companyId: '1' },
+  { id: '104', name: 'David Garcia', email: 'david@gva.com', role: 'Customer', companyId: '1' },
+  { id: '105', name: 'Emily Clark', email: 'emily@gva.com', role: 'Customer', companyId: '1' },
+  { id: '106', name: 'Frank Miller', email: 'frank@gva.com', role: 'Customer', companyId: '1' },
+  { id: '107', name: 'Grace Hall', email: 'grace@gva.com', role: 'Customer', companyId: '1' },
 
   // Sunrise Farms
   { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', role: 'Admin', companyId: '2' },
   { id: '202', name: 'Evan Davis', email: 'evan@sunrise.com', role: 'Customer', companyId: '2' },
+  { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', role: 'Customer', companyId: '2' },
 ];
 
 // Helper to get dates for the last week
@@ -80,11 +85,11 @@ const generateMockUsage = () => {
 
     while (currentDate <= endDate) {
         for (const userId of allUserIds) {
-            // Generate random usage between 2000 and 10000 gallons for customers
+            // Generate random usage between 5000 and 7000 gallons for customers
             // And between 4000 and 6000 for admins to simulate different patterns
             const user = users.find(u => u.id === userId);
-            const baseUsage = user?.role === 'Admin' ? 4000 : 2000;
-            const randomComponent = user?.role === 'Admin' ? 2000 : 8000;
+            const baseUsage = user?.role === 'Admin' ? 4000 : 5000;
+            const randomComponent = 2000;
             const dailyUsage = Math.floor(Math.random() * randomComponent) + baseUsage;
             
             generatedData.push({
