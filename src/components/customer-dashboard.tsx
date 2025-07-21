@@ -50,6 +50,7 @@ export default function CustomerDashboard() {
         return;
       }
 
+      console.log('--- Initializing Dashboard ---');
       setLoading(true);
       try {
         // 1. Fetch company-wide data first
@@ -57,6 +58,8 @@ export default function CustomerDashboard() {
           getUsers(companyId),
           getAllocations(companyId)
         ]);
+        console.log('Fetched all users:', fetchedUsers);
+        console.log('Fetched all-time allocations:', fetchedAllocations);
         setAllUsers(fetchedUsers);
         setAllTimeAllocations(fetchedAllocations);
 
@@ -74,9 +77,11 @@ export default function CustomerDashboard() {
             userToDisplay = userDetails;
           }
         }
+        console.log('User to display:', userToDisplay);
         setSelectedUser(userToDisplay);
 
       } catch (error) {
+        console.error("Error during initialization:", error);
         toast({
           variant: 'destructive',
           title: 'Failed to fetch initial data',
@@ -100,31 +105,45 @@ export default function CustomerDashboard() {
         if (allUsers.length > 0) setLoading(false);
         return;
       }
+      
+      console.log(`--- Fetching Period Data ---`);
+      console.log('Selected User:', selectedUser.name, `(${selectedUser.id})`);
+      console.log('Date Range:', date);
 
       setLoading(true);
       try {
         const allocations = await getAllocationsForPeriod(selectedUser.companyId, date.from, date.to);
+        console.log('Fetched allocations for period:', allocations);
+        
         const totalSystemAllocationForPeriod = allocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
+        console.log('Total System Allocation for Period (Gallons):', totalSystemAllocationForPeriod);
 
         const activeUsersInCompany = allUsers.filter(u => u.status === 'active' && u.companyId === selectedUser.companyId);
         const totalSystemShares = activeUsersInCompany.reduce((acc, user) => acc + user.shares, 0);
+        console.log('Total System Shares:', totalSystemShares);
 
         if (totalSystemShares > 0) {
           const userAllocation = totalSystemAllocationForPeriod * (selectedUser.shares / totalSystemShares);
           setTotalPeriodAllocation(userAllocation);
+          console.log('Calculated User Allocation:', userAllocation);
         } else {
           setTotalPeriodAllocation(0);
+          console.log('Total system shares is 0, setting user allocation to 0.');
         }
 
         const [dailyData, totalUsed] = await Promise.all([
           getDailyUsageForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to),
           getTotalUsageForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to)
         ]);
+        
+        console.log('Fetched Daily Usage Data:', dailyData);
+        console.log('Fetched Total Water Used:', totalUsed);
 
         setDailyUsage(dailyData);
         setWaterUsed(totalUsed);
 
       } catch (error) {
+        console.error("Error fetching period data:", error);
         toast({
           variant: 'destructive',
           title: 'Data Fetch Failed',
@@ -135,6 +154,7 @@ export default function CustomerDashboard() {
         setDailyUsage([]);
       } finally {
         setLoading(false);
+        console.log('--- Finished Fetching Period Data ---');
       }
     };
 
