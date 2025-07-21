@@ -80,6 +80,40 @@ let usageData: UsageEntry[] = [
   { id: 'u8', userId: '201', date: '2024-05-16', usage: 6000 },
 ];
 
+// --- Generate extensive mock data for June and July 2024 ---
+const generateMockUsage = () => {
+    const allUserIds = users.map(u => u.id);
+    const startDate = new Date('2024-06-01');
+    const endDate = new Date('2024-07-31');
+
+    const generatedData: UsageEntry[] = [];
+    let currentDate = new Date(startDate);
+    let idCounter = usageData.length + 1;
+
+    while (currentDate <= endDate) {
+        for (const userId of allUserIds) {
+            // Generate random usage between 2000 and 10000 gallons for customers
+            // And between 4000 and 6000 for admins to simulate different patterns
+            const user = users.find(u => u.id === userId);
+            const baseUsage = user?.role === 'Admin' ? 4000 : 2000;
+            const randomComponent = user?.role === 'Admin' ? 2000 : 8000;
+            const dailyUsage = Math.floor(Math.random() * randomComponent) + baseUsage;
+            
+            generatedData.push({
+                id: `gen_u${idCounter++}`,
+                userId: userId,
+                date: currentDate.toISOString().split('T')[0], // YYYY-MM-DD
+                usage: dailyUsage,
+            });
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return generatedData;
+}
+usageData.push(...generateMockUsage());
+// --- End of data generation ---
+
+
 let allocations: Allocation[] = [
     { 
         id: 'a1', 
