@@ -49,10 +49,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </SidebarMenuItem>
               {currentUser?.role === 'Admin' && (
                 <SidebarMenuItem>
-                    <SidebarMenuButton tooltip="Users">
-                      <Users />
-                      <span>Users</span>
-                    </SidebarMenuButton>
+                    <Link href="/admin/users">
+                        <SidebarMenuButton tooltip="Users" isActive={pathname === '/admin/users'}>
+                        <Users />
+                        <span>Users</span>
+                        </SidebarMenuButton>
+                    </Link>
                 </SidebarMenuItem>
               )}
               {currentUser?.role === 'Admin' && (
