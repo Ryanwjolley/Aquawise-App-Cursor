@@ -208,6 +208,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
+                                defaultMonth={field.value}
                                 initialFocus
                             />
                             </PopoverContent>
@@ -259,6 +260,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
+                                defaultMonth={field.value}
                                 disabled={(date) =>
                                   form.getValues('startDate') ? date < form.getValues('startDate') : false
                                 }
