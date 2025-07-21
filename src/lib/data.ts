@@ -79,9 +79,10 @@ const generateMockUsage = () => {
     const allUserIds = users.map(u => u.id);
     const startDate = new Date('2025-06-01');
     const endDate = new Date('2025-07-31');
+    
+    const currentDate = new Date(startDate);
 
     const generatedData: UsageEntry[] = [];
-    let currentDate = new Date(startDate);
     let idCounter = usageData.length + 1;
 
     while (currentDate <= endDate) {
@@ -110,15 +111,23 @@ usageData.push(...generateMockUsage());
 
 let allocations: Allocation[] = [
     // Weekly Allocations for June & July 2025 for GVA (companyId: '1')
-    { id: 'alloc_25_w1', companyId: '1', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-06-07T23:59:59.000Z', gallons: 85000 },
-    { id: 'alloc_25_w2', companyId: '1', startDate: '2025-06-08T00:00:00.000Z', endDate: '2025-06-14T23:59:59.000Z', gallons: 95000 },
-    { id: 'alloc_25_w3', companyId: '1', startDate: '2025-06-15T00:00:00.000Z', endDate: '2025-06-21T23:59:59.000Z', gallons: 70000 },
-    { id: 'alloc_25_w4', companyId: '1', startDate: '2025-06-22T00:00:00.000Z', endDate: '2025-06-28T23:59:59.000Z', gallons: 100000 },
-    { id: 'alloc_25_w5', companyId: '1', startDate: '2025-06-29T00:00:00.000Z', endDate: '2025-07-05T23:59:59.000Z', gallons: 65000 },
-    { id: 'alloc_25_w6', companyId: '1', startDate: '2025-07-06T00:00:00.000Z', endDate: '2025-07-12T23:59:59.000Z', gallons: 75000 },
-    { id: 'alloc_25_w7', companyId: '1', startDate: '2025-07-13T00:00:00.000Z', endDate: '2025-07-19T23:59:59.000Z', gallons: 90000 },
-    { id: 'alloc_25_w8', companyId: '1', startDate: '2025-07-20T00:00:00.000Z', endDate: '2025-07-26T23:59:59.000Z', gallons: 60000 },
-    { id: 'alloc_25_w9', companyId: '1', startDate: '2025-07-27T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 80000 }, // Shorter week
+    { id: 'alloc_gva_1', companyId: '1', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-06-07T23:59:59.000Z', gallons: 85000 },
+    { id: 'alloc_gva_2', companyId: '1', startDate: '2025-06-08T00:00:00.000Z', endDate: '2025-06-14T23:59:59.000Z', gallons: 95000 },
+    { id: 'alloc_gva_3', companyId: '1', startDate: '2025-06-15T00:00:00.000Z', endDate: '2025-06-21T23:59:59.000Z', gallons: 70000 },
+    { id: 'alloc_gva_4', companyId: '1', startDate: '2025-06-22T00:00:00.000Z', endDate: '2025-06-28T23:59:59.000Z', gallons: 100000 },
+    { id: 'alloc_gva_5', companyId: '1', startDate: '2025-06-29T00:00:00.000Z', endDate: '2025-07-05T23:59:59.000Z', gallons: 65000 },
+    { id: 'alloc_gva_6', companyId: '1', startDate: '2025-07-06T00:00:00.000Z', endDate: '2025-07-12T23:59:59.000Z', gallons: 75000 },
+    { id: 'alloc_gva_7', companyId: '1', startDate: '2025-07-13T00:00:00.000Z', endDate: '2025-07-19T23:59:59.000Z', gallons: 90000 },
+    { id: 'alloc_gva_8', companyId: '1', startDate: '2025-07-20T00:00:00.000Z', endDate: '2025-07-26T23:59:59.000Z', gallons: 60000 },
+    { id: 'alloc_gva_9', companyId: '1', startDate: '2025-07-27T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 80000 }, // Shorter week
+    
+    // Weekly Allocations for June & July 2025 for Sunrise Farms (companyId: '2')
+    { id: 'alloc_sf_1', companyId: '2', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-06-07T23:59:59.000Z', gallons: 55000 },
+    { id: 'alloc_sf_2', companyId: '2', startDate: '2025-06-08T00:00:00.000Z', endDate: '2025-06-14T23:59:59.000Z', gallons: 60000 },
+    { id: 'alloc_sf_3', companyId: '2', startDate: '2025-06-15T00:00:00.000Z', endDate: '2025-06-21T23:59:59.000Z', gallons: 50000 },
+    { id: 'alloc_sf_4', companyId: '2', startDate: '2025-06-22T00:00:00.000Z', endDate: '2025-06-28T23:59:59.000Z', gallons: 62000 },
+    { id: 'alloc_sf_5', companyId: '2', startDate: '2025-06-29T00:00:00.000Z', endDate: '2025-07-05T23:59:59.000Z', gallons: 58000 },
+    { id: 'alloc_sf_6', companyId: '2', startDate: '2025-07-06T00:00:00.000Z', endDate: '2025-07-12T23:59:59.000Z', gallons: 53000 },
 ];
 
 
@@ -245,6 +254,8 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
 
 
     
+
+
 
 
 
