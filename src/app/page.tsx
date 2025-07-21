@@ -5,13 +5,13 @@ export default function HomePage() {
     <div className="flex h-screen w-full items-center justify-center bg-background p-8">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <CardTitle className="text-2xl">Welcome to the AquaWise Rebuild</CardTitle>
+          <CardTitle className="text-2xl">AquaWise Rebuild</CardTitle>
           <CardDescription>
-            The project has been successfully reset. We will now rebuild the application step-by-step.
+            The global styles and fonts have been applied.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p>The next step is to apply the global styling and theme for the application.</p>
+          <p>The next step is to create our mock data service to simulate a database.</p>
         </CardContent>
       </Card>
     </div>

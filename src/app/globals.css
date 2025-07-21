@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    --background: 208 100% 97%; /* Alice Blue */
-    --foreground: 224 71% 4%; /* Dark Blue */
+    --background: 208 100% 97%;
+    --foreground: 224 71% 4%;
 
     --card: 0 0% 100%;
     --card-foreground: 224 71% 4%;
@@ -13,8 +13,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
 
-    --primary: 197 71% 73%; /* Sky Blue */
-    --primary-foreground: 197 50% 20%; /* Darker Blue for text on primary */
+    --primary: 197 71% 73%;
+    --primary-foreground: 197 50% 20%;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -22,7 +22,7 @@
     --muted: 210 40% 92.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 34 100% 63%; /* Soft Orange */
+    --accent: 34 100% 63%;
     --accent-foreground: 24 9.8% 10%;
 
     --destructive: 0 84.2% 60.2%;
@@ -38,14 +38,6 @@
     --chart-3: 120 50% 60%;
     --chart-4: 280 50% 60%;
     --chart-5: 60 50% 60%;
-
-    /* Sidebar */
-    --sidebar-background: 225 40% 20%;
-    --sidebar-foreground: 210 20% 95%;
-    --sidebar-accent: 225 40% 25%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 225 40% 30%;
-    --sidebar-ring: 197 71% 73%;
   }
 
   .dark {
@@ -82,14 +74,6 @@
     --chart-3: 120 50% 60%;
     --chart-4: 280 50% 60%;
     --chart-5: 60 50% 60%;
-    
-    /* Sidebar Dark */
-    --sidebar-background: 225 40% 15%;
-    --sidebar-foreground: 210 20% 95%;
-    --sidebar-accent: 225 40% 20%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 225 40% 25%;
-    --sidebar-ring: 197 71% 73%;
   }
 }
 
