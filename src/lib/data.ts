@@ -22,6 +22,16 @@ export type UsageEntry = {
   usage: number; // in gallons
 };
 
+export type Allocation = {
+    id: string;
+    companyId: string;
+    startDate: string; // YYYY-MM-DD
+    endDate: string; // YYYY-MM-DD
+    gallons: number;
+    userId?: string; // If undefined, applies to all users in the company
+};
+
+
 const companies: Company[] = [
   { id: '1', name: 'Golden Valley Agriculture' },
   { id: '2', name: 'Sunrise Farms' },
@@ -62,6 +72,18 @@ let usageData: UsageEntry[] = [
   // Diana (Admin) - Older Data
   { id: 'u8', userId: '201', date: '2024-05-16', usage: 6000 },
 ];
+
+let allocations: Allocation[] = [
+    { 
+        id: 'a1', 
+        companyId: '1', 
+        startDate: getRecentDate(30), 
+        endDate: getRecentDate(-30), // 30 days from now
+        gallons: 500000,
+        // Applies to all users
+    }
+];
+
 
 // --- API Functions ---
 
@@ -125,4 +147,25 @@ export const findExistingUsageForUsersAndDates = async (entriesToCheck: { userId
         .filter(entry => existingKeys.has(`${entry.userId}-${entry.date}`))
         .map(entry => `${entry.userId}-${entry.date}`);
     return Promise.resolve(duplicates);
-}
+};
+
+// --- Allocation Functions ---
+export const getAllocationsByCompany = async (companyId: string): Promise<Allocation[]> => {
+    return Promise.resolve(allocations.filter(a => a.companyId === companyId));
+};
+
+export const getAllocationsForUser = async (userId: string): Promise<Allocation[]> => {
+    const user = await getUserById(userId);
+    if (!user) return [];
+    
+    // Return allocations that are company-wide (no userId) or specific to this user
+    return Promise.resolve(
+        allocations.filter(a => a.companyId === user.companyId && (!a.userId || a.userId === userId))
+    );
+};
+
+export const addAllocation = async (allocation: Omit<Allocation, 'id'>): Promise<Allocation> => {
+    const newAllocation: Allocation = { ...allocation, id: `a${Date.now()}` };
+    allocations.push(newAllocation);
+    return Promise.resolve(newAllocation);
+};

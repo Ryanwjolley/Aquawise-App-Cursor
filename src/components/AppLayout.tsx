@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2, Upload } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -54,6 +54,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             <SidebarMenuButton tooltip="Users" isActive={pathname.startsWith('/admin/users')}>
                             <Users />
                             <span>Users</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <Link href="/admin/allocations">
+                            <SidebarMenuButton tooltip="Allocations" isActive={pathname.startsWith('/admin/allocations')}>
+                            <Target />
+                            <span>Allocations</span>
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>

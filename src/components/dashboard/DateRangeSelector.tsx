@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -15,28 +16,33 @@ import {
 } from "@/components/ui/popover";
 
 interface DateRangeSelectorProps {
-  onUpdate?: (range: DateRange) => void;
+  onUpdate: (range: DateRange) => void;
   className?: string;
+  selectedRange?: DateRange;
 }
 
-export function DateRangeSelector({ onUpdate, className }: DateRangeSelectorProps) {
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-    to: new Date(),
-  });
+export function DateRangeSelector({ onUpdate, className, selectedRange }: DateRangeSelectorProps) {
+  const [date, setDate] = React.useState<DateRange | undefined>(selectedRange);
+  const [popoverOpen, setPopoverOpen] = React.useState(false);
+  
+  React.useEffect(() => {
+    // Sync with external state changes, e.g., from form reset
+    setDate(selectedRange);
+  }, [selectedRange]);
 
   const handleDateChange = (newDate: DateRange | undefined) => {
     if (newDate) {
       setDate(newDate);
-      if (onUpdate) {
-          onUpdate(newDate);
+      if (newDate.from && newDate.to) {
+        onUpdate(newDate);
+        setPopoverOpen(false); // Close popover when range is selected
       }
     }
   }
 
   return (
     <div className={cn("grid gap-2", className)}>
-      <Popover>
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
           <Button
             id="date"
@@ -57,7 +63,7 @@ export function DateRangeSelector({ onUpdate, className }: DateRangeSelectorProp
                 format(date.from, "LLL dd, y")
               )
             ) : (
-              <span>Pick a date</span>
+              <span>Pick a date range</span>
             )}
           </Button>
         </PopoverTrigger>
