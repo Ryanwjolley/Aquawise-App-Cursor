@@ -109,14 +109,13 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
         } else {
             // Default values for a new allocation
             form.reset({
-                // startDate: new Date(), // THIS WAS THE BUG
-                // endDate: new Date(), // THIS WAS THE BUG
                 startTime: '00:00',
                 endTime: '23:59',
                 inputType: 'volume',
                 inputValue: 1000000,
                 volumeUnit: 'gallons',
                 flowUnit: undefined,
+                // startDate and endDate are left undefined so the picker is empty
             });
         }
     }
@@ -208,7 +207,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                defaultMonth={field.value}
+                                defaultMonth={field.value || undefined}
                                 initialFocus
                             />
                             </PopoverContent>
@@ -260,7 +259,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                defaultMonth={field.value}
+                                defaultMonth={field.value || form.getValues('startDate') || undefined}
                                 disabled={(date) =>
                                   form.getValues('startDate') ? date < form.getValues('startDate') : false
                                 }
