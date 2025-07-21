@@ -17,14 +17,16 @@ import { UserForm } from "@/components/dashboard/UserForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { User } from "@/lib/data";
 import { addUser, updateUser, deleteUser, getUsersByCompany } from "@/lib/data";
-import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useRouter } from "next/navigation";
 
 export default function UserManagementPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, impersonateUser } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -37,7 +39,7 @@ export default function UserManagementPage() {
     if (!currentUser?.companyId) return;
     setLoading(true);
     const userList = await getUsersByCompany(currentUser.companyId);
-    setUsers(userList);
+    setUsers(userList.filter(u => u.id !== currentUser.id)); // Exclude current admin from the list
     setLoading(false);
   };
 
@@ -59,6 +61,11 @@ export default function UserManagementPage() {
     setUserToDelete(user);
     setIsDeleteDialogOpen(true);
   };
+
+  const handleImpersonate = async (userId: string) => {
+    await impersonateUser(userId);
+    router.push('/');
+  }
 
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return;
@@ -141,6 +148,11 @@ export default function UserManagementPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => handleImpersonate(user.id)}>
+                                <Eye className="mr-2 h-4 w-4"/>
+                                View Dashboard
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleEditUser(user)}>
                                 Edit
                               </DropdownMenuItem>

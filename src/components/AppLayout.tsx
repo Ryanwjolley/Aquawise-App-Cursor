@@ -18,11 +18,24 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
+function ImpersonationBanner() {
+    const { stopImpersonating, currentUser } = useAuth();
+    return (
+        <div className="bg-accent text-accent-foreground py-2 px-4 text-center text-sm flex items-center justify-center gap-4">
+            <span>You are viewing the dashboard as <strong>{currentUser?.name}</strong>.</span>
+            <Button variant="outline" size="sm" className="h-7" onClick={stopImpersonating}>
+                <XSquare className="mr-2 h-4 w-4" />
+                Return to Admin View
+            </Button>
+        </div>
+    )
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useAuth();
+  const { currentUser, isImpersonating } = useAuth();
   const pathname = usePathname();
 
   return (
@@ -47,7 +60,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
-              {currentUser?.role === 'Admin' && (
+              {currentUser?.role === 'Admin' && !isImpersonating && (
                 <>
                     <SidebarMenuItem>
                         <Link href="/admin/users">
@@ -84,7 +97,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </>
               )}
                {/* Show link only for Super Admins. For now, we simulate this with Alice. */}
-               {currentUser?.email.includes('alice') && (
+               {currentUser?.email.includes('alice') && !isImpersonating && (
                  <SidebarMenuItem>
                     <Link href="/super-admin">
                       <SidebarMenuButton tooltip="Companies" isActive={pathname === '/super-admin'}>
@@ -121,7 +134,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </SidebarFooter>
         </Sidebar>
-        <SidebarInset>{children}</SidebarInset>
+        <SidebarInset>
+            {isImpersonating && <ImpersonationBanner />}
+            {children}
+        </SidebarInset>
       </div>
     </SidebarProvider>
   );

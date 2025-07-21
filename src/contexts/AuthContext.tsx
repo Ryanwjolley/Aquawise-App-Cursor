@@ -1,3 +1,4 @@
+
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -8,25 +9,34 @@ interface AuthContextValue {
   currentUser: User | null;
   company: Company | null;
   impersonateUser: (userId: string) => Promise<void>;
+  stopImpersonating: () => Promise<void>;
+  isImpersonating: boolean;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const impersonationStorageKey = 'impersonation_admin_id';
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isImpersonating, setIsImpersonating] = useState(false);
 
-  // Default to a specific user on initial load for development purposes
-  // In a real app, this would be handled by a login flow.
   const defaultUserId = '101'; // Alice Johnson (Admin)
 
   useEffect(() => {
-    impersonateUser(defaultUserId);
+    // Check if we are currently impersonating on page load
+    const adminId = sessionStorage.getItem(impersonationStorageKey);
+    if (adminId) {
+        setIsImpersonating(true);
+    }
+    // Load the current user (either default, or from a real auth session)
+    loadUser(defaultUserId);
   }, []);
 
-  const impersonateUser = async (userId: string) => {
+  const loadUser = async (userId: string) => {
     setLoading(true);
     const user = await getUserById(userId);
     if (user) {
@@ -38,9 +48,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCompany(null);
     }
     setLoading(false);
+  }
+
+  const impersonateUser = async (userId: string) => {
+    if (currentUser && !sessionStorage.getItem(impersonationStorageKey)) {
+        sessionStorage.setItem(impersonationStorageKey, currentUser.id);
+    }
+    setIsImpersonating(true);
+    await loadUser(userId);
   };
 
-  const value = { currentUser, company, impersonateUser, loading };
+  const stopImpersonating = async () => {
+    const adminId = sessionStorage.getItem(impersonationStorageKey);
+    if (adminId) {
+        sessionStorage.removeItem(impersonationStorageKey);
+        setIsImpersonating(false);
+        await loadUser(adminId);
+    }
+  }
+
+  const value = { currentUser, company, impersonateUser, loading, isImpersonating, stopImpersonating };
 
   return (
     <AuthContext.Provider value={value}>
