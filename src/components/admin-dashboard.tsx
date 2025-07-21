@@ -2,7 +2,7 @@
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets, Bell, Download } from 'lucide-react';
+import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, PlusCircle, Users, BarChart, Droplets, Bell } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { getUsageForDateRange, getAllocationsForPeriod, setAllocation, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument, getAllocations, Allocation, updateAllocation, AllocationData, deleteAllocation } from '../firestoreService';
@@ -414,9 +414,6 @@ export default function AdminDashboard() {
                                         <TooltipContent><p>Upload a CSV with columns: `User`, `Email`, `User ID`, `Role`, `Shares`.</p></TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
-                                <Button variant="secondary" asChild>
-                                  <a href="/manti_users_upload.csv" download><Download className="mr-2 h-4 w-4" />Sample Users</a>
-                                </Button>
                                 <input ref={userFileInputRef} type="file" id="user-csv-upload" className="hidden" accept=".csv" onChange={handleUserCsvUpload}/>
                             </div>
                         </CardHeader>
@@ -572,9 +569,6 @@ export default function AdminDashboard() {
                             </CardHeader>
                             <CardContent className="flex items-center gap-2">
                                 <Button variant="outline" onClick={() => usageFileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload Usage CSV</Button>
-                                <Button variant="secondary" asChild>
-                                  <a href="/manti_usage_data.csv" download><Download className="mr-2 h-4 w-4" />Sample Usage</a>
-                                </Button>
                                 <input ref={usageFileInputRef} type="file" id="csv-upload" className="hidden" accept=".csv" onChange={handleUsageCsvUpload}/>
                             </CardContent>
                         </Card>
