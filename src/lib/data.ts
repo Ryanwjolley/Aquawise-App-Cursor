@@ -87,11 +87,20 @@ const generateMockUsage = () => {
 
     while (currentDate <= endDate) {
         for (const userId of allUserIds) {
-            // Generate random usage between 8000 and 10000 gallons for customers
-            // And between 4000 and 6000 for admins to simulate different patterns
             const user = users.find(u => u.id === userId);
-            const baseUsage = user?.role === 'Admin' ? 6400 : 12800; // Increased by 60%
-            const randomComponent = 3200; // Increased by 60%
+            if (!user) continue;
+
+            let baseUsage;
+            let randomComponent = 3200;
+
+            if (user.companyId === '2') { // Sunrise Farms
+                 baseUsage = user.role === 'Admin' ? 2500 : 3500;
+                 randomComponent = 1500;
+            } else { // Golden Valley Agriculture (default)
+                 baseUsage = user.role === 'Admin' ? 6400 : 12800;
+                 randomComponent = 3200;
+            }
+            
             const dailyUsage = Math.floor(Math.random() * randomComponent) + baseUsage;
             
             generatedData.push({
@@ -254,6 +263,7 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
 
 
     
+
 
 
 
