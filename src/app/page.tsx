@@ -5,7 +5,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { DailyUsageChart } from "@/components/dashboard/DailyUsageChart";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { Droplets, TrendingUp, CalendarDays, Sparkles, Wand } from "lucide-react";
+import { Droplets, TrendingUp, CalendarDays } from "lucide-react";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { useState, useEffect } from "react";
 import type { UsageEntry } from "@/lib/data";
@@ -13,9 +13,6 @@ import { getUsageForUser } from "@/lib/data";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { analyzeUsage, type AnalyzeUsageOutput } from "@/ai/flows/analyzeUsageFlow";
 
 export default function CustomerDashboardPage() {
   const { currentUser } = useAuth();
@@ -26,9 +23,6 @@ export default function CustomerDashboardPage() {
     from: new Date(new Date().setDate(new Date().getDate() - 30)),
     to: new Date(),
   });
-
-  const [aiAnalysis, setAiAnalysis] = useState<AnalyzeUsageOutput | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,7 +35,6 @@ export default function CustomerDashboardPage() {
         
         const data = await getUsageForUser(currentUser.id, fromDate, toDate);
         setUsageData(data);
-        setAiAnalysis(null); // Reset AI analysis when data changes
       } catch (error) {
         console.error("Failed to fetch usage data:", error);
         setUsageData([]);
@@ -52,21 +45,6 @@ export default function CustomerDashboardPage() {
 
     fetchData();
   }, [currentUser, queryRange]);
-
-  const handleGetAIAnalysis = async () => {
-    if (!usageData || usageData.length === 0) return;
-    setIsAiLoading(true);
-    setAiAnalysis(null);
-    try {
-      const result = await analyzeUsage({ usageData: JSON.stringify(usageData) });
-      setAiAnalysis(result);
-    } catch (error) {
-      console.error("Failed to get AI analysis:", error);
-      // Optionally, set an error state to show in the UI
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
 
   const totalUsage = usageData.reduce((acc, entry) => acc + entry.usage, 0);
   const avgDailyUsage = usageData.length > 0 ? totalUsage / usageData.length : 0;
@@ -122,48 +100,6 @@ export default function CustomerDashboardPage() {
                     <DailyUsageChart data={dailyChartData} />
                 </div>
             </div>
-            <div className="flex justify-end">
-              <Button onClick={handleGetAIAnalysis} disabled={isAiLoading || usageData.length === 0}>
-                {isAiLoading ? "Analyzing..." : "Get AI Analysis"}
-                <Wand className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-            {isAiLoading && (
-              <Card>
-                <CardHeader className="flex flex-row items-center gap-2">
-                  <Sparkles className="h-6 w-6 text-accent animate-pulse" />
-                  <CardTitle>Analyzing your usage...</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                   <div className="pt-4 space-y-2">
-                     <Skeleton className="h-4 w-1/4" />
-                     <Skeleton className="h-4 w-full" />
-                     <Skeleton className="h-4 w-full" />
-                   </div>
-                </CardContent>
-              </Card>
-            )}
-             {aiAnalysis && (
-              <Card className="bg-primary/5 border-primary/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="h-6 w-6 text-accent" />
-                    AI Usage Analysis
-                  </CardTitle>
-                  <CardDescription>{aiAnalysis.analysis}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <h4 className="font-semibold mb-2">Recommendations:</h4>
-                  <ul className="list-disc pl-5 space-y-1 text-sm">
-                    {aiAnalysis.recommendations.map((rec, index) => (
-                      <li key={index}>{rec}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
           </>
         )}
       </div>
