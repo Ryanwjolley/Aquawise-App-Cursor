@@ -14,33 +14,47 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getCompanies, getUsersByCompany } from "@/lib/data";
-import type { Company } from "@/lib/data";
-import { PlusCircle, MoreHorizontal } from "lucide-react";
+import type { Company, User } from "@/lib/data";
+import { PlusCircle, MoreHorizontal, LogIn } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface CompanyWithUserCount extends Company {
+interface CompanyWithAdmin extends Company {
   userCount: number;
+  adminUser?: User;
 }
 
 export default function SuperAdminPage() {
-  const [companies, setCompanies] = useState<CompanyWithUserCount[]>([]);
+  const { impersonateUser } = useAuth();
+  const [companies, setCompanies] = useState<CompanyWithAdmin[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchCompanies = async () => {
       setLoading(true);
       const companyList = await getCompanies();
-      const companiesWithCounts = await Promise.all(
+      const companiesWithDetails = await Promise.all(
         companyList.map(async (company) => {
           const users = await getUsersByCompany(company.id);
-          return { ...company, userCount: users.length };
+          const adminUser = users.find(u => u.role === 'Admin');
+          return { ...company, userCount: users.length, adminUser };
         })
       );
-      setCompanies(companiesWithCounts);
+      setCompanies(companiesWithDetails);
       setLoading(false);
     };
 
     fetchCompanies();
   }, []);
+
+  const handleManageCompany = (adminUser?: User) => {
+    if (adminUser) {
+        impersonateUser(adminUser.id);
+    } else {
+        // Handle case where no admin is found, maybe with a toast notification
+        console.error("No admin user found for this company.");
+    }
+  };
+
 
   return (
     <AppLayout>
@@ -66,13 +80,14 @@ export default function SuperAdminPage() {
                 <TableRow>
                   <TableHead>Company Name</TableHead>
                   <TableHead>Users</TableHead>
+                  <TableHead>Primary Admin</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center">
+                    <TableCell colSpan={4} className="text-center">
                       Loading companies...
                     </TableCell>
                   </TableRow>
@@ -81,9 +96,11 @@ export default function SuperAdminPage() {
                     <TableRow key={company.id}>
                       <TableCell className="font-medium">{company.name}</TableCell>
                       <TableCell>{company.userCount}</TableCell>
+                      <TableCell>{company.adminUser ? `${company.adminUser.name} (${company.adminUser.email})` : 'N/A'}</TableCell>
                       <TableCell className="text-right">
-                         <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
+                         <Button variant="outline" size="sm" onClick={() => handleManageCompany(company.adminUser)} disabled={!company.adminUser}>
+                            <LogIn className="mr-2 h-4 w-4"/>
+                            Manage
                          </Button>
                       </TableCell>
                     </TableRow>

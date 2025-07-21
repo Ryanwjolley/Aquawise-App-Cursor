@@ -4,6 +4,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { User, Company } from '@/lib/data';
 import { getUserById, getCompanyById } from '@/lib/data';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextValue {
   currentUser: User | null;
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const impersonationStorageKey = 'impersonation_admin_id';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     setIsImpersonating(true);
     await loadUser(userId);
+    router.push('/admin'); // Redirect to the dashboard after impersonating
   };
 
   const stopImpersonating = async () => {
