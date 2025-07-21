@@ -442,8 +442,8 @@ export const setAllocation = async (data: AllocationData): Promise<void> => {
     const { id, ...rest } = data;
     await addDoc(allocationsCollection, { 
         ...rest,
-        startDate: Timestamp.fromDate(data.startDate),
-        endDate: Timestamp.fromDate(data.endDate),
+        startDate: data.startDate,
+        endDate: data.endDate,
      });
   } catch (e) {
     console.error("Error setting allocation: ", e);
@@ -457,8 +457,8 @@ export const updateAllocation = async (id: string, data: AllocationData): Promis
     const { id: dataId, ...rest } = data;
     await updateDoc(allocationDoc, {
       ...rest,
-      startDate: Timestamp.fromDate(data.startDate),
-      endDate: Timestamp.fromDate(data.endDate),
+      startDate: data.startDate,
+      endDate: data.endDate,
     });
   } catch (e) {
     console.error("Error updating allocation: ", e);
