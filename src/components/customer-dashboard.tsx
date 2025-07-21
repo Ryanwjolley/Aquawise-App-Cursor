@@ -139,7 +139,9 @@ export default function CustomerDashboard() {
         }
     };
     
-    fetchPeriodData();
+    if(allUsers.length > 0) {
+        fetchPeriodData();
+    }
     
   }, [date, toast, selectedUser, allUsers]);
   
@@ -358,3 +360,5 @@ export default function CustomerDashboard() {
     </div>
   );
 }
+
+    
