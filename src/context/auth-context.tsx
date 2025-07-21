@@ -18,8 +18,9 @@ interface AuthContextType {
   refreshCompanies: () => Promise<void>;
   impersonatingCompanyId: string | null;
   impersonatedCompanyDetails: Company | null;
-  startImpersonation: (companyId: string) => void;
+  startImpersonation: (userToImpersonate: User) => void;
   stopImpersonation: () => void;
+  impersonatingUser: User | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,10 +47,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userDetails, setUserDetails] = useState<User | null>(MOCK_SUPER_ADMIN_USER);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyDetails, setCompanyDetails] = useState<Company | null>(null);
-  const [loading, setLoading] = useState(false); // Set to false since we are using mock data.
+  const [loading, setLoading] = useState(false);
   const auth = getAuth(app);
   const router = useRouter();
 
+  const [impersonatingUser, setImpersonatingUser] = useState<User | null>(null);
+
+  // Deprecated state, use impersonatingUser instead for full user object
   const [impersonatingCompanyId, setImpersonatingCompanyId] = useState<string | null>(null);
   const [impersonatedCompanyDetails, setImpersonatedCompanyDetails] = useState<Company | null>(null);
 
@@ -79,6 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fetchCompanyDetails();
   }, [userDetails, companies]);
   
+  // This logic is for the superadmin impersonation, which is company-based
   useEffect(() => {
     const fetchImpersonatedCompanyDetails = () => {
       if (impersonatingCompanyId) {
@@ -99,13 +104,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     router.push('/');
   };
   
-  const startImpersonation = (companyId: string) => {
-    if (userDetails?.companyId === 'system-admin') {
-      setImpersonatingCompanyId(companyId);
+  const startImpersonation = (userToImpersonate: User) => {
+    if (userDetails?.role === 'admin' || userDetails?.companyId === 'system-admin') {
+      // Logic for regular admin impersonating a user
+      setImpersonatingUser(userToImpersonate);
+
+      // Logic for superadmin impersonating a company
+      if (userDetails?.companyId === 'system-admin') {
+          setImpersonatingCompanyId(userToImpersonate.companyId);
+      }
     }
   };
 
   const stopImpersonation = () => {
+    setImpersonatingUser(null);
     setImpersonatingCompanyId(null);
   };
 
@@ -126,7 +138,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         impersonatingCompanyId,
         impersonatedCompanyDetails,
         startImpersonation,
-        stopImpersonation
+        stopImpersonation,
+        impersonatingUser
     }}>
       {children}
     </AuthContext.Provider>

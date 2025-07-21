@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/tooltip';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { userDetails, logout, impersonatingCompanyId, impersonatedCompanyDetails, stopImpersonation } = useAuth();
+  const { user, userDetails, logout, impersonatingUser, stopImpersonation } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -40,12 +40,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return name.substring(0, 2);
   };
 
-  const isSuperAdmin = userDetails?.companyId === 'system-admin';
-  const isAdmin = userDetails?.role === 'admin';
-  
+  const isSuperAdmin = userDetails?.companyId === 'system-admin' && !impersonatingUser;
+  const isAdmin = userDetails?.role === 'admin' && !impersonatingUser;
+
   const handleStopImpersonation = () => {
     stopImpersonation();
-    router.push('/superadmin');
+    router.push('/admin');
   }
 
   return (
@@ -61,7 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-             {isSuperAdmin && !impersonatingCompanyId ? (
+             {isSuperAdmin ? (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => router.push('/superadmin')}
@@ -77,7 +77,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => router.push('/admin')}
-                    isActive={pathname === '/admin'}
+                    isActive={pathname.startsWith('/admin')}
                     tooltip="Admin Dashboard"
                   >
                     <LayoutDashboard />
@@ -87,7 +87,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     onClick={() => router.push('/dashboard')}
-                    isActive={pathname === '/dashboard'}
+                    isActive={pathname.startsWith('/dashboard')}
                     tooltip="Customer View"
                   >
                     <Users />
@@ -124,11 +124,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        {impersonatingCompanyId && (
+        {impersonatingUser && (
             <div className="w-full bg-accent text-accent-foreground p-2 text-center text-sm flex items-center justify-center gap-4">
                 <div className="flex items-center gap-2">
                     <Eye className="h-4 w-4" />
-                    <span>Viewing as <b>{impersonatedCompanyDetails?.name}</b></span>
+                    <span>Viewing as <b>{impersonatingUser.name}</b></span>
                 </div>
                 <Button variant="ghost" size="sm" className="h-auto px-2 py-1" onClick={handleStopImpersonation}>
                     <LogIn className="h-4 w-4 mr-1" />

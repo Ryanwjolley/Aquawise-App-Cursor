@@ -2,7 +2,7 @@
 'use client';
 import React, {useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, Users, BarChart, Droplets, Bell } from 'lucide-react';
+import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, Users, BarChart, Droplets, Bell, Eye } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
 import { getUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument } from '../firestoreService';
@@ -34,13 +34,14 @@ import { CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar } from './ui/calendar';
 import { NotificationSettings } from './notification-settings';
+import { useRouter } from 'next/navigation';
 
 type UserData = User | Invite;
 
 export default function AdminDashboard() {
-    const { user: authUser, userDetails, companyDetails, impersonatingCompanyId, impersonatedCompanyDetails } = useAuth();
+    const { user: authUser, userDetails, companyDetails, impersonatingCompanyId, impersonatedCompanyDetails, startImpersonation } = useAuth();
+    const router = useRouter();
     
-    // Determine the active company ID and details based on impersonation status
     const selectedCompanyId = impersonatingCompanyId || userDetails?.companyId;
     const activeCompanyDetails = impersonatingCompanyId ? impersonatedCompanyDetails : companyDetails;
 
@@ -278,6 +279,11 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleViewAsUser = (user: User) => {
+        startImpersonation(user);
+        router.push('/dashboard');
+    }
+
     const activeUsers = useMemo(() => {
         return userData.filter(u => u.status === 'active');
     }, [userData]);
@@ -378,6 +384,14 @@ export default function AdminDashboard() {
                                                 <TableCell className="text-right">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <TooltipProvider>
+                                                        {user.status !== 'invited' && user.role !== 'admin' && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" onClick={() => handleViewAsUser(user as User)}><Eye className="h-4 w-4" /></Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>View as User</p></TooltipContent>
+                                                            </Tooltip>
+                                                        )}
                                                         {user.status !== 'invited' && (
                                                             <>
                                                             <Tooltip>

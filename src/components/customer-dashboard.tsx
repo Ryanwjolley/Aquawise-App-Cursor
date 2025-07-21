@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,13 +18,15 @@ import { Label } from './ui/label';
 import { DateRangeSelector } from './date-range-selector';
 
 export default function CustomerDashboard() {
-  const { userDetails, loading: authLoading } = useAuth();
+  const { userDetails, loading: authLoading, impersonatingUser } = useAuth();
   const { unit, setUnit, getUnitLabel } = useUnit();
   const [flowUnit, setFlowUnit] = useState<'gpm' | 'cfs'>('gpm');
 
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  // The 'selectedUser' is the user whose data is being displayed.
+  // It's either the logged-in user or the user being impersonated.
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -33,23 +36,24 @@ export default function CustomerDashboard() {
   const [allTimeAllocations, setAllTimeAllocations] = useState<Allocation[]>([]);
   const { toast } = useToast();
 
-  const customerUsers = useMemo(() => {
-    // Admins can see all users in their company, customers can only see themselves.
+  const customerUsersForDropdown = useMemo(() => {
+    // Only admins see a dropdown, and it contains all customers in their company.
     if (userDetails?.role === 'admin') {
-      return allUsers.filter(u => u.companyId === userDetails.companyId);
+      return allUsers.filter(u => u.companyId === userDetails.companyId && u.role === 'customer');
     }
-    return allUsers.filter(u => u.id === userDetails?.id);
+    return [];
   }, [allUsers, userDetails]);
 
+  // Effect to fetch initial company-wide data (users, allocations)
   const fetchInitialData = useCallback(async () => {
-    if (!userDetails?.companyId) return;
+    const companyId = impersonatingUser?.companyId || userDetails?.companyId;
+    if (!companyId) return;
     setLoading(true);
     try {
         const [fetchedUsers, fetchedAllocations] = await Promise.all([
-            getUsers(userDetails.companyId),
-            getAllocations(userDetails.companyId)
+            getUsers(companyId),
+            getAllocations(companyId)
         ]);
-        
         setAllUsers(fetchedUsers);
         setAllTimeAllocations(fetchedAllocations);
     } catch (error) {
@@ -61,33 +65,34 @@ export default function CustomerDashboard() {
     } finally {
         setLoading(false);
     }
-  }, [toast, userDetails]);
+  }, [toast, userDetails, impersonatingUser]);
 
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // Effect to set the initially selected user
+  // Effect to set the selectedUser based on context (impersonation or self)
   useEffect(() => {
-    if (userDetails) {
+    if (impersonatingUser) {
+        // If an admin is impersonating, the selected user is the one being impersonated.
+        setSelectedUser(impersonatingUser);
+    } else if (userDetails) {
         if (userDetails.role === 'admin') {
-            // Admins default to viewing the first customer in their company
-            const companyCustomers = allUsers.filter(u => u.companyId === userDetails.companyId && u.role === 'customer');
-            if (companyCustomers.length > 0) {
-                setSelectedUser(companyCustomers[0]);
+            // Admins default to viewing the first customer if not impersonating.
+             if (customerUsersForDropdown.length > 0) {
+                setSelectedUser(customerUsersForDropdown[0]);
             } else {
-                setSelectedUser(null);
+                setSelectedUser(null); // No customers in the company
             }
         } else {
-            // Customers can only see themselves
-            const currentUser = allUsers.find(u => u.id === userDetails.id);
-            setSelectedUser(currentUser || null);
+            // Customers can only see themselves.
+            setSelectedUser(userDetails);
         }
     }
-  }, [userDetails, allUsers]);
+  }, [userDetails, impersonatingUser, customerUsersForDropdown]);
 
 
-  // Effect to fetch data when dependencies change
+  // Effect to fetch period-specific data whenever the date or selected user changes
   useEffect(() => {
     const fetchPeriodData = async () => {
         if (!date?.from || !date?.to || !selectedUser || !selectedUser.companyId) {
@@ -104,8 +109,8 @@ export default function CustomerDashboard() {
             const allocations = await getAllocationsForPeriod(selectedUser.companyId, date.from, date.to);
             const totalSystemAllocationForPeriod = allocations.reduce((sum, alloc) => sum + alloc.totalAllocationGallons, 0);
             
-            const activeUsers = allUsers.filter(u => u.status === 'active' && u.companyId === selectedUser.companyId);
-            const totalSystemShares = activeUsers.reduce((acc, user) => acc + user.shares, 0);
+            const activeUsersInCompany = allUsers.filter(u => u.status === 'active' && u.companyId === selectedUser.companyId);
+            const totalSystemShares = activeUsersInCompany.reduce((acc, user) => acc + user.shares, 0);
 
             if (totalSystemShares > 0) {
                const userAllocation = totalSystemAllocationForPeriod * (selectedUser.shares / totalSystemShares);
@@ -138,10 +143,11 @@ export default function CustomerDashboard() {
     
   }, [date, toast, selectedUser, allUsers]);
   
+  // Handler for when an admin selects a different user from the dropdown
   const handleUserChange = (userId: string) => {
-      const user = allUsers.find(u => u.id === userId);
-      if (user) {
-          setSelectedUser(user);
+      const userToView = allUsers.find(u => u.id === userId);
+      if (userToView) {
+          setSelectedUser(userToView);
       }
   };
 
@@ -167,27 +173,34 @@ export default function CustomerDashboard() {
     return 0;
   };
   
-  const welcomeMessage = userDetails?.role === 'admin' 
-    ? selectedUser ? `Viewing as: ${selectedUser.name}` : 'Customer View'
+  const welcomeMessage = impersonatingUser 
+    ? `Viewing as: ${impersonatingUser.name}`
+    : userDetails?.role === 'admin'
+    ? 'Customer View'
     : `Welcome, ${userDetails?.name || 'User'}`;
-  const subMessage = userDetails?.role === 'admin' 
-    ? selectedUser ? 'Select a user to view their summary.' : 'There are no customers to display.'
+    
+  const subMessage = impersonatingUser
+    ? `You are viewing ${impersonatingUser.name}'s dashboard.`
+    : userDetails?.role === 'admin' 
+    ? 'Select a customer to view their summary.'
     : "Here's your water usage summary.";
 
 
-  if (authLoading) {
+  if (authLoading || (loading && !selectedUser)) {
       return (
           <div className="flex flex-col items-center justify-center h-screen p-8">
               <Skeleton className="w-full max-w-4xl h-96" />
           </div>
       );
   }
-
-  if (userDetails?.role === 'customer' && !selectedUser && !loading) {
+  
+  if (userDetails?.role === 'admin' && !impersonatingUser && customerUsersForDropdown.length === 0) {
        return (
-          <div className="flex flex-col items-center justify-center h-screen">
-              <h1 className="text-2xl font-bold text-foreground">User not found</h1>
-              <p className="text-muted-foreground">Please contact support.</p>
+          <div className="p-8">
+                <header className="mb-8">
+                    <h1 className="text-3xl font-bold text-foreground">Customer View</h1>
+                    <p className="text-muted-foreground">There are no customers in this company to display.</p>
+                </header>
           </div>
       );
   }
@@ -200,9 +213,9 @@ export default function CustomerDashboard() {
           <p className="text-muted-foreground">{subMessage}</p>
         </div>
         <div className="flex flex-col sm:flex-row items-end gap-4">
-          {userDetails?.role === 'admin' && customerUsers.length > 0 && (
+          {userDetails?.role === 'admin' && !impersonatingUser && customerUsersForDropdown.length > 0 && (
             <div className="flex flex-col gap-1 w-full sm:w-auto">
-                <Label>Viewing As</Label>
+                <Label>Viewing Customer</Label>
                 <div className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-muted-foreground" />
                   <Select onValueChange={handleUserChange} value={selectedUser?.id}>
@@ -210,7 +223,7 @@ export default function CustomerDashboard() {
                           <SelectValue placeholder="Select a user" />
                       </SelectTrigger>
                       <SelectContent>
-                          {customerUsers.map((user) => (
+                          {customerUsersForDropdown.map((user) => (
                               <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                           ))}
                       </SelectContent>
