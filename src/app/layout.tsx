@@ -1,8 +1,7 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { Providers } from './providers';
-import { UnitProvider } from '@/context/unit-context';
 
 export const metadata: Metadata = {
   title: 'AquaWise',
@@ -22,12 +21,8 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <Providers>
-          <UnitProvider>
-            {children}
-            <Toaster />
-          </UnitProvider>
-        </Providers>
+        {children}
+        <Toaster />
       </body>
     </html>
   );
