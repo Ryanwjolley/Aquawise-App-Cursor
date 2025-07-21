@@ -1,7 +1,10 @@
+
 // /src/components/AppLayout.tsx
 "use client";
 
 import React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   SidebarProvider,
   Sidebar,
@@ -15,11 +18,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuth();
+  const pathname = usePathname();
 
   return (
     <SidebarProvider>
@@ -36,23 +40,40 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Dashboard" isActive>
-                  <Home />
-                  <span>Dashboard</span>
-                </SidebarMenuButton>
+                <Link href="/">
+                  <SidebarMenuButton tooltip="Dashboard" isActive={pathname === '/'}>
+                    <Home />
+                    <span>Dashboard</span>
+                  </SidebarMenuButton>
+                </Link>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Users">
-                  <Users />
-                  <span>Users</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Settings">
-                  <Settings />
-                  <span>Settings</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {currentUser?.role === 'Admin' && (
+                <SidebarMenuItem>
+                    <SidebarMenuButton tooltip="Users">
+                      <Users />
+                      <span>Users</span>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {currentUser?.role === 'Admin' && (
+                 <SidebarMenuItem>
+                    <SidebarMenuButton tooltip="Settings">
+                      <Settings />
+                      <span>Settings</span>
+                    </SidebarMenuButton>
+                 </SidebarMenuItem>
+              )}
+               {/* Show link only for Super Admins. For now, we simulate this with Alice. */}
+               {currentUser?.email.includes('alice') && (
+                 <SidebarMenuItem>
+                    <Link href="/super-admin">
+                      <SidebarMenuButton tooltip="Companies" isActive={pathname === '/super-admin'}>
+                        <Building2 />
+                        <span>Companies</span>
+                      </SidebarMenuButton>
+                    </Link>
+                 </SidebarMenuItem>
+               )}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>
