@@ -54,10 +54,11 @@ function AggregateDashboard({ company, companyUsers, allUsageData, queryRange })
     const totalCompanyUsage = allUsageEntries.reduce((acc, entry) => acc + entry.usage, 0);
     const totalUsers = companyUsers.length;
     const avgUserUsage = totalUsers > 0 ? totalCompanyUsage / totalUsers : 0;
+    const totalCompanyShares = companyUsers.reduce((acc, user) => acc + (user.shares || 0), 0);
     
     const donutChartData = companyUsers.map(user => {
         const userUsage = allUsageData[user.id]?.reduce((sum, entry) => sum + entry.usage, 0) || 0;
-        const userColor = `hsl(var(--chart-${(parseInt(user.id, 10) % 5) + 1}))`;
+        const userColor = `hsl(var(--chart-${(parseInt(user.id, 16) % 5) + 1}))`;
         return {
             name: user.name,
             value: userUsage,
@@ -78,9 +79,16 @@ function AggregateDashboard({ company, companyUsers, allUsageData, queryRange })
 
     return (
         <>
-            <h2 className="text-3xl font-bold tracking-tight">
-                {company?.name} Dashboard
-            </h2>
+            <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-bold tracking-tight">
+                    {company?.name} Dashboard
+                </h2>
+                {totalCompanyShares > 0 && (
+                     <div className="text-lg text-muted-foreground font-medium">
+                        Total Shares - {totalCompanyShares.toLocaleString()}
+                    </div>
+                )}
+            </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <MetricCard 
                     title="Total Company Usage" 

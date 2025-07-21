@@ -68,7 +68,7 @@ export function UsageDonutChart({ data, title, description }: UsageDonutChartPro
           </PieChart>
         </ChartContainer>
       </CardContent>
-      <CardContent className="flex flex-col items-center justify-center text-center p-4 gap-2">
+      <CardContent className="flex flex-col items-center justify-center text-center p-4 gap-2 mt-auto">
          <p className="text-2xl font-bold">{aggregate.toLocaleString()} gal</p>
          <p className="text-sm text-muted-foreground">Total Usage</p>
       </CardContent>
