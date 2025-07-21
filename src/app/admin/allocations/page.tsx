@@ -108,11 +108,12 @@ export default function AllocationPage() {
     if (notificationSettings.allocationChangeAlerts.enabled) {
         try {
             let recipients: User[] = [];
+            // We only need to fetch users if sending to all, otherwise we can get from the form's companyUsers list.
             if (savedAllocation.userId) {
-                const user = await getUserById(savedAllocation.userId);
+                const user = companyUsers.find(u => u.id === savedAllocation.userId);
                 if (user) recipients.push(user);
             } else {
-                recipients = await getUsersByCompany(currentUser.companyId);
+                recipients = companyUsers;
             }
             
             if (recipients.length > 0) {
@@ -174,7 +175,7 @@ export default function AllocationPage() {
                 ) : allocations.length > 0 ? (
                   allocations.map((alloc) => (
                     <TableRow key={alloc.id}>
-                      <TableCell className="font-medium">{userMap.get(alloc.userId || 'all')}</TableCell>
+                      <TableCell className="font-medium">{userMap.get(alloc.userId || 'all') ?? 'Unknown User'}</TableCell>
                       <TableCell>{format(new Date(alloc.startDate), 'P p')} - {format(new Date(alloc.endDate), 'P p')}</TableCell>
                       <TableCell>{alloc.gallons.toLocaleString()}</TableCell>
                       <TableCell className="text-right">
