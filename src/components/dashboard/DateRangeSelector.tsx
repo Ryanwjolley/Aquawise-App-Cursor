@@ -21,14 +21,16 @@ interface DateRangeSelectorProps {
 
 export function DateRangeSelector({ onUpdate, className }: DateRangeSelectorProps) {
   const [date, setDate] = React.useState<DateRange | undefined>({
-    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
     to: new Date(),
   });
 
   const handleDateChange = (newDate: DateRange | undefined) => {
-    setDate(newDate);
-    if (newDate && onUpdate) {
-        onUpdate(newDate);
+    if (newDate) {
+      setDate(newDate);
+      if (onUpdate) {
+          onUpdate(newDate);
+      }
     }
   }
 

@@ -11,22 +11,26 @@ import type { UsageEntry } from "@/lib/data";
 import { getUsageForUser } from "@/lib/data";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CustomerDashboardPage() {
   const { currentUser } = useAuth();
   const [usageData, setUsageData] = useState<UsageEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
     to: new Date(),
   });
 
   useEffect(() => {
     if (currentUser) {
       const fetchData = async () => {
+        setLoading(true);
         const fromDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
         const toDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
         const data = await getUsageForUser(currentUser.id, fromDate, toDate);
         setUsageData(data);
+        setLoading(false);
       };
       fetchData();
     }
@@ -52,31 +56,42 @@ export default function CustomerDashboardPage() {
                 <DateRangeSelector onUpdate={(range) => setDateRange(range)} />
             </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <MetricCard 
-                title="Total Usage" 
-                metric={`${totalUsage.toLocaleString()} gal`}
-                icon={Droplets} 
-                description="Total water used in this period" 
-            />
-            <MetricCard 
-                title="Avg. Daily Usage" 
-                metric={`${Math.round(avgDailyUsage).toLocaleString()} gal`} 
-                icon={TrendingUp} 
-                description="Average daily usage in this period" 
-            />
-            <MetricCard 
-                title="Days with Usage" 
-                metric={daysWithUsage.toString()}
-                icon={CalendarDays}
-                description="Days with reported usage in this period"
-            />
-        </div>
-        <div className="grid gap-4">
-            <div className="lg:col-span-4">
-                <DailyUsageChart data={dailyChartData} />
+        {loading ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+             <Skeleton className="h-28" />
+             <Skeleton className="h-28" />
+             <Skeleton className="h-28" />
+             <Skeleton className="h-80 lg:col-span-3" />
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <MetricCard 
+                    title="Total Usage" 
+                    metric={`${totalUsage.toLocaleString()} gal`}
+                    icon={Droplets} 
+                    description="Total water used in the selected period" 
+                />
+                <MetricCard 
+                    title="Avg. Daily Usage" 
+                    metric={`${Math.round(avgDailyUsage).toLocaleString()} gal`} 
+                    icon={TrendingUp} 
+                    description="Average daily usage in the selected period" 
+                />
+                <MetricCard 
+                    title="Days with Usage" 
+                    metric={daysWithUsage.toString()}
+                    icon={CalendarDays}
+                    description="Days with reported usage in the selected period"
+                />
             </div>
-        </div>
+            <div className="grid gap-4">
+                <div className="lg:col-span-3">
+                    <DailyUsageChart data={dailyChartData} />
+                </div>
+            </div>
+          </>
+        )}
       </div>
     </AppLayout>
   );
