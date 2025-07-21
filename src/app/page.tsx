@@ -1,4 +1,3 @@
-
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
 export default function HomePage() {
@@ -8,7 +7,7 @@ export default function HomePage() {
         <CardHeader>
           <CardTitle className="text-2xl">Welcome to the AquaWise Rebuild</CardTitle>
           <CardDescription>
-            We have successfully reset the project. We will now rebuild the application step-by-step.
+            The project has been successfully reset. We will now rebuild the application step-by-step.
           </CardDescription>
         </CardHeader>
         <CardContent>
