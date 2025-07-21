@@ -2,7 +2,7 @@
 'use server';
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc, writeBatch, runTransaction } from "firebase/firestore";
 import { db } from "./firebaseConfig";
-import { format, eachDayOfInterval } from 'date-fns';
+import { format, eachDayOfInterval, startOfDay } from 'date-fns';
 
 interface UsageData {
   userId: string;
@@ -44,6 +44,17 @@ export interface NotificationRule {
     message: string; // Message template
     enabled: boolean;
     createdAt: Date;
+}
+
+export interface DailyUsage {
+    day: string;
+    gallons: number;
+}
+
+export interface UsageEntry {
+    id: string;
+    date: Date;
+    consumption: number;
 }
 
 export type NotificationRuleData = Omit<NotificationRule, 'id'>;
@@ -384,34 +395,84 @@ export const addUsageEntry = async (usageEntry: {userId: string, companyId: stri
   }
 };
 
-
-export const getUsageForDateRange = async (userIds: string[], companyId: string, startDate: Date, endDate: Date): Promise<Record<string, number>> => {
-    const usageMap: Record<string, number> = {};
-    userIds.forEach(id => (usageMap[id] = 0));
-
-    if (userIds.length === 0) {
-        return usageMap;
-    }
-
+export const getTotalUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<number> => {
+    let totalUsage = 0;
     try {
         const q = query(
           usageCollection,
           where("companyId", "==", companyId),
-          where("userId", "in", userIds),
+          where("userId", "==", userId),
           where("date", ">=", startDate),
           where("date", "<=", endDate),
         );
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            const userId = data.userId;
-            if (usageMap[userId] !== undefined) {
-                usageMap[userId] += data.consumption;
-            }
+            totalUsage += doc.data().consumption;
         });
     } catch (error) {
-        console.error("Error fetching usage data for range: ", error);
+        console.error("Error fetching total usage data for range: ", error);
+        throw error;
+    }
+    return totalUsage;
+}
+
+export const getDailyUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
+    const dailyUsageMap = new Map<string, number>();
+
+    // Initialize map with all days in the range to ensure we show days with 0 usage
+    const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
+    dateRange.forEach(date => {
+        dailyUsageMap.set(format(date, 'MMM d'), 0);
+    });
+
+    try {
+        const q = query(
+          usageCollection,
+          where("companyId", "==", companyId),
+          where("userId", "==", userId),
+          where("date", ">=", startDate),
+          where("date", "<=", endDate)
+        );
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            const day = format((data.date as Timestamp).toDate(), 'MMM d');
+            const currentUsage = dailyUsageMap.get(day) || 0;
+            dailyUsageMap.set(day, currentUsage + data.consumption);
+        });
+    } catch (error) {
+        console.error("Error fetching daily usage data for range: ", error);
+        throw error;
     }
     
-    return usageMap;
+    // Convert map to array of objects for the chart
+    const result: DailyUsage[] = Array.from(dailyUsageMap, ([day, gallons]) => ({ day, gallons }));
+    return result;
 }
+
+export const getUsageEntriesForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<UsageEntry[]> => {
+    const entries: UsageEntry[] = [];
+    try {
+        const q = query(
+            usageCollection,
+            where("userId", "==", userId),
+            where("companyId", "==", companyId),
+            where("date", ">=", startDate),
+            where("date", "<=", endDate)
+        );
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            entries.push({
+                id: doc.id,
+                date: (data.date as Timestamp).toDate(),
+                consumption: data.consumption
+            });
+        });
+        // Sort in the client to avoid needing a composite index
+        return entries.sort((a, b) => b.date.getTime() - a.date.getTime());
+    } catch (error) {
+        console.error("Error fetching usage entries: ", error);
+        throw error;
+    }
+};

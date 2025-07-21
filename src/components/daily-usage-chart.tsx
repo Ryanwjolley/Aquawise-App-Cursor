@@ -15,8 +15,6 @@ type DailyUsageChartProps = {
 const CustomTooltip = ({ active, payload, label, unit, unitLabel }: any) => {
   if (active && payload && payload.length) {
     const dataPoint = payload[0].payload;
-    // dataPoint here is an item from the chartData array
-    // It should have 'day' and 'gallons' properties
     if (typeof dataPoint.gallons === 'number') {
         return (
             <div className="p-2 bg-background border rounded-lg shadow-sm">
