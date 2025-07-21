@@ -440,7 +440,7 @@ export const findExistingUsageForUsersAndDates = async (entries: ParsedUsageEntr
             const snapshot = await getDocs(q);
             snapshot.forEach(docSnap => {
                 const data = docSnap.data();
-                const dateStr = format(data.date.toDate(), 'yyyy-MM-dd');
+                const dateStr = format(startOfDay(data.date.toDate()), 'yyyy-MM-dd');
                 const key = `${data.userId}-${dateStr}`;
                 existingEntries.set(key, docSnap.id);
             });
