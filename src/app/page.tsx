@@ -10,17 +10,45 @@ import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { useState, useEffect } from "react";
 import type { UsageEntry, Allocation } from "@/lib/data";
 import { getUsageForUser, getAllocationsForUser } from "@/lib/data";
-import { format, isWithinInterval, parseISO } from "date-fns";
+import { format, isWithinInterval, parseISO, differenceInDays, max, min } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
+// Function to calculate proportional allocation
+const calculateProportionalAllocation = (range: DateRange, allocations: Allocation[]): number => {
+    if (!range.from || !range.to) return 0;
+
+    let totalProportionalGallons = 0;
+
+    for (const alloc of allocations) {
+        const allocStart = parseISO(alloc.startDate);
+        const allocEnd = parseISO(alloc.endDate);
+
+        // Find the overlapping interval
+        const overlapStart = max([range.from, allocStart]);
+        const overlapEnd = min([range.to, allocEnd]);
+        
+        if (overlapStart < overlapEnd) {
+            const overlapDays = differenceInDays(overlapEnd, overlapStart) + 1;
+            const totalAllocDays = differenceInDays(allocEnd, allocStart) + 1;
+            
+            if (totalAllocDays > 0) {
+                const dailyAllocation = alloc.gallons / totalAllocDays;
+                totalProportionalGallons += dailyAllocation * overlapDays;
+            }
+        }
+    }
+
+    return totalProportionalGallons;
+}
+
+
 export default function CustomerDashboardPage() {
   const { currentUser } = useAuth();
   const [usageData, setUsageData] = useState<UsageEntry[]>([]);
   const [allAllocations, setAllAllocations] = useState<Allocation[]>([]);
-  const [currentAllocation, setCurrentAllocation] = useState<Allocation | null>(null);
   const [loading, setLoading] = useState(true);
   
   const [queryRange, setQueryRange] = useState<DateRange>({
@@ -45,17 +73,9 @@ export default function CustomerDashboardPage() {
         setUsageData(data);
         setAllAllocations(allocs);
 
-        // Find the allocation that applies to the current date
-        const today = new Date();
-        const activeAllocation = allocs.find(a => 
-            isWithinInterval(today, { start: parseISO(a.startDate), end: parseISO(a.endDate) })
-        );
-        setCurrentAllocation(activeAllocation || null);
-
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
         setUsageData([]);
-        setCurrentAllocation(null);
         setAllAllocations([]);
       } finally {
         setLoading(false);
@@ -74,13 +94,8 @@ export default function CustomerDashboardPage() {
     usage: entry.usage
   }));
 
-  const allocationForPeriod = allAllocations.find(a => 
-    queryRange.from && queryRange.to &&
-    format(parseISO(a.startDate), 'yyyy-MM-dd') === format(queryRange.from, 'yyyy-MM-dd') &&
-    format(parseISO(a.endDate), 'yyyy-MM-dd') === format(queryRange.to, 'yyyy-MM-dd')
-  ) || currentAllocation;
-  
-  const allocationUsagePercent = allocationForPeriod ? (totalUsage / allocationForPeriod.gallons) * 100 : 0;
+  const allocationForPeriod = calculateProportionalAllocation(queryRange, allAllocations);
+  const allocationUsagePercent = allocationForPeriod > 0 ? (totalUsage / allocationForPeriod) * 100 : 0;
 
   return (
     <AppLayout>
@@ -126,7 +141,7 @@ export default function CustomerDashboardPage() {
                     icon={CalendarDays}
                     description="Days with reported usage in the selected period"
                 />
-                {allocationForPeriod ? (
+                {allocationForPeriod > 0 ? (
                      <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Period Allocation Usage</CardTitle>
@@ -135,7 +150,7 @@ export default function CustomerDashboardPage() {
                         <CardContent>
                             <div className="text-2xl font-bold">{Math.round(allocationUsagePercent)}%</div>
                             <p className="text-xs text-muted-foreground">
-                                {totalUsage.toLocaleString()} of {allocationForPeriod.gallons.toLocaleString()} gal used
+                                {totalUsage.toLocaleString()} of {Math.round(allocationForPeriod).toLocaleString()} gal used
                             </p>
                             <Progress value={allocationUsagePercent} className="mt-2 h-2" />
                         </CardContent>
