@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 function ImpersonationBanner() {
@@ -38,6 +38,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, isImpersonating } = useAuth();
   const pathname = usePathname();
 
+  const isAdminView = currentUser?.role === 'Admin' && !isImpersonating;
+
   return (
     <SidebarProvider>
       <div className="min-h-screen">
@@ -54,14 +56,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarMenu>
               <SidebarMenuItem>
                 <Link href="/">
-                  <SidebarMenuButton tooltip="Dashboard" isActive={pathname === '/'}>
+                  <SidebarMenuButton tooltip="My Usage" isActive={pathname === '/'}>
                     <Home />
-                    <span>Dashboard</span>
+                    <span>My Usage</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
-              {currentUser?.role === 'Admin' && !isImpersonating && (
+              {isAdminView && (
                 <>
+                    <SidebarMenuItem>
+                        <Link href="/admin">
+                            <SidebarMenuButton tooltip="Dashboard" isActive={pathname === '/admin'}>
+                            <AreaChart />
+                            <span>Dashboard</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
                     <SidebarMenuItem>
                         <Link href="/admin/users">
                             <SidebarMenuButton tooltip="Users" isActive={pathname.startsWith('/admin/users')}>
