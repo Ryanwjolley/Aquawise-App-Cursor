@@ -76,7 +76,7 @@ function convertToGallons(amount: number, unit: Unit, minutes: number): number {
     return amount * CONVERSIONS_GPM[unit as keyof typeof CONVERSIONS_GPM] * minutes;
 }
 
-const GAP_THRESHOLD_MINUTES = 5;
+const GAP_THRESHOLD_MINUTES = 1;
 
 const combineDateTime = (dateStr: string, timeStr: string): Date | null => {
     if (!dateStr || !timeStr || !dateStr.match(dateRegex) || !timeStr.match(timeRegex)) return null;
