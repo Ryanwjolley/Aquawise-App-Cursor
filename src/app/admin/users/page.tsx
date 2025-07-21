@@ -62,9 +62,8 @@ export default function UserManagementPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleImpersonate = async (userId: string) => {
-    await impersonateUser(userId);
-    router.push('/');
+  const handleViewDashboard = (userId: string) => {
+    router.push(`/admin?viewUser=${userId}`);
   }
 
   const handleDeleteConfirm = async () => {
@@ -148,7 +147,7 @@ export default function UserManagementPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
-                              <DropdownMenuItem onClick={() => handleImpersonate(user.id)}>
+                              <DropdownMenuItem onClick={() => handleViewDashboard(user.id)}>
                                 <Eye className="mr-2 h-4 w-4"/>
                                 View Dashboard
                               </DropdownMenuItem>

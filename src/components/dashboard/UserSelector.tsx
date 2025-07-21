@@ -14,6 +14,7 @@ interface UserSelectorProps {
     users: User[];
     onUserChange: (userId: string) => void;
     showAllOption?: boolean;
+    defaultValue?: string;
     triggerLabel?: string;
     className?: string;
 }
@@ -22,12 +23,13 @@ export function UserSelector({
     users, 
     onUserChange, 
     showAllOption = true,
+    defaultValue,
     triggerLabel = "Select a user",
     className
 }: UserSelectorProps) {
 
   return (
-      <Select onValueChange={onUserChange}>
+      <Select onValueChange={onUserChange} defaultValue={defaultValue}>
         <SelectTrigger className={className || "w-[240px]"}>
           <SelectValue placeholder={triggerLabel} />
         </SelectTrigger>
