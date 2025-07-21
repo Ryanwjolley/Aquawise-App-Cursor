@@ -16,7 +16,7 @@ import {
 import { AllocationForm } from "@/components/dashboard/AllocationForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Allocation, User } from "@/lib/data";
-import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany } from "@/lib/data";
+import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, sendAllocationNotificationEmail, getUserById } from "@/lib/data";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -85,19 +85,47 @@ export default function AllocationPage() {
   const handleFormSubmit = async (data: Omit<Allocation, 'id' | 'companyId'>) => {
     if (!currentUser?.companyId) return;
     
+    let savedAllocation;
     if (editingAllocation) {
-      await updateAllocation({ ...data, id: editingAllocation.id, companyId: currentUser.companyId });
+      savedAllocation = await updateAllocation({ ...data, id: editingAllocation.id, companyId: currentUser.companyId });
       toast({
         title: "Allocation Updated",
         description: "The allocation has been successfully saved.",
       });
     } else {
-      await addAllocation({ ...data, companyId: currentUser.companyId });
+      savedAllocation = await addAllocation({ ...data, companyId: currentUser.companyId });
       toast({
         title: "Allocation Created",
         description: "The new water allocation has been successfully saved.",
       });
     }
+
+    // Send notification
+    try {
+        let recipients: User[] = [];
+        if (savedAllocation.userId) {
+            const user = await getUserById(savedAllocation.userId);
+            if (user) recipients.push(user);
+        } else {
+            recipients = await getUsersByCompany(currentUser.companyId);
+        }
+        
+        if (recipients.length > 0) {
+            await sendAllocationNotificationEmail(savedAllocation, recipients, editingAllocation ? 'updated' : 'created');
+            toast({
+                title: "Notifications Sent",
+                description: `Sent allocation notifications to ${recipients.length} user(s).`
+            });
+        }
+    } catch (e) {
+        console.error("Failed to send notification email:", e);
+        toast({
+            variant: "destructive",
+            title: "Notification Error",
+            description: "Could not send allocation notifications. Please check the logs."
+        })
+    }
+
 
     setIsFormOpen(false);
     setEditingAllocation(undefined);
