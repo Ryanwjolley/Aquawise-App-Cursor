@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, Bot } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 function ImpersonationBanner() {
@@ -72,6 +72,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             <SidebarMenuButton tooltip="Dashboard" isActive={pathname === '/admin'}>
                             <AreaChart />
                             <span>Dashboard</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                     <SidebarMenuItem>
+                        <Link href="/admin/analysis">
+                            <SidebarMenuButton tooltip="Analysis" isActive={pathname.startsWith('/admin/analysis')}>
+                            <Bot />
+                            <span>Analysis</span>
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
@@ -155,3 +163,5 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    

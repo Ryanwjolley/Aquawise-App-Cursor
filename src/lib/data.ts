@@ -54,84 +54,17 @@ let users: User[] = [
   { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', role: 'Customer', companyId: '2', shares: 18 },
 ];
 
-// Helper to get dates for the last week
-const getRecentDate = (daysAgo: number): string => {
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
-}
-
-const getRecentDateTime = (daysAgo: number, hour = 0, minute = 0) => {
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    date.setHours(hour, minute, 0, 0);
-    return date.toISOString();
-}
-
-let usageData: UsageEntry[] = [
-  // A couple of recent entries for the default user to ensure dashboard has data on load
-  { id: 'u1', userId: '101', date: getRecentDate(2), usage: 4500 },
-  { id: 'u2', userId: '101', date: getRecentDate(1), usage: 5200 },
-];
-
-// --- Generate extensive mock data for June and July 2025 ---
-const generateMockUsage = () => {
-    const allUserIds = users.map(u => u.id);
-    const startDate = new Date('2025-06-01');
-    const endDate = new Date('2025-07-31');
-    
-    const currentDate = new Date(startDate);
-
-    const generatedData: UsageEntry[] = [];
-    let idCounter = usageData.length + 1;
-
-    while (currentDate <= endDate) {
-        for (const userId of allUserIds) {
-            const user = users.find(u => u.id === userId);
-            if (!user) continue;
-
-            let baseUsage;
-            let randomComponent = 3200;
-
-            if (user.companyId === '2') { // Sunrise Farms
-                 baseUsage = user.role.includes('Admin') ? 2500 : 3500;
-                 randomComponent = 1500;
-            } else { // Golden Valley Agriculture (default)
-                 baseUsage = user.role.includes('Admin') ? 6400 : 12800;
-                 randomComponent = 3200;
-            }
-            
-            // Don't generate usage for admin-only users
-            if (user.role === 'Admin') continue;
-
-            const dailyUsage = Math.floor(Math.random() * randomComponent) + baseUsage;
-            
-            generatedData.push({
-                id: `gen_u${idCounter++}`,
-                userId: userId,
-                date: currentDate.toISOString().split('T')[0], // YYYY-MM-DD
-                usage: dailyUsage,
-            });
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-    return generatedData;
-}
-usageData.push(...generateMockUsage());
-// --- End of data generation ---
-
-
 let allocations: Allocation[] = [
     // Weekly Allocations for June & July 2025 for GVA (companyId: '1')
-    { id: 'alloc_gva_1', companyId: '1', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-06-07T23:59:59.000Z', gallons: 85000 },
-    { id: 'alloc_gva_2', companyId: '1', startDate: '2025-06-08T00:00:00.000Z', endDate: '2025-06-14T23:59:59.000Z', gallons: 95000 },
-    { id: 'alloc_gva_3', companyId: '1', startDate: '2025-06-15T00:00:00.000Z', endDate: '2025-06-21T23:59:59.000Z', gallons: 70000 },
-    { id: 'alloc_gva_4', companyId: '1', startDate: '2025-06-22T00:00:00.000Z', endDate: '2025-06-28T23:59:59.000Z', gallons: 100000 },
-    { id: 'alloc_gva_5', companyId: '1', startDate: '2025-06-29T00:00:00.000Z', endDate: '2025-07-05T23:59:59.000Z', gallons: 65000 },
-    { id: 'alloc_gva_6', companyId: '1', startDate: '2025-07-06T00:00:00.000Z', endDate: '2025-07-12T23:59:59.000Z', gallons: 75000 },
-    { id: 'alloc_gva_7', companyId: '1', startDate: '2025-07-13T00:00:00.000Z', endDate: '2025-07-19T23:59:59.000Z', gallons: 90000 },
-    { id: 'alloc_gva_8', companyId: '1', startDate: '2025-07-20T00:00:00.000Z', endDate: '2025-07-26T23:59:59.000Z', gallons: 60000 },
-    { id: 'alloc_gva_9', companyId: '1', startDate: '2025-07-27T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 80000 }, // Shorter week
+    { id: 'alloc_gva_1', companyId: '1', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-06-07T23:59:59.000Z', gallons: 850000 },
+    { id: 'alloc_gva_2', companyId: '1', startDate: '2025-06-08T00:00:00.000Z', endDate: '2025-06-14T23:59:59.000Z', gallons: 950000 },
+    { id: 'alloc_gva_3', companyId: '1', startDate: '2025-06-15T00:00:00.000Z', endDate: '2025-06-21T23:59:59.000Z', gallons: 700000 },
+    { id: 'alloc_gva_4', companyId: '1', startDate: '2025-06-22T00:00:00.000Z', endDate: '2025-06-28T23:59:59.000Z', gallons: 1000000 },
+    { id: 'alloc_gva_5', companyId: '1', startDate: '2025-06-29T00:00:00.000Z', endDate: '2025-07-05T23:59:59.000Z', gallons: 650000 },
+    { id: 'alloc_gva_6', companyId: '1', startDate: '2025-07-06T00:00:00.000Z', endDate: '2025-07-12T23:59:59.000Z', gallons: 750000 },
+    { id: 'alloc_gva_7', companyId: '1', startDate: '2025-07-13T00:00:00.000Z', endDate: '2025-07-19T23:59:59.000Z', gallons: 900000 },
+    { id: 'alloc_gva_8', companyId: '1', startDate: '2025-07-20T00:00:00.000Z', endDate: '2025-07-26T23:59:59.000Z', gallons: 600000 },
+    { id: 'alloc_gva_9', companyId: '1', startDate: '2025-07-27T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 800000 }, // Shorter week
     
     // Weekly Allocations for June & July 2025 for Sunrise Farms (companyId: '2')
     { id: 'alloc_sf_1', companyId: '2', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-06-07T23:59:59.000Z', gallons: 55000 },
@@ -141,6 +74,61 @@ let allocations: Allocation[] = [
     { id: 'alloc_sf_5', companyId: '2', startDate: '2025-06-29T00:00:00.000Z', endDate: '2025-07-05T23:59:59.000Z', gallons: 58000 },
     { id: 'alloc_sf_6', companyId: '2', startDate: '2025-07-06T00:00:00.000Z', endDate: '2025-07-12T23:59:59.000Z', gallons: 53000 },
 ];
+
+let usageData: UsageEntry[] = [];
+
+// --- Generate extensive mock data for June and July 2025 ---
+const generateMockUsage = () => {
+    const generatedData: UsageEntry[] = [];
+    let idCounter = 1;
+
+    for (const alloc of allocations) {
+        const companyUsers = users.filter(u => u.companyId === alloc.companyId && u.role.includes('Customer'));
+        if (companyUsers.length === 0) continue;
+
+        const totalShares = companyUsers.reduce((sum, u) => sum + (u.shares || 1), 0);
+        const dailyAllocation = alloc.gallons / 7;
+
+        const startDate = new Date(alloc.startDate);
+        const endDate = new Date(alloc.endDate);
+        const currentDate = new Date(startDate);
+        
+        while(currentDate <= endDate) {
+            for (const user of companyUsers) {
+                const userShareRatio = (user.shares || 1) / totalShares;
+                // Base usage is proportional to their share, with some randomness
+                const baseDailyUsage = dailyAllocation * userShareRatio;
+                // Add +/- 20% randomness
+                const randomFactor = 0.8 + Math.random() * 0.4;
+                const finalUsage = Math.round(baseDailyUsage * randomFactor);
+
+                generatedData.push({
+                    id: `gen_u${idCounter++}`,
+                    userId: user.id,
+                    date: currentDate.toISOString().split('T')[0], // YYYY-MM-DD
+                    usage: finalUsage,
+                });
+            }
+             currentDate.setDate(currentDate.getDate() + 1);
+        }
+    }
+    return generatedData;
+}
+usageData = generateMockUsage();
+
+
+// Helper to get recent dates for default view
+const getRecentDate = (daysAgo: number): string => {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
+// Add a few very recent entries for the default user to ensure dashboard has data on first load
+usageData.push(
+  { id: 'u1', userId: '101', date: getRecentDate(2), usage: 4500 },
+  { id: 'u2', userId: '101', date: getRecentDate(1), usage: 5200 },
+);
 
 
 // --- API Functions ---
@@ -264,5 +252,7 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
     return Promise.resolve();
 };
 
+
+    
 
     
