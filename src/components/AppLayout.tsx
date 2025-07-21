@@ -38,7 +38,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, isImpersonating } = useAuth();
   const pathname = usePathname();
 
-  const isAdminView = currentUser?.role === 'Admin' && !isImpersonating;
+  const isAdminView = currentUser?.role === 'Admin';
 
   return (
     <SidebarProvider>
