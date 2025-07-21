@@ -75,15 +75,16 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
       volumeUnit: 'gallons',
     },
   });
+  
+  const { reset } = form;
 
   const inputType = form.watch('inputType');
 
   React.useEffect(() => {
     if (isOpen) {
         if (isEditMode && allocation) {
-            // If original input values are stored, use them
             if (allocation.inputType && allocation.inputValue) {
-                form.reset({
+                reset({
                     startDate: allocation.startDate,
                     startTime: format(allocation.startDate, 'HH:mm'),
                     endDate: allocation.endDate,
@@ -94,8 +95,7 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                     flowUnit: allocation.flowUnit,
                 });
             } else {
-                 // Fallback for older data: treat totalAllocationGallons as the source
-                form.reset({
+                reset({
                     startDate: allocation.startDate,
                     startTime: format(allocation.startDate, 'HH:mm'),
                     endDate: allocation.endDate,
@@ -107,19 +107,19 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                 });
             }
         } else {
-            // Default values for a new allocation
-            form.reset({
+            reset({
                 startTime: '00:00',
                 endTime: '23:59',
                 inputType: 'volume',
                 inputValue: 1000000,
                 volumeUnit: 'gallons',
                 flowUnit: undefined,
-                // startDate and endDate are left undefined so the picker is empty
+                startDate: undefined,
+                endDate: undefined,
             });
         }
     }
-  }, [form, isOpen, isEditMode, allocation]);
+  }, [isOpen, isEditMode, allocation, reset]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     const { startDate, startTime, endDate, endTime, inputType, inputValue, volumeUnit, flowUnit } = values;
@@ -154,7 +154,6 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
         startDate: finalStartDate, 
         endDate: finalEndDate, 
         totalAllocationGallons: Math.round(totalAllocationGallons),
-        // Save the original input values
         inputType,
         inputValue,
         volumeUnit,
@@ -207,7 +206,6 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                defaultMonth={field.value || undefined}
                                 initialFocus
                             />
                             </PopoverContent>
@@ -259,7 +257,6 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                defaultMonth={field.value || form.getValues('startDate') || undefined}
                                 disabled={(date) =>
                                   form.getValues('startDate') ? date < form.getValues('startDate') : false
                                 }
