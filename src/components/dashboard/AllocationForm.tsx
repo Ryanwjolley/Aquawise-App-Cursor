@@ -58,6 +58,7 @@ interface AllocationFormProps {
   onSubmit: (data: Omit<Allocation, "id" | "companyId">) => void;
   companyUsers: User[];
   existingAllocations: Allocation[];
+  defaultValues?: Allocation;
 }
 
 // Conversion factors to gallons per minute
@@ -75,7 +76,6 @@ function convertToGallons(amount: number, unit: Unit, minutes: number): number {
     return amount * CONVERSIONS_GPM[unit as keyof typeof CONVERSIONS_GPM] * minutes;
 }
 
-
 const GAP_THRESHOLD_MINUTES = 5;
 
 const combineDateTime = (dateStr: string, timeStr: string): Date | null => {
@@ -88,7 +88,8 @@ export function AllocationForm({
   onOpenChange,
   onSubmit,
   companyUsers,
-  existingAllocations
+  existingAllocations,
+  defaultValues
 }: AllocationFormProps) {
   const [overlapWarning, setOverlapWarning] = useState<string | null>(null);
   const [gapWarning, setGapWarning] = useState<string | null>(null);
@@ -112,16 +113,43 @@ export function AllocationForm({
     },
   });
 
-  const selectedStartDate = watch("startDate");
-  const selectedEndDate = watch("endDate");
-  const selectedUserId = watch("userId");
-  const startTime = watch("startTime");
-  const endTime = watch("endTime");
+  const watchedValues = watch();
 
   useEffect(() => {
-    if (isOpen && selectedStartDate && selectedEndDate && startTime && endTime) {
-      const newStart = combineDateTime(selectedStartDate, startTime);
-      const newEnd = combineDateTime(selectedEndDate, endTime);
+    if (isOpen) {
+      if (defaultValues) {
+        // This is a rough conversion back for editing. Might not be perfect for rate-based units.
+        // A more complex solution would be needed for perfect bi-directional conversion.
+        // For now, we assume editing will be primarily on total 'gallons'.
+        const start = new Date(defaultValues.startDate);
+        const end = new Date(defaultValues.endDate);
+        reset({
+          amount: defaultValues.gallons,
+          unit: "gallons", // Default to gallons for editing to avoid conversion complexity
+          userId: defaultValues.userId || "all",
+          startDate: format(start, "yyyy-MM-dd"),
+          startTime: format(start, "HH:mm"),
+          endDate: format(end, "yyyy-MM-dd"),
+          endTime: format(end, "HH:mm"),
+        });
+      } else {
+         reset({
+          amount: 0,
+          unit: "gallons",
+          userId: "all",
+          startDate: format(new Date(), "yyyy-MM-dd"),
+          endDate: format(new Date(), "yyyy-MM-dd"),
+          startTime: "00:00",
+          endTime: "23:59",
+        });
+      }
+    }
+  }, [isOpen, defaultValues, reset]);
+  
+  useEffect(() => {
+    if (isOpen && watchedValues.startDate && watchedValues.endDate && watchedValues.startTime && watchedValues.endTime) {
+      const newStart = combineDateTime(watchedValues.startDate, watchedValues.startTime);
+      const newEnd = combineDateTime(watchedValues.endDate, watchedValues.endTime);
 
       if (!newStart || !newEnd || newStart >= newEnd) {
          setOverlapWarning(null);
@@ -130,7 +158,8 @@ export function AllocationForm({
       }
       
       const relevantAllocations = existingAllocations.filter(alloc => 
-        (selectedUserId === 'all' && !alloc.userId) || (alloc.userId === selectedUserId)
+        ((watchedValues.userId === 'all' && !alloc.userId) || (alloc.userId === watchedValues.userId)) &&
+        alloc.id !== defaultValues?.id // Exclude the one being edited
       );
 
       // Check for overlaps
@@ -168,7 +197,7 @@ export function AllocationForm({
       setGapWarning(null);
     }
 
-  }, [selectedStartDate, selectedEndDate, startTime, endTime, selectedUserId, existingAllocations, isOpen]);
+  }, [watchedValues, existingAllocations, isOpen, defaultValues]);
 
 
   useEffect(() => {
@@ -184,7 +213,6 @@ export function AllocationForm({
     const endDate = combineDateTime(data.endDate, data.endTime);
 
     if (!startDate || !endDate || startDate >= endDate) {
-        // Should be caught by validation, but as a safeguard.
         console.error("Invalid date/time range.");
         return;
     }
@@ -208,7 +236,7 @@ export function AllocationForm({
           className="flex h-full flex-col"
         >
           <SheetHeader>
-            <SheetTitle>New Allocation</SheetTitle>
+            <SheetTitle>{defaultValues ? 'Edit Allocation' : 'New Allocation'}</SheetTitle>
             <SheetDescription>
               Set a water usage budget for a specific period for all or one of your users.
             </SheetDescription>
@@ -299,7 +327,7 @@ export function AllocationForm({
                         name="unit"
                         control={control}
                         render={({ field }) => (
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select unit" />
                             </SelectTrigger>
@@ -325,7 +353,7 @@ export function AllocationForm({
                 name="userId"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a user" />
                     </SelectTrigger>
@@ -349,7 +377,7 @@ export function AllocationForm({
                 Cancel
               </Button>
             </SheetClose>
-            <Button type="submit">Create Allocation</Button>
+            <Button type="submit">{defaultValues ? 'Save Changes' : 'Create Allocation'}</Button>
           </SheetFooter>
         </form>
       </SheetContent>

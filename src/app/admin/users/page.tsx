@@ -16,25 +16,32 @@ import {
 import { UserForm } from "@/components/dashboard/UserForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { User } from "@/lib/data";
-import { getUsersByCompany } from "@/lib/data"; // We will add a mock addUser function later
+import { addUser, updateUser, deleteUser, getUsersByCompany } from "@/lib/data";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function UserManagementPage() {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<Partial<User> | undefined>(undefined);
+  const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+
+
+  const fetchUsers = async () => {
+    if (!currentUser?.companyId) return;
+    setLoading(true);
+    const userList = await getUsersByCompany(currentUser.companyId);
+    setUsers(userList);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      if (!currentUser?.companyId) return;
-      setLoading(true);
-      const userList = await getUsersByCompany(currentUser.companyId);
-      setUsers(userList);
-      setLoading(false);
-    };
-
     fetchUsers();
   }, [currentUser]);
 
@@ -48,26 +55,43 @@ export default function UserManagementPage() {
     setIsFormOpen(true);
   }
 
-  const handleFormSubmit = async (data: any) => {
-    // In a real app, you'd call a function to save the user to your database.
-    // For now, we'll just log it and refresh the list to simulate.
-    console.log("Form submitted", data);
+  const handleDeleteRequest = (user: User) => {
+    setUserToDelete(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+    await deleteUser(userToDelete.id);
+    toast({
+      title: "User Deleted",
+      description: `${userToDelete.name} has been successfully removed.`,
+    });
+    fetchUsers();
+    setIsDeleteDialogOpen(false);
+    setUserToDelete(null);
+  };
+
+  const handleFormSubmit = async (data: Omit<User, 'id' | 'companyId'>) => {
+    if (!currentUser?.companyId) return;
     
-    // Mock adding/updating user
-    if (editingUser?.id) {
-        // "Update" logic
-        setUsers(users.map(u => u.id === editingUser.id ? {...u, ...data} : u));
+    if (editingUser) {
+      await updateUser({ ...data, id: editingUser.id, companyId: editingUser.companyId });
+      toast({
+        title: "User Updated",
+        description: "The user's details have been successfully saved.",
+      });
     } else {
-        // "Add" logic
-        const newUser: User = {
-            id: `u${Date.now()}`,
-            companyId: currentUser!.companyId,
-            ...data
-        }
-        setUsers([...users, newUser]);
+      await addUser({ ...data, companyId: currentUser.companyId });
+      toast({
+        title: "User Added",
+        description: "The new user has been successfully created.",
+      });
     }
 
-    setIsFormOpen(false); // Close the form
+    setIsFormOpen(false);
+    setEditingUser(undefined);
+    fetchUsers(); // Refresh the user list
   };
 
   return (
@@ -110,9 +134,21 @@ export default function UserManagementPage() {
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{user.role}</TableCell>
                       <TableCell className="text-right">
-                         <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
-                            <MoreHorizontal className="h-4 w-4" />
-                         </Button>
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteRequest(user)} className="text-destructive">
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
@@ -129,6 +165,22 @@ export default function UserManagementPage() {
         onSubmit={handleFormSubmit}
         defaultValues={editingUser}
       />
+
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the user {userToDelete?.name} and all their associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setUserToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </AppLayout>
   );
 }

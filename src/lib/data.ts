@@ -37,7 +37,7 @@ const companies: Company[] = [
   { id: '2', name: 'Sunrise Farms' },
 ];
 
-const users: User[] = [
+let users: User[] = [
   // Golden Valley Agriculture
   { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', role: 'Admin', companyId: '1' },
   { id: '102', name: 'Bob Williams', email: 'bob@gva.com', role: 'Customer', companyId: '1' },
@@ -112,18 +112,37 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
     return Promise.resolve(users.find(u => u.id === userId));
 };
 
+export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
+    const newUser: User = { ...userData, id: `u${Date.now()}` };
+    users.push(newUser);
+    return Promise.resolve(newUser);
+};
+
+export const updateUser = async (updatedUser: User): Promise<User> => {
+    const index = users.findIndex(u => u.id === updatedUser.id);
+    if (index === -1) throw new Error("User not found");
+    users[index] = updatedUser;
+    return Promise.resolve(updatedUser);
+};
+
+export const deleteUser = async (userId: string): Promise<void> => {
+    users = users.filter(u => u.id !== userId);
+    // Also remove their usage data
+    usageData = usageData.filter(d => d.userId !== userId);
+    return Promise.resolve();
+};
+
 export const getUsageForUser = async (userId: string, startDate?: string, endDate?: string): Promise<UsageEntry[]> => {
   let userUsage = usageData.filter(u => u.userId === userId);
   
-  // Note: usage data is daily, but allocation can be hourly. We'll filter by date part only.
-  const startDay = startDate ? startDate.split('T')[0] : undefined;
-  const endDay = endDate ? endDate.split('T')[0] : undefined;
+  const start = startDate ? new Date(startDate) : null;
+  const end = endDate ? new Date(endDate) : null;
 
-  if (startDay) {
-    userUsage = userUsage.filter(u => u.date >= startDay);
+  if (start) {
+    userUsage = userUsage.filter(u => new Date(u.date) >= start);
   }
-  if (endDay) {
-    userUsage = userUsage.filter(u => u.date <= endDay);
+  if (end) {
+    userUsage = userUsage.filter(u => new Date(u.date) <= end);
   }
   return Promise.resolve(userUsage.sort((a, b) => a.date.localeCompare(b.date)));
 };
@@ -180,4 +199,16 @@ export const addAllocation = async (allocation: Omit<Allocation, 'id'>): Promise
     const newAllocation: Allocation = { ...allocation, id: `a${Date.now()}` };
     allocations.push(newAllocation);
     return Promise.resolve(newAllocation);
+};
+
+export const updateAllocation = async (updatedAllocation: Allocation): Promise<Allocation> => {
+    const index = allocations.findIndex(a => a.id === updatedAllocation.id);
+    if (index === -1) throw new Error("Allocation not found");
+    allocations[index] = updatedAllocation;
+    return Promise.resolve(updatedAllocation);
+};
+
+export const deleteAllocation = async (allocationId: string): Promise<void> => {
+    allocations = allocations.filter(a => a.id !== allocationId);
+    return Promise.resolve();
 };
