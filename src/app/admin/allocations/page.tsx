@@ -16,7 +16,8 @@ import {
 import { AllocationForm } from "@/components/dashboard/AllocationForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Allocation, User } from "@/lib/data";
-import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, sendAllocationNotificationEmail, getUserById } from "@/lib/data";
+import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById } from "@/lib/data";
+import { sendAllocationNotificationEmail } from "@/lib/actions";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
