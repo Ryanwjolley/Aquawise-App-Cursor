@@ -35,6 +35,9 @@ export default function AllocationPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [allocationToDelete, setAllocationToDelete] = useState<Allocation | null>(null);
 
+  // In a real app, this would be fetched from the database
+  const notificationSettings = { allocationChangeAlerts: { enabled: true } };
+
   const userMap = new Map(companyUsers.map(u => [u.id, u.name]));
   userMap.set('all', 'All Users');
 
@@ -101,30 +104,32 @@ export default function AllocationPage() {
       });
     }
 
-    // Send notification
-    try {
-        let recipients: User[] = [];
-        if (savedAllocation.userId) {
-            const user = await getUserById(savedAllocation.userId);
-            if (user) recipients.push(user);
-        } else {
-            recipients = await getUsersByCompany(currentUser.companyId);
-        }
-        
-        if (recipients.length > 0) {
-            await sendAllocationNotificationEmail(savedAllocation, recipients, editingAllocation ? 'updated' : 'created');
+    // Send notification if the setting is enabled
+    if (notificationSettings.allocationChangeAlerts.enabled) {
+        try {
+            let recipients: User[] = [];
+            if (savedAllocation.userId) {
+                const user = await getUserById(savedAllocation.userId);
+                if (user) recipients.push(user);
+            } else {
+                recipients = await getUsersByCompany(currentUser.companyId);
+            }
+            
+            if (recipients.length > 0) {
+                await sendAllocationNotificationEmail(savedAllocation, recipients, editingAllocation ? 'updated' : 'created');
+                toast({
+                    title: "Notifications Sent",
+                    description: `Sent allocation notifications to ${recipients.length} user(s).`
+                });
+            }
+        } catch (e) {
+            console.error("Failed to send notification email:", e);
             toast({
-                title: "Notifications Sent",
-                description: `Sent allocation notifications to ${recipients.length} user(s).`
-            });
+                variant: "destructive",
+                title: "Notification Error",
+                description: "Could not send allocation notifications. Please check the logs."
+            })
         }
-    } catch (e) {
-        console.error("Failed to send notification email:", e);
-        toast({
-            variant: "destructive",
-            title: "Notification Error",
-            description: "Could not send allocation notifications. Please check the logs."
-        })
     }
 
 

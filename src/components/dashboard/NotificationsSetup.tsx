@@ -22,6 +22,9 @@ import * as z from "zod";
 import { useEffect } from "react";
 
 const notificationsSchema = z.object({
+  allocationChangeAlerts: z.object({
+      enabled: z.boolean().default(true),
+  }),
   thresholdAlerts: z.object({
     enabled: z.boolean().default(false),
     percentage: z.number().min(0).max(100).default(80),
@@ -45,6 +48,9 @@ type NotificationsFormValues = z.infer<typeof notificationsSchema>;
 
 // Mock existing settings - in a real app, this would be fetched from a database
 const MOCK_EXISTING_SETTINGS = {
+    allocationChangeAlerts: {
+        enabled: true,
+    },
     thresholdAlerts: {
         enabled: true,
         percentage: 85,
@@ -99,10 +105,30 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
           </DialogHeader>
 
           <div className="space-y-6 py-6">
+            {/* Allocation Change Alerts */}
+             <div className="space-y-4 rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <Label htmlFor="allocation-change-enabled" className="text-base font-medium">Allocation Change Notifications</Label>
+                        <p className="text-sm text-muted-foreground pt-1">Notify users when their allocation is created or updated.</p>
+                    </div>
+                    <Controller
+                        name="allocationChangeAlerts.enabled"
+                        control={control}
+                        render={({ field }) => (
+                            <Switch id="allocation-change-enabled" checked={field.value} onCheckedChange={field.onChange} />
+                        )}
+                    />
+                </div>
+            </div>
+
             {/* Threshold Alerts */}
             <div className="space-y-4 rounded-lg border p-4">
                 <div className="flex items-center justify-between">
-                    <Label htmlFor="threshold-enabled" className="text-base font-medium">Usage Threshold Alerts</Label>
+                     <div>
+                        <Label htmlFor="threshold-enabled" className="text-base font-medium">Usage Threshold Alerts</Label>
+                        <p className="text-sm text-muted-foreground pt-1">Notify when usage exceeds a set percentage of the total allocation.</p>
+                    </div>
                     <Controller
                         name="thresholdAlerts.enabled"
                         control={control}
@@ -112,6 +138,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                     />
                 </div>
                 <div className={`space-y-4 transition-opacity ${watchedThresholdEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+                    <Separator/>
                     <div>
                         <Label htmlFor="threshold-percentage">Notify when usage exceeds</Label>
                         <Controller
@@ -150,7 +177,10 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
              {/* Spike Alerts */}
             <div className="space-y-4 rounded-lg border p-4">
                 <div className="flex items-center justify-between">
-                    <Label htmlFor="spike-enabled" className="text-base font-medium">High Usage Spike Alerts</Label>
+                     <div>
+                        <Label htmlFor="spike-enabled" className="text-base font-medium">High Usage Spike Alerts</Label>
+                        <p className="text-sm text-muted-foreground pt-1">Notify if daily usage is significantly higher than the weekly average.</p>
+                    </div>
                     <Controller
                         name="spikeAlerts.enabled"
                         control={control}
@@ -160,6 +190,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                     />
                 </div>
                  <div className={`space-y-4 transition-opacity ${watchedSpikeEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+                    <Separator/>
                     <div>
                         <Label htmlFor="spike-percentage">Notify if daily usage is higher than weekly average by</Label>
                         <Controller
