@@ -4,6 +4,7 @@
 import { AppLayout } from "@/components/AppLayout";
 import { DataUploadForm } from "@/components/dashboard/DataUploadForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function DataUploadPage() {
 
@@ -24,7 +25,8 @@ export default function DataUploadPage() {
             <CardHeader>
                 <CardTitle>Upload Usage Data</CardTitle>
                 <CardDescription>
-                    Upload a CSV file with user water usage. The file should have columns: `userEmail`, `date` (in YYYY-MM-DD format), and `usage` (in gallons).
+                    Upload a CSV file with user water usage. The file should have columns: `userEmail`, `date` (in YYYY-MM-DD format), and `usage` (in gallons). 
+                    You can <Link href="/test-data.csv" className="underline text-primary" download>download a sample file</Link> to see the required format.
                 </CardDescription>
             </CardHeader>
             <CardContent>
