@@ -88,8 +88,8 @@ const generateMockUsage = () => {
             // Generate random usage between 8000 and 10000 gallons for customers
             // And between 4000 and 6000 for admins to simulate different patterns
             const user = users.find(u => u.id === userId);
-            const baseUsage = user?.role === 'Admin' ? 4000 : 8000;
-            const randomComponent = 2000;
+            const baseUsage = user?.role === 'Admin' ? 6400 : 12800; // Increased by 60%
+            const randomComponent = 3200; // Increased by 60%
             const dailyUsage = Math.floor(Math.random() * randomComponent) + baseUsage;
             
             generatedData.push({
@@ -244,4 +244,5 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
 
 
     
+
 
