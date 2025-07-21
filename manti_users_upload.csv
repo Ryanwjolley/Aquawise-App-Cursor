@@ -1,0 +1,11 @@
+User,Email,User ID,Role,Shares
+"Alice Johnson","alice.j@example.com","user-manti-001","customer",10
+"Bob Williams","bob.w@example.com","user-manti-002","customer",5
+"Charlie Brown","charlie.b@example.com","user-manti-003","customer",15
+"Diana Miller","diana.m@example.com","user-manti-004","customer",8
+"Ethan Davis","ethan.d@example.com","user-manti-005","customer",12
+"Fiona Garcia","fiona.g@example.com","user-manti-006","customer",20
+"George Rodriguez","george.r@example.com","user-manti-007","customer",7
+"Hannah Martinez","hannah.m@example.com","user-manti-008","customer",14
+"Ian Hernandez","ian.h@example.com","user-manti-009","customer",9
+"Jane Lopez","jane.l@example.com","user-manti-010","customer",11
