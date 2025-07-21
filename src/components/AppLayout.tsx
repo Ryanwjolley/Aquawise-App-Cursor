@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2 } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -48,14 +48,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               </SidebarMenuItem>
               {currentUser?.role === 'Admin' && (
-                <SidebarMenuItem>
-                    <Link href="/admin/users">
-                        <SidebarMenuButton tooltip="Users" isActive={pathname === '/admin/users'}>
-                        <Users />
-                        <span>Users</span>
-                        </SidebarMenuButton>
-                    </Link>
-                </SidebarMenuItem>
+                <>
+                    <SidebarMenuItem>
+                        <Link href="/admin/users">
+                            <SidebarMenuButton tooltip="Users" isActive={pathname.startsWith('/admin/users')}>
+                            <Users />
+                            <span>Users</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <Link href="/admin/data-upload">
+                            <SidebarMenuButton tooltip="Data Upload" isActive={pathname.startsWith('/admin/data-upload')}>
+                            <Upload />
+                            <span>Data Upload</span>
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                </>
               )}
               {currentUser?.role === 'Admin' && (
                  <SidebarMenuItem>
