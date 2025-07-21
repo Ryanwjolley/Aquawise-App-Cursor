@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppLayout } from "@/components/AppLayout";
@@ -18,32 +19,32 @@ export default function CustomerDashboardPage() {
   const [usageData, setUsageData] = useState<UsageEntry[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // This state will trigger the data fetching
   const [queryRange, setQueryRange] = useState<DateRange | undefined>({
     from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
     to: new Date(),
   });
 
   useEffect(() => {
-    if (currentUser) {
-      const fetchData = async () => {
-        setLoading(true);
+    const fetchData = async () => {
+      if (!currentUser) return; // Don't fetch if user isn't loaded yet
+
+      setLoading(true);
+      try {
         const fromDate = queryRange?.from ? format(queryRange.from, "yyyy-MM-dd") : undefined;
         const toDate = queryRange?.to ? format(queryRange.to, "yyyy-MM-dd") : undefined;
         
-        try {
-            const data = await getUsageForUser(currentUser.id, fromDate, toDate);
-            setUsageData(data);
-        } catch (error) {
-            console.error("Failed to fetch usage data:", error);
-            setUsageData([]); // Clear data on error
-        } finally {
-            setLoading(false);
-        }
-      };
-      fetchData();
-    }
-  }, [currentUser, queryRange]);
+        const data = await getUsageForUser(currentUser.id, fromDate, toDate);
+        setUsageData(data);
+      } catch (error) {
+        console.error("Failed to fetch usage data:", error);
+        setUsageData([]); // Clear data on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [currentUser, queryRange]); // Rerun when user or queryRange changes
 
   const totalUsage = usageData.reduce((acc, entry) => acc + entry.usage, 0);
   const avgDailyUsage = usageData.length > 0 ? totalUsage / usageData.length : 0;
