@@ -478,10 +478,13 @@ export const deleteAllocation = async (id: string): Promise<void> => {
 
 export const getAllocationsForPeriod = async (companyId: string, startDate: Date, endDate: Date): Promise<Allocation[]> => {
     try {
+        // An allocation overlaps if its start date is before the range ends,
+        // and its end date is after the range begins.
         const q = query(
             allocationsCollection,
             where("companyId", "==", companyId),
-            where("startDate", "<=", endDate)
+            where("startDate", "<=", endDate),
+            where("endDate", ">=", startDate)
         );
 
         const querySnapshot = await getDocs(q);
@@ -503,8 +506,8 @@ export const getAllocationsForPeriod = async (companyId: string, startDate: Date
                 flowUnit: data.flowUnit,
             } as Allocation;
         });
-
-        return allocations.filter(alloc => alloc.endDate >= startDate);
+        
+        return allocations;
 
     } catch (e) {
         console.error("Error getting allocations for period: ", e);
