@@ -415,6 +415,9 @@ export const findExistingUsageForUsersAndDates = async (entries: ParsedUsageEntr
     const userIds = [...new Set(entries.map(e => e.userId))];
     const datesToCheck = new Set(entries.map(e => e.date));
 
+    // To avoid massive 'in' queries, which are limited to 30 items in Firestore,
+    // we fetch all data for the users involved. This is less efficient if users have
+    // huge histories, but safer and avoids index needs.
     const queryPromises = userIds.map(userId => 
         getDocs(query(usageCollection, where("userId", "==", userId)))
     );
@@ -424,6 +427,7 @@ export const findExistingUsageForUsersAndDates = async (entries: ParsedUsageEntr
     for (const snapshot of snapshots) {
         snapshot.forEach(docSnap => {
             const data = docSnap.data();
+            // Compare dates in YYYY-MM-DD format to avoid timezone issues.
             const dateStr = format(data.date.toDate(), 'yyyy-MM-dd');
             
             if (datesToCheck.has(dateStr)) {
