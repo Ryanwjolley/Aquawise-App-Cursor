@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, Users, BarChart, Droplets, Bell, Eye } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getTotalUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, createUserDocument, findExistingUsageForUsersAndDates, bulkAddUsageEntries, deleteCompany as deleteCompanyFS } from '../firestoreService';
+import { getTotalUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, createUserDocument, findExistingUsageForUsersAndDates, bulkAddUsageEntries } from '../firestoreService';
 import type { User, Invite, ParsedUsageEntry } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -173,14 +173,15 @@ export default function AdminDashboard() {
                     const existingMap = await findExistingUsageForUsersAndDates(parsedEntries);
                     const count = existingMap.size;
                     
+                    setUsageEntriesToUpload(parsedEntries);
+                    setExistingEntriesMap(existingMap);
+                    
                     if (count > 0) {
-                        setUsageEntriesToUpload(parsedEntries);
-                        setExistingEntriesMap(existingMap);
                         setDuplicateCount(count);
                         setIsUploadConfirmOpen(true);
                     } else {
                         // No duplicates, upload directly
-                        await handleConfirmUpload('new_only');
+                        await handleConfirmUpload('new_only', parsedEntries, existingMap);
                     }
                 } else {
                      toast({ variant: 'destructive', title: 'No Valid Data Found', description: 'CSV data did not match any existing users or was invalid. Expected format: userId,consumption,date.' });
@@ -195,9 +196,9 @@ export default function AdminDashboard() {
         reader.readAsText(file);
     };
 
-    const handleConfirmUpload = async (mode: UploadMode) => {
+    const handleConfirmUpload = async (mode: UploadMode, entries: ParsedUsageEntry[], existingMap: Map<string, string>) => {
         try {
-            const { added, updated } = await bulkAddUsageEntries(usageEntriesToUpload, mode, existingEntriesMap);
+            const { added, updated } = await bulkAddUsageEntries(entries, mode, existingMap);
             let description = '';
             if (added > 0 && updated > 0) {
                 description = `Added ${added} new and updated ${updated} existing records.`;
@@ -206,7 +207,7 @@ export default function AdminDashboard() {
             } else if (updated > 0) {
                 description = `Updated ${updated} existing records.`;
             } else {
-                description = `No changes were made. All ${usageEntriesToUpload.length} records were duplicates and you chose not to overwrite.`;
+                description = `No changes were made. All ${entries.length} records were duplicates and you chose not to overwrite.`;
             }
             toast({ title: 'Upload Complete', description });
             fetchWaterData(); // Refresh dashboard data
@@ -573,8 +574,8 @@ export default function AdminDashboard() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel Upload</AlertDialogCancel>
-                        <Button variant="outline" onClick={() => handleConfirmUpload('new_only')}>Add New Only</Button>
-                        <AlertDialogAction onClick={() => handleConfirmUpload('overwrite')}>Overwrite Duplicates</AlertDialogAction>
+                        <Button variant="outline" onClick={() => handleConfirmUpload('new_only', usageEntriesToUpload, existingEntriesMap)}>Add New Only</Button>
+                        <AlertDialogAction onClick={() => handleConfirmUpload('overwrite', usageEntriesToUpload, existingEntriesMap)}>Overwrite Duplicates</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
