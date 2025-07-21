@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, Users, BarChart, Droplets, Bell, Eye } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getTotalUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument } from '../firestoreService';
-import type { User, Invite } from '../firestoreService';
+import { getTotalUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, createUserDocument, findExistingUsageForUsersAndDates, bulkAddUsageEntries } from '../firestoreService';
+import type { User, Invite, ParsedUsageEntry } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { DateRange } from 'react-day-picker';
@@ -37,6 +37,7 @@ import { NotificationSettings } from './notification-settings';
 import { useRouter } from 'next/navigation';
 
 type UserData = User | Invite;
+type UploadMode = 'overwrite' | 'new_only';
 
 export default function AdminDashboard() {
     const { user: authUser, userDetails, companyDetails, impersonatingCompanyId, impersonatedCompanyDetails, startImpersonation } = useAuth();
@@ -53,6 +54,11 @@ export default function AdminDashboard() {
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [userToDelete, setUserToDelete] = useState<(User | Invite) | null>(null);
+
+    // State for CSV upload confirmation
+    const [isUploadConfirmOpen, setIsUploadConfirmOpen] = useState(false);
+    const [usageEntriesToUpload, setUsageEntriesToUpload] = useState<ParsedUsageEntry[]>([]);
+    const [duplicateCount, setDuplicateCount] = useState(0);
 
     const { toast } = useToast();
     const { unit, setUnit, getUnitLabel } = useUnit();
@@ -129,7 +135,7 @@ export default function AdminDashboard() {
         fetchWaterData();
     }, [date, fetchWaterData]);
 
-    const handleUsageCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleUsageCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file || !selectedCompanyId) return;
 
@@ -144,8 +150,7 @@ export default function AdminDashboard() {
                 const text = e.target?.result as string;
                 const lines = text.split(/\r\n|\n/).slice(1);
                 
-                const usageEntries = [];
-                let updatesMade = 0;
+                const parsedEntries: ParsedUsageEntry[] = [];
                 const registeredUsers = userData.filter((u) => u.status !== 'invited') as User[];
                 const validUserIds = new Set(registeredUsers.map((u) => u.id));
 
@@ -154,22 +159,29 @@ export default function AdminDashboard() {
                     const [userId, usedStr, dateStr] = line.split(',');
                     if (userId && usedStr && dateStr) {
                         const trimmedUserId = userId.trim();
-                        const used = parseInt(usedStr.trim(), 10);
+                        const consumption = parseInt(usedStr.trim(), 10);
                         const trimmedDate = dateStr.trim();
 
-                        if (validUserIds.has(trimmedUserId) && !isNaN(used) && trimmedDate) {
-                            usageEntries.push({ userId: trimmedUserId, companyId: selectedCompanyId, consumption: used, date: trimmedDate });
-                            updatesMade++;
+                        if (validUserIds.has(trimmedUserId) && !isNaN(consumption) && trimmedDate) {
+                            parsedEntries.push({ userId: trimmedUserId, companyId: selectedCompanyId, consumption, date: trimmedDate });
                         }
                     }
                 }
                 
-                if (updatesMade > 0) {
-                    await Promise.all(usageEntries.map(entry => addUsageEntry(entry)));
-                    fetchWaterData();
-                    toast({ title: 'Upload Successful', description: `Logged usage for ${updatesMade} record(s).` });
+                if (parsedEntries.length > 0) {
+                    const existingEntries = await findExistingUsageForUsersAndDates(parsedEntries);
+                    const duplicateCount = existingEntries.size;
+                    
+                    if (duplicateCount > 0) {
+                        setUsageEntriesToUpload(parsedEntries);
+                        setDuplicateCount(duplicateCount);
+                        setIsUploadConfirmOpen(true);
+                    } else {
+                        // No duplicates, upload directly
+                        await handleConfirmUpload('new_only', parsedEntries);
+                    }
                 } else {
-                     toast({ variant: 'destructive', title: 'No Updates Made', description: 'CSV data did not match any existing users or was invalid. Expected format: userId,consumption,date.' });
+                     toast({ variant: 'destructive', title: 'No Valid Data Found', description: 'CSV data did not match any existing users or was invalid. Expected format: userId,consumption,date.' });
                 }
             } catch (error) {
                  toast({ variant: 'destructive', title: 'Error Processing File', description: 'Could not parse or upload the CSV file. Please check the format and file content.' });
@@ -179,6 +191,31 @@ export default function AdminDashboard() {
             }
         };
         reader.readAsText(file);
+    };
+
+    const handleConfirmUpload = async (mode: UploadMode, entries: ParsedUsageEntry[]) => {
+        try {
+            const { added, updated } = await bulkAddUsageEntries(entries, mode);
+            let description = '';
+            if (added > 0 && updated > 0) {
+                description = `Added ${added} new and updated ${updated} existing records.`;
+            } else if (added > 0) {
+                description = `Added ${added} new records.`;
+            } else if (updated > 0) {
+                description = `Updated ${updated} existing records.`;
+            } else {
+                description = `No changes were made. All ${entries.length} records were duplicates and you chose not to overwrite.`;
+            }
+            toast({ title: 'Upload Complete', description });
+            fetchWaterData(); // Refresh dashboard data
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Upload Failed', description: 'An error occurred during the bulk upload process.' });
+            console.error("Bulk upload error:", error);
+        } finally {
+            setIsUploadConfirmOpen(false);
+            setUsageEntriesToUpload([]);
+            setDuplicateCount(0);
+        }
     };
 
     const handleUserCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -520,6 +557,22 @@ export default function AdminDashboard() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleConfirmUserDelete} className={buttonVariants({ variant: "destructive" })}>Delete</AlertDialogAction></AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+            <AlertDialog open={isUploadConfirmOpen} onOpenChange={setIsUploadConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Duplicate Entries Found</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Your CSV file contains <span className="font-bold">{duplicateCount}</span> record(s) for dates that already have usage data. How would you like to proceed?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel Upload</AlertDialogCancel>
+                        <Button variant="outline" onClick={() => handleConfirmUpload('new_only', usageEntriesToUpload)}>Add New Only</Button>
+                        <AlertDialogAction onClick={() => handleConfirmUpload('overwrite', usageEntriesToUpload)}>Overwrite Duplicates</AlertDialogAction>
+                    </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </div>

@@ -57,7 +57,15 @@ export interface UsageEntry {
     consumption: number;
 }
 
+export interface ParsedUsageEntry {
+    userId: string;
+    companyId: string;
+    date: string;
+    consumption: number;
+}
+
 export type NotificationRuleData = Omit<NotificationRule, 'id'>;
+export type UploadMode = 'overwrite' | 'new_only';
 
 const companiesCollection = collection(db, "companies");
 const usersCollection = collection(db, "users");
@@ -380,20 +388,86 @@ export const deleteUser = async (userId: string): Promise<void> => {
   }
 };
 
-export const addUsageEntry = async (usageEntry: {userId: string, companyId: string, date: string, consumption: number}): Promise<void> => {
-  try {
-    const date = new Date(usageEntry.date);
-    const utcDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-    const dataWithTimestamp: UsageData = {
-        ...usageEntry,
-        date: Timestamp.fromDate(utcDate)
-    };
-    await addDoc(usageCollection, dataWithTimestamp);
-  } catch (e) {
-    console.error("Error adding document: ", e);
-    throw e;
-  }
+
+const toUTCDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+}
+
+// Find existing usage entries for a set of users and dates.
+// Returns a Map where the key is "userId-YYYY-MM-DD" and the value is the document ID.
+export const findExistingUsageForUsersAndDates = async (entries: ParsedUsageEntry[]): Promise<Map<string, string>> => {
+    const existingEntries = new Map<string, string>();
+    if (entries.length === 0) return existingEntries;
+
+    // Batch queries by user to avoid hitting Firestore query limits and improve performance.
+    const userDateMap = new Map<string, string[]>();
+    for (const entry of entries) {
+        if (!userDateMap.has(entry.userId)) {
+            userDateMap.set(entry.userId, []);
+        }
+        userDateMap.get(entry.userId)!.push(entry.date);
+    }
+    
+    const queryPromises = [];
+    for (const [userId, dates] of userDateMap.entries()) {
+        const timestamps = dates.map(d => Timestamp.fromDate(toUTCDate(d)));
+        // Firestore 'in' query is limited to 30 items, so we might need to chunk this
+        for (let i = 0; i < timestamps.length; i += 30) {
+             const chunk = timestamps.slice(i, i + 30);
+             const q = query(usageCollection, where("userId", "==", userId), where("date", "in", chunk));
+             queryPromises.push(getDocs(q));
+        }
+    }
+    
+    const snapshots = await Promise.all(queryPromises);
+    for (const snapshot of snapshots) {
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            const dateStr = format(data.date.toDate(), 'yyyy-MM-dd');
+            const key = `${data.userId}-${dateStr}`;
+            existingEntries.set(key, docSnap.id);
+        });
+    }
+    
+    return existingEntries;
 };
+
+export const bulkAddUsageEntries = async (entries: ParsedUsageEntry[], mode: UploadMode): Promise<{ added: number; updated: number; }> => {
+    let added = 0;
+    let updated = 0;
+    
+    const existingEntriesMap = await findExistingUsageForUsersAndDates(entries);
+    const batch = writeBatch(db);
+
+    for (const entry of entries) {
+        const key = `${entry.userId}-${entry.date}`;
+        const existingDocId = existingEntriesMap.get(key);
+
+        if (existingDocId) {
+            // This entry is a duplicate
+            if (mode === 'overwrite') {
+                const docRef = doc(db, 'usageData', existingDocId);
+                batch.update(docRef, { consumption: entry.consumption });
+                updated++;
+            }
+            // If mode is 'new_only', we do nothing.
+        } else {
+            // This is a new entry
+            const newDocRef = doc(collection(db, 'usageData'));
+            const dataWithTimestamp: UsageData = {
+                ...entry,
+                date: Timestamp.fromDate(toUTCDate(entry.date))
+            };
+            batch.set(newDocRef, dataWithTimestamp);
+            added++;
+        }
+    }
+
+    await batch.commit();
+    return { added, updated };
+};
+
 
 export const getTotalUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<number> => {
     let totalUsage = 0;
@@ -406,6 +480,7 @@ export const getTotalUsageForDateRange = async (userId: string, companyId: strin
         );
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
+            // Secondary filter for companyId
             if (doc.data().companyId === companyId) {
                 totalUsage += doc.data().consumption;
             }
@@ -436,6 +511,7 @@ export const getDailyUsageForDateRange = async (userId: string, companyId: strin
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             const data = doc.data();
+            // Secondary filter for companyId
             if (data.companyId === companyId) {
                 const day = format((data.date as Timestamp).toDate(), 'MMM d');
                 const currentUsage = dailyUsageMap.get(day) || 0;
@@ -464,6 +540,7 @@ export const getUsageEntriesForDateRange = async (userId: string, companyId: str
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             const data = doc.data();
+             // Secondary filter for companyId
             if (data.companyId === companyId) {
                 entries.push({
                     id: doc.id,
