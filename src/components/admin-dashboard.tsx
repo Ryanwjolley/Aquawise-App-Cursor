@@ -151,7 +151,7 @@ export default function AdminDashboard() {
                 const lines = text.split(/\r\n|\n/).slice(1);
                 
                 const parsedEntries: ParsedUsageEntry[] = [];
-                const registeredUsers = userData.filter((u) => u.status !== 'invited') as User[];
+                const registeredUsers = userData.filter((u) => u.status === 'active') as User[];
                 const validUserIds = new Set(registeredUsers.map((u) => u.id));
 
                 for (const line of lines) {

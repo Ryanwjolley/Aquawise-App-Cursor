@@ -412,31 +412,42 @@ export const findExistingUsageForUsersAndDates = async (entries: ParsedUsageEntr
     const existingEntries = new Map<string, string>();
     if (entries.length === 0) return existingEntries;
 
-    const userIds = [...new Set(entries.map(e => e.userId))];
-    const datesToCheck = new Set(entries.map(e => e.date));
+    // Group entries by userId to perform more targeted queries
+    const entriesByUser = entries.reduce((acc, entry) => {
+        if (!acc[entry.userId]) {
+            acc[entry.userId] = [];
+        }
+        acc[entry.userId].push(entry);
+        return acc;
+    }, {} as Record<string, ParsedUsageEntry[]>);
 
-    // To avoid massive 'in' queries, which are limited to 30 items in Firestore,
-    // we fetch all data for the users involved. This is less efficient if users have
-    // huge histories, but safer and avoids index needs.
-    const queryPromises = userIds.map(userId => 
-        getDocs(query(usageCollection, where("userId", "==", userId)))
-    );
-    
-    const snapshots = await Promise.all(queryPromises);
+    const queryPromises = Object.keys(entriesByUser).map(async (userId) => {
+        const userEntries = entriesByUser[userId];
+        const datesToCheck = userEntries.map(e => Timestamp.fromDate(toUTCDate(e.date)));
+        
+        // Firestore 'in' queries are limited to 30 items. We need to chunk if necessary.
+        const dateChunks: Timestamp[][] = [];
+        for (let i = 0; i < datesToCheck.length; i += 30) {
+            dateChunks.push(datesToCheck.slice(i, i + 30));
+        }
 
-    for (const snapshot of snapshots) {
-        snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            // Compare dates in YYYY-MM-DD format to avoid timezone issues.
-            const dateStr = format(data.date.toDate(), 'yyyy-MM-dd');
-            
-            if (datesToCheck.has(dateStr)) {
+        for (const chunk of dateChunks) {
+            const q = query(
+                usageCollection,
+                where("userId", "==", userId),
+                where("date", "in", chunk)
+            );
+            const snapshot = await getDocs(q);
+            snapshot.forEach(docSnap => {
+                const data = docSnap.data();
+                const dateStr = format(data.date.toDate(), 'yyyy-MM-dd');
                 const key = `${data.userId}-${dateStr}`;
                 existingEntries.set(key, docSnap.id);
-            }
-        });
-    }
+            });
+        }
+    });
     
+    await Promise.all(queryPromises);
     return existingEntries;
 };
 
