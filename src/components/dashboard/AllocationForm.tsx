@@ -26,15 +26,19 @@ import * as z from "zod";
 import type { Allocation, User } from "@/lib/data";
 import { DateRangeSelector } from "./DateRangeSelector";
 import type { DateRange } from "react-day-picker";
-import { format, differenceInDays, addDays } from "date-fns";
+import { format, differenceInMinutes, addMinutes, subMinutes } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 
 type Unit = "gallons" | "acre-feet" | "gpm" | "cfs" | "ac-ft/day";
+
+const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const allocationFormSchema = z.object({
   dateRange: z.custom<DateRange>(val => val && (val as DateRange).from && (val as DateRange).to, {
       message: "Please select a start and end date."
   }),
+  startTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
+  endTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }),
   unit: z.enum(["gallons", "acre-feet", "gpm", "cfs", "ac-ft/day"]),
   userId: z.string().min(1, { message: "Please select who this applies to." }),
@@ -50,26 +54,23 @@ interface AllocationFormProps {
   existingAllocations: Allocation[];
 }
 
-// Conversion factors to gallons
-const CONVERSIONS: Record<Unit, number> = {
-    gallons: 1,
-    'acre-feet': 325851,
-    gpm: 1440, // gallons per minute to gallons per day
-    cfs: 646317, // cubic feet per second to gallons per day
-    'ac-ft/day': 325851,
+// Conversion factors to gallons per minute
+const CONVERSIONS_GPM: Record<Exclude<Unit, 'gallons' | 'acre-feet' | 'ac-ft/day'>, number> = {
+    gpm: 1, 
+    cfs: 448.831, // cubic feet per second to gallons per minute
 };
 
-function convertToGallons(amount: number, unit: Unit, days: number): number {
-    if (unit === 'gallons' || unit === 'acre-feet') {
-        // These are total amounts, not rates
-        return amount * CONVERSIONS[unit];
-    } else {
-        // These are rates, so multiply by number of days in the period
-        return amount * CONVERSIONS[unit] * days;
-    }
+function convertToGallons(amount: number, unit: Unit, minutes: number): number {
+    if (unit === 'gallons') return amount;
+    if (unit === 'acre-feet') return amount * 325851;
+    if (unit === 'ac-ft/day') return (amount * 325851) / 1440 * minutes;
+
+    // It's a rate unit
+    return amount * CONVERSIONS_GPM[unit as keyof typeof CONVERSIONS_GPM] * minutes;
 }
 
-const GAP_THRESHOLD_DAYS = 2; // More than 2 days is considered a gap.
+
+const GAP_THRESHOLD_MINUTES = 5;
 
 export function AllocationForm({
   isOpen,
@@ -94,18 +95,35 @@ export function AllocationForm({
       unit: "gallons",
       userId: "all",
       dateRange: undefined,
+      startTime: "00:00",
+      endTime: "23:59",
     },
   });
 
   const selectedDateRange = watch("dateRange");
   const selectedUserId = watch("userId");
+  const startTime = watch("startTime");
+  const endTime = watch("endTime");
+
+  const combineDateTime = (date: Date, time: string): Date | null => {
+    if (!time.match(timeRegex)) return null;
+    const newDate = new Date(date);
+    const [hours, minutes] = time.split(':').map(Number);
+    newDate.setHours(hours, minutes, 0, 0);
+    return newDate;
+  }
 
   useEffect(() => {
-    if (isOpen && selectedDateRange?.from && selectedDateRange?.to) {
-      const newStart = selectedDateRange.from;
-      const newEnd = selectedDateRange.to;
+    if (isOpen && selectedDateRange?.from && selectedDateRange?.to && startTime && endTime) {
+      const newStart = combineDateTime(selectedDateRange.from, startTime);
+      const newEnd = combineDateTime(selectedDateRange.to, endTime);
 
-      // Filter allocations relevant to the current selection
+      if (!newStart || !newEnd || newStart >= newEnd) {
+         setOverlapWarning(null);
+         setGapWarning(null);
+         return;
+      }
+      
       const relevantAllocations = existingAllocations.filter(alloc => 
         (selectedUserId === 'all' && !alloc.userId) || (alloc.userId === selectedUserId)
       );
@@ -114,12 +132,11 @@ export function AllocationForm({
       const overlappingAlloc = relevantAllocations.find(alloc => {
         const existingStart = new Date(alloc.startDate);
         const existingEnd = new Date(alloc.endDate);
-        // We allow one day of overlap for continuous periods (e.g., end on 15th, start on 15th)
-        return newStart < addDays(existingEnd, 1) && newEnd > addDays(existingStart, -1);
+        return newStart < addMinutes(existingEnd, GAP_THRESHOLD_MINUTES) && newEnd > subMinutes(existingStart, GAP_THRESHOLD_MINUTES);
       });
 
       if (overlappingAlloc) {
-        setOverlapWarning(`This period overlaps with an existing allocation from ${format(new Date(overlappingAlloc.startDate), 'P')} to ${format(new Date(overlappingAlloc.endDate), 'P')}.`);
+        setOverlapWarning(`This period is too close to an existing allocation from ${format(new Date(overlappingAlloc.startDate), 'P p')} to ${format(new Date(overlappingAlloc.endDate), 'P p')}.`);
       } else {
         setOverlapWarning(null);
       }
@@ -131,9 +148,9 @@ export function AllocationForm({
       
       if (allocationsBefore.length > 0) {
         const lastAllocation = allocationsBefore[0];
-        const gap = differenceInDays(newStart, new Date(lastAllocation.endDate));
-        if (gap > GAP_THRESHOLD_DAYS) {
-          setGapWarning(`There is a gap of ${gap - 1} days since the last allocation, which ended on ${format(new Date(lastAllocation.endDate), 'P')}.`);
+        const gap = differenceInMinutes(newStart, new Date(lastAllocation.endDate));
+        if (gap > GAP_THRESHOLD_MINUTES) {
+          setGapWarning(`There is a gap of ${gap} minutes since the last allocation, which ended on ${format(new Date(lastAllocation.endDate), 'P p')}.`);
         } else {
             setGapWarning(null);
         }
@@ -146,7 +163,7 @@ export function AllocationForm({
       setGapWarning(null);
     }
 
-  }, [selectedDateRange, selectedUserId, existingAllocations, isOpen]);
+  }, [selectedDateRange, startTime, endTime, selectedUserId, existingAllocations, isOpen]);
 
 
   useEffect(() => {
@@ -158,12 +175,21 @@ export function AllocationForm({
   }, [isOpen, reset]);
   
   const handleFormSubmit = (data: AllocationFormValues) => {
-    const days = differenceInDays(data.dateRange.to!, data.dateRange.from!) + 1;
-    const totalGallons = convertToGallons(data.amount, data.unit, days);
+    const startDate = combineDateTime(data.dateRange.from!, data.startTime);
+    const endDate = combineDateTime(data.dateRange.to!, data.endTime);
+
+    if (!startDate || !endDate || startDate >= endDate) {
+        // Should be caught by validation, but as a safeguard.
+        console.error("Invalid date/time range.");
+        return;
+    }
+
+    const durationMinutes = differenceInMinutes(endDate, startDate);
+    const totalGallons = convertToGallons(data.amount, data.unit, durationMinutes);
 
     onSubmit({
-        startDate: format(data.dateRange.from!, 'yyyy-MM-dd'),
-        endDate: format(data.dateRange.to!, 'yyyy-MM-dd'),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
         gallons: totalGallons,
         userId: data.userId === 'all' ? undefined : data.userId
     });
@@ -183,21 +209,47 @@ export function AllocationForm({
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-6 overflow-y-auto py-6 pr-6 pl-1">
-            <div className="grid gap-2 pl-5">
-                <Label htmlFor="dateRange">Allocation Period</Label>
-                <Controller
-                    name="dateRange"
-                    control={control}
-                    render={({ field }) => (
-                        <DateRangeSelector
-                            onUpdate={field.onChange}
-                            selectedRange={field.value}
-                        />
+            <div className="space-y-4 pl-5">
+                <div className="grid gap-2">
+                    <Label htmlFor="dateRange">Allocation Period Dates</Label>
+                    <Controller
+                        name="dateRange"
+                        control={control}
+                        render={({ field }) => (
+                            <DateRangeSelector
+                                onUpdate={field.onChange}
+                                selectedRange={field.value}
+                            />
+                        )}
+                    />
+                     {errors.dateRange && (
+                        <p className="text-sm text-destructive">{errors.dateRange.message}</p>
                     )}
-                />
-                 {errors.dateRange && (
-                    <p className="text-sm text-destructive">{errors.dateRange.message}</p>
-                )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                     <div className="grid gap-2">
+                        <Label htmlFor="startTime">Start Time</Label>
+                        <Controller
+                            name="startTime"
+                            control={control}
+                            render={({ field }) => <Input id="startTime" type="time" {...field} />}
+                        />
+                         {errors.startTime && (
+                            <p className="text-sm text-destructive">{errors.startTime.message}</p>
+                        )}
+                    </div>
+                     <div className="grid gap-2">
+                        <Label htmlFor="endTime">End Time</Label>
+                        <Controller
+                            name="endTime"
+                            control={control}
+                            render={({ field }) => <Input id="endTime" type="time" {...field} />}
+                        />
+                        {errors.endTime && (
+                            <p className="text-sm text-destructive">{errors.endTime.message}</p>
+                        )}
+                    </div>
+                </div>
             </div>
             
             {(overlapWarning || gapWarning) && (
@@ -239,11 +291,11 @@ export function AllocationForm({
                                 <SelectValue placeholder="Select unit" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="gallons">Gallons</SelectItem>
-                                <SelectItem value="acre-feet">Acre-Feet</SelectItem>
-                                <SelectItem value="gpm">GPM</SelectItem>
-                                <SelectItem value="cfs">CFS</SelectItem>
-                                <SelectItem value="ac-ft/day">Ac-Ft/Day</SelectItem>
+                                <SelectItem value="gallons">Gallons (Total)</SelectItem>
+                                <SelectItem value="acre-feet">Acre-Feet (Total)</SelectItem>
+                                <SelectItem value="gpm">GPM (Rate)</SelectItem>
+                                <SelectItem value="cfs">CFS (Rate)</SelectItem>
+                                <SelectItem value="ac-ft/day">Ac-Ft/Day (Rate)</SelectItem>
                             </SelectContent>
                         </Select>
                         )}

@@ -98,7 +98,7 @@ export default function AllocationPage() {
                   allocations.map((alloc) => (
                     <TableRow key={alloc.id}>
                       <TableCell className="font-medium">{userMap.get(alloc.userId || 'all')}</TableCell>
-                      <TableCell>{format(new Date(alloc.startDate), 'LLL dd, y')} - {format(new Date(alloc.endDate), 'LLL dd, y')}</TableCell>
+                      <TableCell>{format(new Date(alloc.startDate), 'P p')} - {format(new Date(alloc.endDate), 'P p')}</TableCell>
                       <TableCell className="text-right">{alloc.gallons.toLocaleString()}</TableCell>
                     </TableRow>
                   ))

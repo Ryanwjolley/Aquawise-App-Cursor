@@ -10,7 +10,7 @@ import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { useState, useEffect } from "react";
 import type { UsageEntry, Allocation } from "@/lib/data";
 import { getUsageForUser, getAllocationsForUser } from "@/lib/data";
-import { format, isWithinInterval } from "date-fns";
+import { format, isWithinInterval, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,7 +46,7 @@ export default function CustomerDashboardPage() {
         // Find the allocation that applies to the current date
         const today = new Date();
         const currentAllocation = allocs.find(a => 
-            isWithinInterval(today, { start: new Date(a.startDate), end: new Date(a.endDate) })
+            isWithinInterval(today, { start: parseISO(a.startDate), end: parseISO(a.endDate) })
         );
         setAllocation(currentAllocation || null);
 

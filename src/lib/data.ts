@@ -25,8 +25,8 @@ export type UsageEntry = {
 export type Allocation = {
     id: string;
     companyId: string;
-    startDate: string; // YYYY-MM-DD
-    endDate: string; // YYYY-MM-DD
+    startDate: string; // ISO 8601 format
+    endDate: string; // ISO 8601 format
     gallons: number;
     userId?: string; // If undefined, applies to all users in the company
 };
@@ -55,6 +55,13 @@ const getRecentDate = (daysAgo: number): string => {
     return date.toISOString().split('T')[0]; // YYYY-MM-DD
 }
 
+const getRecentDateTime = (daysAgo: number, hour = 0, minute = 0) => {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    date.setHours(hour, minute, 0, 0);
+    return date.toISOString();
+}
+
 let usageData: UsageEntry[] = [
   // Alice (Admin) - Recent Data
   { id: 'u1', userId: '101', date: getRecentDate(2), usage: 4500 },
@@ -77,8 +84,8 @@ let allocations: Allocation[] = [
     { 
         id: 'a1', 
         companyId: '1', 
-        startDate: getRecentDate(30), 
-        endDate: getRecentDate(-30), // 30 days from now
+        startDate: getRecentDateTime(30, 0, 0), 
+        endDate: getRecentDateTime(-30, 23, 59), // 30 days from now
         gallons: 500000,
         // Applies to all users
     }
@@ -107,11 +114,16 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
 
 export const getUsageForUser = async (userId: string, startDate?: string, endDate?: string): Promise<UsageEntry[]> => {
   let userUsage = usageData.filter(u => u.userId === userId);
-  if (startDate) {
-    userUsage = userUsage.filter(u => u.date >= startDate);
+  
+  // Note: usage data is daily, but allocation can be hourly. We'll filter by date part only.
+  const startDay = startDate ? startDate.split('T')[0] : undefined;
+  const endDay = endDate ? endDate.split('T')[0] : undefined;
+
+  if (startDay) {
+    userUsage = userUsage.filter(u => u.date >= startDay);
   }
-  if (endDate) {
-    userUsage = userUsage.filter(u => u.date <= endDate);
+  if (endDay) {
+    userUsage = userUsage.filter(u => u.date <= endDay);
   }
   return Promise.resolve(userUsage.sort((a, b) => a.date.localeCompare(b.date)));
 };
