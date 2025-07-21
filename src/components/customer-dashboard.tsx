@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Droplets, LineChart, Scale, Users, TrendingUp } from 'lucide-react';
 import DailyUsageChart from './daily-usage-chart';
 import UsageDonutChart from './usage-donut-chart';
-import { getAllocationsForPeriod, getDailyUsageForDateRange, DailyUsage, User, getUsers, getAllocations, Allocation } from '@/firestoreService';
+import { getAllocationsForPeriod, getDailyUsageForDateRange, DailyUsage, User, getUsers, getAllocations, Allocation, getTotalUsageForDateRange } from '@/firestoreService';
 import type { DateRange } from 'react-day-picker';
 import { differenceInMinutes, differenceInSeconds } from 'date-fns';
 import { convertAndFormat, GALLONS_PER_CUBIC_FOOT } from '@/lib/utils';
@@ -119,10 +119,12 @@ export default function CustomerDashboard() {
                setTotalPeriodAllocation(0);
             }
 
-            const dailyData = await getDailyUsageForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to);
+            const [dailyData, totalUsed] = await Promise.all([
+                getDailyUsageForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to),
+                getTotalUsageForDateRange(selectedUser.id, selectedUser.companyId, date.from, date.to)
+            ]);
+
             setDailyUsage(dailyData);
-            
-            const totalUsed = dailyData.reduce((acc, day) => acc + day.gallons, 0);
             setWaterUsed(totalUsed);
 
         } catch (error) {

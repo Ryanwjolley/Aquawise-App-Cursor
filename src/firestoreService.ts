@@ -542,6 +542,27 @@ export const getAllocations = async (companyId: string): Promise<Allocation[]> =
 };
 
 
+export const getTotalUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<number> => {
+    let totalUsage = 0;
+    try {
+        const q = query(
+            usageCollection,
+            where("userId", "==", userId),
+            where("companyId", "==", companyId),
+            where("date", ">=", startDate),
+            where("date", "<=", endDate)
+        );
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            totalUsage += doc.data().consumption;
+        });
+    } catch (error) {
+        console.error("Error fetching total usage data: ", error);
+        throw error;
+    }
+    return totalUsage;
+};
+
 export const getDailyUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
     
     const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
