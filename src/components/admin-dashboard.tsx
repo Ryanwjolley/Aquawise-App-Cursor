@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, Users, BarChart, Droplets, Bell, Eye } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument } from '../firestoreService';
+import { getTotalUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, addUsageEntry, createUserDocument } from '../firestoreService';
 import type { User, Invite } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -103,12 +103,15 @@ export default function AdminDashboard() {
         setWaterDataLoading(true);
         try {
             const usersToFetch = userData.filter(u => u.status === 'active') as User[];
-            const userIds = usersToFetch.map(u => u.id);
-
-            const usageDataById = userIds.length > 0 ? await getUsageForDateRange(userIds, selectedCompanyId, date.from, date.to) : {};
             
-            const consumed = Object.values(usageDataById).reduce((sum, val) => sum + val, 0);
-            setTotalWaterConsumed(consumed);
+            const usagePromises = usersToFetch.map(user => 
+                getTotalUsageForDateRange(user.id, selectedCompanyId, date.from!, date.to!)
+            );
+            
+            const userUsages = await Promise.all(usagePromises);
+            const totalConsumed = userUsages.reduce((sum, usage) => sum + usage, 0);
+            
+            setTotalWaterConsumed(totalConsumed);
 
         } catch(error) {
             toast({
