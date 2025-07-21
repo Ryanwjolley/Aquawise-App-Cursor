@@ -109,9 +109,9 @@ export function AllocationForm({ isOpen, onOpenChange, onSave, allocation }: All
         } else {
             // Default values for a new allocation
             form.reset({
-                startDate: new Date(),
+                // startDate: new Date(), // THIS WAS THE BUG
+                // endDate: new Date(), // THIS WAS THE BUG
                 startTime: '00:00',
-                endDate: new Date(),
                 endTime: '23:59',
                 inputType: 'volume',
                 inputValue: 1000000,
