@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Upload, Edit, UserPlus, Ban, CheckCircle, Trash2, Users, BarChart, Droplets, Bell, Eye } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableBody } from '@/components/ui/table';
-import { getTotalUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, createUserDocument, findExistingUsageForUsersAndDates, bulkAddUsageEntries } from '../firestoreService';
+import { getTotalUsageForDateRange, getUsers, updateUser, inviteUser, updateUserStatus, deleteUser, getInvites, deleteInvite, createUserDocument, findExistingUsageForUsersAndDates, bulkAddUsageEntries, deleteCompany as deleteCompanyFS } from '../firestoreService';
 import type { User, Invite, ParsedUsageEntry } from '../firestoreService';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
                      toast({ variant: 'destructive', title: 'No Valid Data Found', description: 'CSV data did not match any existing users or was invalid. Expected format: userId,consumption,date.' });
                 }
             } catch (error) {
-                 toast({ variant: 'destructive', title: 'Error Processing File', description: 'Could not parse or upload the CSV file. Please check the format and file content.' });
+                 toast({ variant: 'destructive', title: 'Error Processing File', description: (error as Error).message || 'Could not parse or upload the CSV file.' });
                 console.error("Error parsing CSV:", error);
             } finally {
                 if (usageFileInputRef.current) { usageFileInputRef.current.value = ''; }
@@ -368,7 +368,7 @@ export default function AdminDashboard() {
                 <TabsContent value="users">
                     <Card className="rounded-xl shadow-md overflow-hidden">
                         <CardHeader className="flex flex-row items-center justify-between">
-                            <div><CardTitle className="text-xl">User & Invitation Management</CardTitle></div>
+                            <div><CardTitle className="text-xl">User &amp; Invitation Management</CardTitle></div>
                             <div className='flex items-center gap-2'>
                                 <Button variant="outline" onClick={() => { setEditingUser(null); setIsUserFormOpen(true); }}><UserPlus className="mr-2 h-4 w-4" />Invite User</Button>
                                 <TooltipProvider>

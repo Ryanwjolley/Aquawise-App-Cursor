@@ -1,4 +1,3 @@
-
 'use server';
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, setDoc, getDoc, deleteDoc, orderBy, limit, updateDoc, writeBatch, runTransaction } from "firebase/firestore";
 import { db } from "./firebaseConfig";
@@ -158,14 +157,26 @@ export const deleteCompany = async (companyId: string): Promise<void> => {
             batch.delete(doc.ref);
         });
         
-        // TODO: Delete usage data, allocations, etc. as well in a real application.
-        // For now, we just delete users and the company itself.
+        // 3. Find and delete all notification rules for the company
+        const rulesQuery = query(notificationRulesCollection, where("companyId", "==", companyId));
+        const rulesSnapshot = await getDocs(rulesQuery);
+        rulesSnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
 
-        // 3. Delete the company document
+        // 4. Find and delete all usage data for the company
+        const usageQuery = query(usageCollection, where("companyId", "==", companyId));
+        const usageSnapshot = await getDocs(usageQuery);
+        usageSnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+
+        // 5. Delete the company document
         const companyDocRef = doc(db, "companies", companyId);
         batch.delete(companyDocRef);
 
-        // 4. Commit the batch
+        // 6. Commit the batch
         await batch.commit();
     } catch (e) {
         console.error("Error deleting company and its users: ", e);
@@ -400,33 +411,28 @@ export const findExistingUsageForUsersAndDates = async (entries: ParsedUsageEntr
     const existingEntries = new Map<string, string>();
     if (entries.length === 0) return existingEntries;
 
+    // Create a set of unique user IDs and a set of dates to check for each user.
+    const userIds = [...new Set(entries.map(e => e.userId))];
+    const datesToCheck = [...new Set(entries.map(e => e.date))];
+
     // Batch queries by user to avoid hitting Firestore query limits and improve performance.
-    const userDateMap = new Map<string, string[]>();
-    for (const entry of entries) {
-        if (!userDateMap.has(entry.userId)) {
-            userDateMap.set(entry.userId, []);
-        }
-        userDateMap.get(entry.userId)!.push(entry.date);
-    }
-    
-    const queryPromises = [];
-    for (const [userId, dates] of userDateMap.entries()) {
-        const timestamps = dates.map(d => Timestamp.fromDate(toUTCDate(d)));
-        // Firestore 'in' query is limited to 30 items, so we might need to chunk this
-        for (let i = 0; i < timestamps.length; i += 30) {
-             const chunk = timestamps.slice(i, i + 30);
-             const q = query(usageCollection, where("userId", "==", userId), where("date", "in", chunk));
-             queryPromises.push(getDocs(q));
-        }
-    }
+    const queryPromises = userIds.map(userId => 
+        getDocs(query(usageCollection, where("userId", "==", userId)))
+    );
     
     const snapshots = await Promise.all(queryPromises);
+
+    // Filter the results in memory.
     for (const snapshot of snapshots) {
         snapshot.forEach(docSnap => {
             const data = docSnap.data();
             const dateStr = format(data.date.toDate(), 'yyyy-MM-dd');
-            const key = `${data.userId}-${dateStr}`;
-            existingEntries.set(key, docSnap.id);
+
+            // Only consider entries that are in our list of dates to check
+            if (datesToCheck.includes(dateStr)) {
+                const key = `${data.userId}-${dateStr}`;
+                existingEntries.set(key, docSnap.id);
+            }
         });
     }
     
