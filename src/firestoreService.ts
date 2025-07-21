@@ -11,21 +11,9 @@ interface UsageData {
   consumption: number;
 }
 
-export interface DailyUsage {
-  day: string; // 'Sun', 'Mon', etc.
-  gallons: number;
-}
-
-export interface UsageEntry {
-  id: string;
-  date: Date;
-  consumption: number;
-}
-
 export interface Company {
     id: string;
     name: string;
-    // Add other company-specific details here later
 }
 
 export interface User {
@@ -48,20 +36,6 @@ export interface Invite {
   role: 'customer' | 'admin';
 }
 
-export interface Allocation {
-  id:string;
-  companyId: string;
-  startDate: Date;
-  endDate: Date;
-  totalAllocationGallons: number;
-  inputType?: 'volume' | 'flow';
-  inputValue?: number;
-  volumeUnit?: 'gallons' | 'acre-feet';
-  flowUnit?: 'gpm' | 'cfs';
-}
-
-export type AllocationData = Omit<Allocation, 'id'> & { id?: string };
-
 export interface NotificationRule {
     id: string;
     companyId: string;
@@ -78,7 +52,6 @@ const companiesCollection = collection(db, "companies");
 const usersCollection = collection(db, "users");
 const usageCollection = collection(db, "usageData");
 const invitesCollection = collection(db, "invites");
-const allocationsCollection = collection(db, "allocations");
 const notificationRulesCollection = collection(db, "notificationRules");
 
 // Company Service
@@ -442,89 +415,3 @@ export const getUsageForDateRange = async (userIds: string[], companyId: string,
     
     return usageMap;
 }
-
-export const getTotalUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<number> => {
-    let totalUsage = 0;
-    try {
-        const q = query(
-            usageCollection,
-            where("userId", "==", userId),
-            where("companyId", "==", companyId),
-            where("date", ">=", startDate),
-            where("date", "<=", endDate)
-        );
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            totalUsage += doc.data().consumption;
-        });
-    } catch (error) {
-        console.error("Error fetching total usage data: ", error);
-        throw error;
-    }
-    return totalUsage;
-};
-
-export const getUsageEntriesForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<UsageEntry[]> => {
-    const entries: UsageEntry[] = [];
-    try {
-        const q = query(
-            usageCollection,
-            where("userId", "==", userId),
-            where("companyId", "==", companyId),
-            where("date", ">=", startDate),
-            where("date", "<=", endDate)
-        );
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            entries.push({
-                id: doc.id,
-                date: (data.date as Timestamp).toDate(),
-                consumption: data.consumption
-            });
-        });
-    } catch (error) {
-        console.error("Error fetching usage entries: ", error);
-        throw error;
-    }
-    // Sort entries by date in descending order (most recent first) in the application
-    return entries.sort((a, b) => b.date.getTime() - a.date.getTime());
-};
-
-export const getDailyUsageForDateRange = async (userId: string, companyId: string, startDate: Date, endDate: Date): Promise<DailyUsage[]> => {
-    
-    const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
-    const dailyUsageMap = new Map<string, number>();
-
-    daysInInterval.forEach(day => {
-      dailyUsageMap.set(format(day, 'yyyy-MM-dd'), 0);
-    });
-
-    try {
-        const q = query(
-            usageCollection,
-            where("userId", "==", userId),
-            where("companyId", "==", companyId),
-            where("date", ">=", startDate),
-            where("date", "<=", endDate),
-            orderBy("date")
-        );
-        
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            const data = doc.data() as UsageData;
-            const docDate = data.date.toDate();
-            const dateKey = format(docDate, 'yyyy-MM-dd');
-            if (dailyUsageMap.has(dateKey)) {
-                dailyUsageMap.set(dateKey, dailyUsageMap.get(dateKey)! + data.consumption);
-            }
-        });
-    } catch (error) {
-        console.error("Error fetching daily usage data: ", error);
-    }
-      
-    return daysInInterval.map(day => ({
-      day: format(day, 'EEE'),
-      gallons: dailyUsageMap.get(format(day, 'yyyy-MM-dd')) || 0,
-    }));
-};
