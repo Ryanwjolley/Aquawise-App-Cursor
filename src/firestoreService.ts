@@ -400,14 +400,15 @@ export const getTotalUsageForDateRange = async (userId: string, companyId: strin
     try {
         const q = query(
           usageCollection,
-          where("companyId", "==", companyId),
           where("userId", "==", userId),
           where("date", ">=", startDate),
           where("date", "<=", endDate),
         );
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
-            totalUsage += doc.data().consumption;
+            if (doc.data().companyId === companyId) {
+                totalUsage += doc.data().consumption;
+            }
         });
     } catch (error) {
         console.error("Error fetching total usage data for range: ", error);
@@ -428,7 +429,6 @@ export const getDailyUsageForDateRange = async (userId: string, companyId: strin
     try {
         const q = query(
           usageCollection,
-          where("companyId", "==", companyId),
           where("userId", "==", userId),
           where("date", ">=", startDate),
           where("date", "<=", endDate)
@@ -436,9 +436,11 @@ export const getDailyUsageForDateRange = async (userId: string, companyId: strin
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-            const day = format((data.date as Timestamp).toDate(), 'MMM d');
-            const currentUsage = dailyUsageMap.get(day) || 0;
-            dailyUsageMap.set(day, currentUsage + data.consumption);
+            if (data.companyId === companyId) {
+                const day = format((data.date as Timestamp).toDate(), 'MMM d');
+                const currentUsage = dailyUsageMap.get(day) || 0;
+                dailyUsageMap.set(day, currentUsage + data.consumption);
+            }
         });
     } catch (error) {
         console.error("Error fetching daily usage data for range: ", error);
@@ -456,18 +458,19 @@ export const getUsageEntriesForDateRange = async (userId: string, companyId: str
         const q = query(
             usageCollection,
             where("userId", "==", userId),
-            where("companyId", "==", companyId),
             where("date", ">=", startDate),
             where("date", "<=", endDate)
         );
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
             const data = doc.data();
-            entries.push({
-                id: doc.id,
-                date: (data.date as Timestamp).toDate(),
-                consumption: data.consumption
-            });
+            if (data.companyId === companyId) {
+                entries.push({
+                    id: doc.id,
+                    date: (data.date as Timestamp).toDate(),
+                    consumption: data.consumption
+                });
+            }
         });
         // Sort in the client to avoid needing a composite index
         return entries.sort((a, b) => b.date.getTime() - a.date.getTime());
