@@ -11,11 +11,7 @@ import 'dotenv/config';
 export const ai = genkit({
   plugins: [
     firebase(),
-    googleAI({
-      // The Gemini 1.5 Pro model is in public preview.
-      // We must specify the API version to use it.
-      apiVersion: 'v1beta',
-    }),
+    googleAI(),
   ],
   // Log all traces to the console.
   traceStore: 'firebase',
