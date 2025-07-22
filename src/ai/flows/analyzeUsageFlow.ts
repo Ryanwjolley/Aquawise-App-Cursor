@@ -9,7 +9,7 @@
  * - AnalyzeUsageOutput - The return type for the analyzeUsage function.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '../genkit';
 import { z } from 'genkit';
 import { getAllocationsByCompany, getUsersByCompany, getUsageForUser } from '@/lib/data';
 import { format } from 'date-fns';
@@ -114,5 +114,3 @@ const analyzeUsageFlow = ai.defineFlow(
     return output!;
   }
 );
-
-    
