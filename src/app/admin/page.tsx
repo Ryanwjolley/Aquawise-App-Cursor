@@ -216,7 +216,8 @@ export default function AdminDashboardPage() {
     return <div>Select a user to begin.</div>;
   }
   
-  const currentAllocations = selectedUser ? allAllocations[selectedUserId] || [] : [];
+  const companyWideAllocations = allAllocations[Object.keys(allAllocations)[0]] || [];
+  const currentAllocations = selectedUser ? allAllocations[selectedUserId] || [] : companyWideAllocations;
 
   return (
     <AppLayout>
