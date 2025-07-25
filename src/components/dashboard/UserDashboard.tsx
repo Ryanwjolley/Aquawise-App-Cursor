@@ -67,11 +67,11 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
                 <h2 className="text-3xl font-bold tracking-tight">
                     {user?.name}'s Dashboard
                 </h2>
-                {user?.shares && (
+                {user?.shares ? (
                     <div className="text-lg text-muted-foreground font-medium">
-                        Shares - {user.shares}
+                        Shares: {user.shares.toLocaleString()}
                     </div>
-                )}
+                ) : null}
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricCard 
@@ -121,5 +121,3 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
           </div>
     )
 }
-
-    

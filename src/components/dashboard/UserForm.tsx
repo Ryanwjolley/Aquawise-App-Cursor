@@ -30,6 +30,7 @@ const userFormSchema = z.object({
   role: z.enum(["Admin", "Customer", "Admin & Customer"], {
     required_error: "Please select a role.",
   }),
+  shares: z.coerce.number().int().min(0, "Shares must be a positive number.").optional(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -58,14 +59,21 @@ export function UserForm({
       name: "",
       email: "",
       role: "Customer",
+      shares: 0,
     },
   });
 
   useEffect(() => {
-    if (isOpen && defaultValues) {
-      reset(defaultValues);
-    } else if (!isOpen) {
-      reset({ name: "", email: "", role: "Customer" });
+    if (isOpen) {
+        const valuesToReset = {
+            name: defaultValues?.name || "",
+            email: defaultValues?.email || "",
+            role: defaultValues?.role || "Customer",
+            shares: defaultValues?.shares || 0,
+        };
+        reset(valuesToReset);
+    } else {
+      reset({ name: "", email: "", role: "Customer", shares: 0 });
     }
   }, [isOpen, defaultValues, reset]);
 
@@ -86,7 +94,7 @@ export function UserForm({
                 : "Invite a new user to your organization."}
             </SheetDescription>
           </SheetHeader>
-          <div className="flex-1 space-y-6 py-6">
+          <div className="flex-1 space-y-6 py-6 overflow-y-auto pr-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Full Name</Label>
               <Controller
@@ -109,27 +117,40 @@ export function UserForm({
                 <p className="text-sm text-destructive">{errors.email.message}</p>
               )}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="role">Role</Label>
-              <Controller
-                name="role"
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Customer">Customer</SelectItem>
-                      <SelectItem value="Admin">Admin</SelectItem>
-                      <SelectItem value="Admin & Customer">Admin & Customer</SelectItem>
-                    </SelectContent>
-                  </Select>
+             <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                <Label htmlFor="role">Role</Label>
+                <Controller
+                    name="role"
+                    control={control}
+                    render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                        <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="Customer">Customer</SelectItem>
+                        <SelectItem value="Admin">Admin</SelectItem>
+                        <SelectItem value="Admin & Customer">Admin & Customer</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    )}
+                />
+                {errors.role && (
+                    <p className="text-sm text-destructive">{errors.role.message}</p>
                 )}
-              />
-              {errors.role && (
-                <p className="text-sm text-destructive">{errors.role.message}</p>
-              )}
+                </div>
+                 <div className="grid gap-2">
+                    <Label htmlFor="shares">Shares</Label>
+                    <Controller
+                        name="shares"
+                        control={control}
+                        render={({ field }) => <Input id="shares" type="number" {...field} />}
+                    />
+                     {errors.shares && (
+                        <p className="text-sm text-destructive">{errors.shares.message}</p>
+                    )}
+                </div>
             </div>
           </div>
           <SheetFooter>

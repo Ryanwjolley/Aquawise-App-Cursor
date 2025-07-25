@@ -56,7 +56,7 @@ function AggregateDashboard({ company, companyUsers, allUsageData, queryRange })
                 </h2>
                 {totalCompanyShares > 0 && (
                      <div className="text-lg text-muted-foreground font-medium">
-                        Total Shares - {totalCompanyShares.toLocaleString()}
+                        Total Shares: {totalCompanyShares.toLocaleString()}
                     </div>
                 )}
             </div>
@@ -243,5 +243,3 @@ export default function AdminDashboardPage() {
     </AppLayout>
   );
 }
-
-    
