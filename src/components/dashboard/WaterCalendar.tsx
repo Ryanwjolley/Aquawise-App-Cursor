@@ -227,10 +227,10 @@ function DayCell({ dayData }: { dayData: DailyData | null }) {
                 <div className="space-y-2">
                     <h4 className="font-medium leading-none">Status for {format(date, 'MMM d, yyyy')}</h4>
                     <div className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
-                        <span className="font-semibold">Total Available:</span><span>{convertUsage(availability).toLocaleString()} {getUnitLabel()}</span>
-                        <span className="font-semibold">Approved:</span><span>{convertUsage(approved).toLocaleString()} {getUnitLabel()}</span>
-                        <span className="font-semibold">Pending:</span><span>{convertUsage(pending).toLocaleString()} {getUnitLabel()}</span>
-                        <span className="font-semibold">Remaining:</span><span>{convertUsage(remainingAvailability).toLocaleString()} {getUnitLabel()}</span>
+                        <span className="font-semibold">Total Available:</span><span>{convertUsage(availability).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
+                        <span className="font-semibold">Approved:</span><span>{convertUsage(approved).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
+                        <span className="font-semibold">Pending:</span><span>{convertUsage(pending).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
+                        <span className="font-semibold">Remaining:</span><span>{convertUsage(remainingAvailability).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
                     </div>
                 </div>
                  <div className="grid gap-2 max-h-48 overflow-auto">
@@ -239,7 +239,7 @@ function DayCell({ dayData }: { dayData: DailyData | null }) {
                         <div key={order.id} className="grid grid-cols-3 items-center gap-4 text-xs">
                             <span className="col-span-1 truncate">{order.userName || 'Unknown User'}</span>
                             <span className="col-span-1">{order.amount} {order.unit}</span>
-                             <Badge variant={order.status === 'approved' ? 'default' : order.status === 'pending' ? 'outline' : 'secondary'} className="capitalize justify-self-end">{order.status}</Badge>
+                             <Badge variant={order.status === 'approved' || order.status === 'completed' ? 'default' : order.status === 'pending' ? 'outline' : 'secondary'} className="capitalize justify-self-end">{order.status}</Badge>
                         </div>
                     ))}
                 </div>
