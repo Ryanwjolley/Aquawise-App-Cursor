@@ -747,9 +747,9 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
         });
     }
 
-    // If completed, record the usage
+    // If completed, record the usage and check for alerts
     if (status === 'completed') {
-        const entries = [];
+        const entries: Omit<UsageEntry, 'id'>[] = [];
         const startDate = parseISO(order.startDate);
         const endDate = parseISO(order.endDate);
         const totalDays = (differenceInDays(endDate, startDate) || 0) + 1;
@@ -757,13 +757,17 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
         
         let currentDate = new Date(startDate);
         while(currentDate <= endDate) {
-            entries.push({
+            const entry = {
                 userId: order.userId,
                 date: currentDate.toISOString().split('T')[0],
                 usage: dailyGallons
-            });
+            };
+            entries.push(entry);
+            // Check for alerts for each day of usage added
+            await checkAndTriggerAlerts(entry.userId, entry.date);
             currentDate.setDate(currentDate.getDate() + 1);
         }
+        // Use bulkAddUsageEntries to actually add the data
         await bulkAddUsageEntries(entries, 'add');
     }
 
@@ -917,3 +921,4 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
         }
     }
 };
+
