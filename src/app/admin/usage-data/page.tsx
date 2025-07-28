@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { DataUploadForm } from "@/components/dashboard/DataUploadForm";
+import { ManualUsageForm } from "@/components/dashboard/ManualUsageForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -19,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUnit } from "@/contexts/UnitContext";
 import { Button } from "@/components/ui/button";
+import { PlusCircle } from "lucide-react";
 
 export default function UsageDataPage() {
   const { currentUser, company } = useAuth();
@@ -28,6 +30,8 @@ export default function UsageDataPage() {
   const [allUsageData, setAllUsageData] = useState<UsageEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+
 
   const userMap = new Map(companyUsers.map(u => [u.id, u.name]));
 
@@ -55,23 +59,30 @@ export default function UsageDataPage() {
   const handleDataUpload = async (data: any[], mode: 'overwrite' | 'new_only') => {
     console.log(`Preparing to upload ${data.length} records with mode: ${mode}`);
     
-    // Map emails to user IDs
     const userEmailMap = new Map(companyUsers.map(u => [u.email, u.id]));
     
     const entriesToAdd = data.map(record => ({
       userId: userEmailMap.get(record.userEmail)!,
       date: record.date,
       usage: parseInt(record.usage, 10),
-    })).filter(entry => entry.userId); // Filter out records where user wasn't found
+    })).filter(entry => entry.userId);
 
     const { added, updated } = await bulkAddUsageEntries(entriesToAdd, mode, company?.defaultUnit || 'gallons');
     
-    console.log(`Upload complete. Added: ${added}, Updated: ${updated}`);
     toast({
       title: "Upload Successful",
       description: `${added} new records added. ${updated} records updated.`,
     });
-    // Refresh data after upload
+    fetchAndSetData();
+  }
+
+  const handleManualEntry = async (entries: Omit<UsageEntry, 'id'>[]) => {
+    const { added, updated } = await bulkAddUsageEntries(entries, 'add');
+    toast({
+        title: "Manual Entry Successful",
+        description: `${added} new records added. ${updated} records updated.`,
+    });
+    setIsManualEntryOpen(false);
     fetchAndSetData();
   }
   
@@ -83,20 +94,12 @@ export default function UsageDataPage() {
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Usage Data</h2>
+          <Button onClick={() => setIsManualEntryOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4"/>
+            Manual Entry
+          </Button>
         </div>
-        <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Upload Usage Data</CardTitle>
-                    <CardDescription>
-                        Upload a CSV file with user water usage. The file should have columns: `userEmail`, `date` (in YYYY-MM-DD format), and `usage` (in your company's default unit: {unitLabel}). 
-                        You can <Link href="/test-data.csv" className="underline text-primary" download>download a sample file</Link> to see the required format.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <DataUploadForm onUpload={handleDataUpload} companyUsers={companyUsers} />
-                </CardContent>
-            </Card>
+        <div className="grid gap-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Historical Usage Data</CardTitle>
@@ -148,8 +151,26 @@ export default function UsageDataPage() {
                     )}
                 </CardContent>
             </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Bulk Upload from CSV</CardTitle>
+                    <CardDescription>
+                        Upload a CSV file with user water usage. The file should have columns: `userEmail`, `date` (in YYYY-MM-DD format), and `usage` (in your company's default unit: {unitLabel}). 
+                        You can <Link href="/test-data.csv" className="underline text-primary" download>download a sample file</Link> to see the required format.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <DataUploadForm onUpload={handleDataUpload} companyUsers={companyUsers} />
+                </CardContent>
+            </Card>
         </div>
       </div>
+      <ManualUsageForm 
+        isOpen={isManualEntryOpen}
+        onOpenChange={setIsManualEntryOpen}
+        onSubmit={handleManualEntry}
+        companyUsers={companyUsers}
+      />
     </AppLayout>
   );
 }

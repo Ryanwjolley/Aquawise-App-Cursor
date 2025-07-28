@@ -15,7 +15,7 @@ export const CONVERSION_FACTORS_TO_GALLONS = {
   },
   rate: {
     'gpm': 1, // Gallons per minute
-    'cfs': 7.48052, // Cubic feet per second to gallons
+    'cfs': 448.831, // Cubic feet per second to gallons per minute
     'acre-feet-day': 325851, // Acre-feet per day to gallons
   }
 };
@@ -301,7 +301,7 @@ export const getUsageForUser = async (userId: string, startDate?: string, endDat
 };
 
 // Function to simulate bulk adding/overwriting usage data
-export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only', inputUnit: Unit): Promise<{ added: number, updated: number }> => {
+export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only', inputUnit: Unit = 'gallons'): Promise<{ added: number, updated: number }> => {
   let added = 0;
   let updated = 0;
 
@@ -314,7 +314,10 @@ export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mod
     
     if (existingIndex !== -1) {
       if (mode === 'overwrite') {
-        usageData[existingIndex] = { ...newEntry, usage: gallonsUsage, id: usageData[existingIndex].id };
+        usageData[existingIndex].usage = gallonsUsage;
+        updated++;
+      } else if (mode === 'add') {
+        usageData[existingIndex].usage += gallonsUsage;
         updated++;
       }
       // If mode is 'new_only' and it exists, we do nothing.
