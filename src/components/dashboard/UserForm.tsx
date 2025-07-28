@@ -106,11 +106,19 @@ export function UserForm({
     }
   }, [isOpen, defaultValues, reset]);
 
+  const handleFormSubmit = (data: UserFormValues) => {
+    const dataToSubmit = {
+        ...data,
+        userGroupId: data.userGroupId === 'none' ? undefined : data.userGroupId
+    };
+    onSubmit(dataToSubmit);
+  }
+
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-lg">
         <form
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(handleFormSubmit)}
           className="flex h-full flex-col"
         >
           <SheetHeader>
@@ -201,12 +209,12 @@ export function UserForm({
                         name="userGroupId"
                         control={control}
                         render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a group (optional)" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">None</SelectItem>
+                                <SelectItem value="none">None</SelectItem>
                                 {userGroups.map(group => (
                                     <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
                                 ))}

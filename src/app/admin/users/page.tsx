@@ -93,10 +93,7 @@ export default function UserManagementPage() {
   const handleFormSubmit = async (data: Omit<User, 'id' | 'companyId'>) => {
     if (!currentUser?.companyId) return;
     
-    const userData = {
-        ...data,
-        userGroupId: data.userGroupId || undefined, // Ensure empty string becomes undefined
-    };
+    const userData = { ...data };
 
     if (editingUser) {
       await updateUser({ ...userData, id: editingUser.id, companyId: editingUser.companyId });
