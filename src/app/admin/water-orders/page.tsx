@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +22,8 @@ import type { WaterOrder, User } from "@/lib/data";
 import { getWaterOrdersByCompany, updateWaterOrderStatus, getUsersByCompany, getUnitLabel } from "@/lib/data";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export default function AdminWaterOrdersPage() {
     const { currentUser } = useAuth();
@@ -28,6 +31,9 @@ export default function AdminWaterOrdersPage() {
     const [orders, setOrders] = useState<WaterOrder[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
+    const [orderToReject, setOrderToReject] = useState<WaterOrder | null>(null);
+    const [rejectionNotes, setRejectionNotes] = useState("");
 
     const userMap = new Map(users.map(u => [u.id, u.name]));
 
@@ -49,11 +55,11 @@ export default function AdminWaterOrdersPage() {
         }
     }, [currentUser]);
 
-    const handleStatusChange = async (orderId: string, status: 'approved' | 'rejected' | 'completed') => {
+    const handleStatusChange = async (orderId: string, status: 'approved' | 'rejected' | 'completed', notes?: string) => {
         if (!currentUser) return;
         
         try {
-            await updateWaterOrderStatus(orderId, status, currentUser.id);
+            await updateWaterOrderStatus(orderId, status, currentUser.id, notes);
             toast({
                 title: "Order Updated",
                 description: `The water order has been successfully ${status}.`,
@@ -69,6 +75,19 @@ export default function AdminWaterOrdersPage() {
         }
     };
     
+    const handleRejectionRequest = (order: WaterOrder) => {
+        setOrderToReject(order);
+        setRejectionNotes("");
+        setIsRejectionDialogOpen(true);
+    };
+    
+    const handleRejectionConfirm = async () => {
+        if (!orderToReject) return;
+        await handleStatusChange(orderToReject.id, 'rejected', rejectionNotes);
+        setIsRejectionDialogOpen(false);
+        setOrderToReject(null);
+    };
+
     const getBadgeVariant = (status: WaterOrder['status']) => {
         switch (status) {
             case 'approved':
@@ -103,7 +122,7 @@ export default function AdminWaterOrdersPage() {
                                 <TableHead>Date Range</TableHead>
                                 <TableHead>Request</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead>Submitted On</TableHead>
+                                <TableHead>Admin Notes</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -125,7 +144,7 @@ export default function AdminWaterOrdersPage() {
                                         <TableCell>
                                             <Badge variant={getBadgeVariant(order.status)} className="capitalize">{order.status}</Badge>
                                         </TableCell>
-                                        <TableCell>{format(new Date(order.createdAt), 'P p')}</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">{order.adminNotes || 'N/A'}</TableCell>
                                         <TableCell className="text-right">
                                             {(order.status === 'pending' || order.status === 'approved') && (
                                                 <DropdownMenu>
@@ -146,7 +165,7 @@ export default function AdminWaterOrdersPage() {
                                                             </DropdownMenuItem>
                                                         )}
                                                          {(order.status === 'pending' || order.status === 'approved') && (
-                                                            <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'rejected')} className="text-destructive">
+                                                            <DropdownMenuItem onClick={() => handleRejectionRequest(order)} className="text-destructive">
                                                                 Reject
                                                             </DropdownMenuItem>
                                                         )}
@@ -168,6 +187,31 @@ export default function AdminWaterOrdersPage() {
                 </CardContent>
             </Card>
         </div>
+
+        <AlertDialog open={isRejectionDialogOpen} onOpenChange={setIsRejectionDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Reject Water Order?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        You are about to reject this water order. Please provide a reason for the rejection (optional). This note will be visible to the user.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="grid gap-2">
+                    <Label htmlFor="rejection-notes">Rejection Notes</Label>
+                    <Textarea 
+                        id="rejection-notes"
+                        placeholder="e.g. Canal maintenance scheduled during this time."
+                        value={rejectionNotes}
+                        onChange={(e) => setRejectionNotes(e.target.value)}
+                    />
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setOrderToReject(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleRejectionConfirm}>Confirm Rejection</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
     </AppLayout>
   );
 }

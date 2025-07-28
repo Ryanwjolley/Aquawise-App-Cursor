@@ -86,6 +86,7 @@ export type WaterOrder = {
     createdAt: string; // ISO 8601 format
     reviewedBy?: string; // userId of admin
     reviewedAt?: string; // ISO 8601 format
+    adminNotes?: string;
 };
 
 
@@ -154,8 +155,6 @@ let allocations: Allocation[] = [
     { id: 'alloc_pvo_304', companyId: '3', userId: '304', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 30 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] },
 ];
 
-let usageData: UsageEntry[] = [];
-
 let waterOrders: WaterOrder[] = [
     { 
         id: 'wo_1', 
@@ -223,6 +222,7 @@ let waterOrders: WaterOrder[] = [
     { id: 'wo_pvo_304_4', userId: '304', companyId: '3', startDate: '2025-09-15T07:00:00.000Z', endDate: '2025-09-18T07:00:00.000Z', amount: 4, unit: 'acre-feet', totalGallons: 4 * 325851, status: 'completed', createdAt: '2025-09-14T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-09-14T11:00:00.000Z' },
 ];
 
+let usageData: UsageEntry[] = [];
 
 // --- Generate extensive mock data for June and July 2025 ---
 const generateMockUsage = () => {
@@ -547,7 +547,7 @@ export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' 
     return Promise.resolve(newOrder);
 }
 
-export const updateWaterOrderStatus = async (orderId: string, status: 'approved' | 'rejected' | 'completed', adminUserId: string): Promise<WaterOrder> => {
+export const updateWaterOrderStatus = async (orderId: string, status: 'approved' | 'rejected' | 'completed', adminUserId: string, notes?: string): Promise<WaterOrder> => {
     const index = waterOrders.findIndex(wo => wo.id === orderId);
     if (index === -1) throw new Error("Water order not found");
     
@@ -556,6 +556,7 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
         status,
         reviewedBy: adminUserId,
         reviewedAt: new Date().toISOString(),
+        adminNotes: notes,
     };
     
     // If completed, record the usage

@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Info } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { WaterOrder, User, Unit } from "@/lib/data";
@@ -21,6 +21,12 @@ import { getWaterOrdersForUser, addWaterOrder, getUnitLabel } from "@/lib/data";
 import { WaterOrderForm } from "@/components/dashboard/WaterOrderForm";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 
 export default function CustomerWaterOrdersPage() {
@@ -77,67 +83,83 @@ export default function CustomerWaterOrdersPage() {
     }
 
     return (
-        <AppLayout>
-            <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-                <div className="flex items-center justify-between space-y-2">
-                    <h2 className="text-3xl font-bold tracking-tight">My Water Orders</h2>
-                     <Button onClick={() => setIsFormOpen(true)}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Request Water Order
-                    </Button>
-                </div>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>My Order History</CardTitle>
-                        <CardDescription>A list of all your submitted water order requests.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead>Date Range</TableHead>
-                                <TableHead>Request</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Submitted On</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="text-center">
-                                    Loading orders...
-                                    </TableCell>
-                                </TableRow>
-                                ) : orders.length > 0 ? (
-                                    orders.map((order) => (
-                                        <TableRow key={order.id}>
-                                            <TableCell className="font-medium">
-                                                {format(new Date(order.startDate), 'P p')} - {format(new Date(order.endDate), 'P p')}
-                                            </TableCell>
-                                            <TableCell>{order.amount} {getUnitLabel(order.unit)}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={getBadgeVariant(order.status)} className="capitalize">{order.status}</Badge>
-                                            </TableCell>
-                                            <TableCell>{format(new Date(order.createdAt), 'P p')}</TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
+        <TooltipProvider>
+            <AppLayout>
+                <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+                    <div className="flex items-center justify-between space-y-2">
+                        <h2 className="text-3xl font-bold tracking-tight">My Water Orders</h2>
+                        <Button onClick={() => setIsFormOpen(true)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Request Water Order
+                        </Button>
+                    </div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>My Order History</CardTitle>
+                            <CardDescription>A list of all your submitted water order requests.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                    <TableHead>Date Range</TableHead>
+                                    <TableHead>Request</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Submitted On</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {loading ? (
                                     <TableRow>
                                         <TableCell colSpan={4} className="text-center">
-                                            You haven't submitted any water orders yet.
+                                        Loading orders...
                                         </TableCell>
                                     </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            </div>
-            <WaterOrderForm
-                isOpen={isFormOpen}
-                onOpenChange={setIsFormOpen}
-                onSubmit={handleFormSubmit}
-            />
-        </AppLayout>
+                                    ) : orders.length > 0 ? (
+                                        orders.map((order) => (
+                                            <TableRow key={order.id}>
+                                                <TableCell className="font-medium">
+                                                    {format(new Date(order.startDate), 'P p')} - {format(new Date(order.endDate), 'P p')}
+                                                </TableCell>
+                                                <TableCell>{order.amount} {getUnitLabel(order.unit)}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant={getBadgeVariant(order.status)} className="capitalize">{order.status}</Badge>
+                                                        {order.status === 'rejected' && order.adminNotes && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger>
+                                                                    <Info className="h-4 w-4 text-muted-foreground" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p className="max-w-xs text-sm">
+                                                                        <strong>Admin Note:</strong> {order.adminNotes}
+                                                                    </p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>{format(new Date(order.createdAt), 'P p')}</TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="text-center">
+                                                You haven't submitted any water orders yet.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </div>
+                <WaterOrderForm
+                    isOpen={isFormOpen}
+                    onOpenChange={setIsFormOpen}
+                    onSubmit={handleFormSubmit}
+                />
+            </AppLayout>
+        </TooltipProvider>
     );
 }
