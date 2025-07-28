@@ -23,9 +23,11 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useUnit } from "@/contexts/UnitContext";
 
 export default function AllocationPage() {
   const { currentUser, company } = useAuth();
+  const { convertUsage, getUnitLabel } = useUnit();
   const { toast } = useToast();
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [companyUsers, setCompanyUsers] = useState<User[]>([]);
@@ -161,7 +163,7 @@ export default function AllocationPage() {
                 <TableRow>
                   <TableHead>Applies To</TableHead>
                   <TableHead>Period</TableHead>
-                  <TableHead>Allocation (Gallons)</TableHead>
+                  <TableHead>Allocation ({getUnitLabel()})</TableHead>
                    <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -177,7 +179,7 @@ export default function AllocationPage() {
                     <TableRow key={alloc.id}>
                       <TableCell className="font-medium">{userMap.get(alloc.userId || 'all') ?? 'Unknown User'}</TableCell>
                       <TableCell>{format(new Date(alloc.startDate), 'P p')} - {format(new Date(alloc.endDate), 'P p')}</TableCell>
-                      <TableCell>{alloc.gallons.toLocaleString()}</TableCell>
+                      <TableCell>{convertUsage(alloc.gallons).toLocaleString()}</TableCell>
                       <TableCell className="text-right">
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>

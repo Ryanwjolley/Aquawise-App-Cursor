@@ -24,10 +24,11 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { Allocation, User } from "@/lib/data";
+import { getUnitLabel, CONVERSION_FACTORS } from "@/lib/data";
+import { useAuth } from "@/contexts/AuthContext";
 import { format, differenceInMinutes, addMinutes, subMinutes, parseISO } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 
-type Unit = "gallons" | "acre-feet" | "gpm" | "cfs" | "ac-ft/day";
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -38,7 +39,6 @@ const allocationFormSchema = z.object({
   startTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   endTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }),
-  unit: z.enum(["gallons", "acre-feet", "gpm", "cfs", "ac-ft/day"]),
   userId: z.string().min(1, { message: "Please select who this applies to." }),
 }).refine(data => {
     const start = combineDateTime(data.startDate, data.startTime);
@@ -61,20 +61,6 @@ interface AllocationFormProps {
   defaultValues?: Allocation;
 }
 
-// Conversion factors to gallons per minute
-const CONVERSIONS_GPM: Record<Exclude<Unit, 'gallons' | 'acre-feet' | 'ac-ft/day'>, number> = {
-    gpm: 1, 
-    cfs: 448.831, // cubic feet per second to gallons per minute
-};
-
-function convertToGallons(amount: number, unit: Unit, minutes: number): number {
-    if (unit === 'gallons') return amount;
-    if (unit === 'acre-feet') return amount * 325851;
-    if (unit === 'ac-ft/day') return (amount * 325851) / 1440 * minutes;
-
-    // It's a rate unit
-    return amount * CONVERSIONS_GPM[unit as keyof typeof CONVERSIONS_GPM] * minutes;
-}
 
 const GAP_THRESHOLD_MINUTES = 1;
 
@@ -91,8 +77,13 @@ export function AllocationForm({
   existingAllocations,
   defaultValues
 }: AllocationFormProps) {
+  const { company } = useAuth();
   const [overlapWarning, setOverlapWarning] = useState<string | null>(null);
   const [gapWarning, setGapWarning] = useState<string | null>(null);
+
+  const defaultUnit = company?.defaultUnit || 'gallons';
+  const unitLabel = getUnitLabel(defaultUnit);
+  const conversionFactorFromGallons = CONVERSION_FACTORS[defaultUnit];
 
   const {
     handleSubmit,
@@ -104,7 +95,6 @@ export function AllocationForm({
     resolver: zodResolver(allocationFormSchema),
     defaultValues: {
       amount: 0,
-      unit: "gallons",
       userId: "all",
       startDate: format(new Date(), "yyyy-MM-dd"),
       endDate: format(new Date(), "yyyy-MM-dd"),
@@ -118,14 +108,12 @@ export function AllocationForm({
   useEffect(() => {
     if (isOpen) {
       if (defaultValues) {
-        // This is a rough conversion back for editing. Might not be perfect for rate-based units.
-        // A more complex solution would be needed for perfect bi-directional conversion.
-        // For now, we assume editing will be primarily on total 'gallons'.
+        // Convert the stored gallon value to the company's default unit for display
+        const displayAmount = defaultValues.gallons * conversionFactorFromGallons;
         const start = new Date(defaultValues.startDate);
         const end = new Date(defaultValues.endDate);
         reset({
-          amount: defaultValues.gallons,
-          unit: "gallons", // Default to gallons for editing to avoid conversion complexity
+          amount: displayAmount,
           userId: defaultValues.userId || "all",
           startDate: format(start, "yyyy-MM-dd"),
           startTime: format(start, "HH:mm"),
@@ -135,7 +123,6 @@ export function AllocationForm({
       } else {
          reset({
           amount: 0,
-          unit: "gallons",
           userId: "all",
           startDate: format(new Date(), "yyyy-MM-dd"),
           endDate: format(new Date(), "yyyy-MM-dd"),
@@ -144,7 +131,7 @@ export function AllocationForm({
         });
       }
     }
-  }, [isOpen, defaultValues, reset]);
+  }, [isOpen, defaultValues, reset, conversionFactorFromGallons]);
   
   useEffect(() => {
     if (isOpen && watchedValues.startDate && watchedValues.endDate && watchedValues.startTime && watchedValues.endTime) {
@@ -217,8 +204,8 @@ export function AllocationForm({
         return;
     }
 
-    const durationMinutes = differenceInMinutes(endDate, startDate);
-    const totalGallons = convertToGallons(data.amount, data.unit, durationMinutes);
+    // Convert the input amount (which is in the company's default unit) back to gallons for storage
+    const totalGallons = data.amount / conversionFactorFromGallons;
 
     onSubmit({
         startDate: startDate.toISOString(),
@@ -238,7 +225,7 @@ export function AllocationForm({
           <SheetHeader>
             <SheetTitle>{defaultValues ? 'Edit Allocation' : 'New Allocation'}</SheetTitle>
             <SheetDescription>
-              Set a water usage budget for a specific period for all or one of your users.
+              Set a water usage budget for a specific period for all or one of your users. Values are in the company's default unit ({unitLabel}).
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-6 overflow-y-auto py-6 pr-6 pl-1">
@@ -312,40 +299,17 @@ export function AllocationForm({
               </div>
             )}
             
-            <div className="grid grid-cols-3 gap-4 pl-5">
-                <div className="col-span-2 grid gap-2">
-                    <Label htmlFor="amount">Amount</Label>
-                     <Controller
-                        name="amount"
-                        control={control}
-                        render={({ field }) => <Input id="amount" type="number" {...field} />}
-                    />
-                </div>
-                 <div className="grid gap-2">
-                    <Label htmlFor="unit">Unit</Label>
-                    <Controller
-                        name="unit"
-                        control={control}
-                        render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select unit" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="gallons">Gallons (Total)</SelectItem>
-                                <SelectItem value="acre-feet">Acre-Feet (Total)</SelectItem>
-                                <SelectItem value="gpm">GPM (Rate)</SelectItem>
-                                <SelectItem value="cfs">CFS (Rate)</SelectItem>
-                                <SelectItem value="ac-ft/day">Ac-Ft/Day (Rate)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        )}
-                    />
-                </div>
+            <div className="grid gap-2 pl-5">
+              <Label htmlFor="amount">Amount (in {unitLabel})</Label>
+               <Controller
+                  name="amount"
+                  control={control}
+                  render={({ field }) => <Input id="amount" type="number" {...field} />}
+              />
+               {errors.amount && (
+                  <p className="text-sm text-destructive">{errors.amount.message}</p>
+              )}
             </div>
-             {(errors.amount || errors.unit) && (
-                <p className="text-sm text-destructive pl-5">{errors.amount?.message || errors.unit?.message}</p>
-            )}
 
             <div className="grid gap-2 pl-5">
               <Label htmlFor="user">Applies To</Label>

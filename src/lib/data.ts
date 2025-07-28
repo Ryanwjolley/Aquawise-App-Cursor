@@ -5,6 +5,12 @@
 export type Unit = 'gallons' | 'kgal' | 'acre-feet';
 export type UnitLabel = 'Gallons' | 'kGal' | 'Acre-Feet';
 
+export const CONVERSION_FACTORS: Record<Unit, number> = {
+    'gallons': 1,
+    'kgal': 1 / 1000,
+    'acre-feet': 1 / 325851,
+};
+
 export type Company = {
   id: string;
   name: string;
@@ -218,22 +224,26 @@ export const getUsageForUser = async (userId: string, startDate?: string, endDat
 };
 
 // Function to simulate bulk adding/overwriting usage data
-export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only'): Promise<{ added: number, updated: number }> => {
+export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only', inputUnit: Unit): Promise<{ added: number, updated: number }> => {
   let added = 0;
   let updated = 0;
 
+  const conversionToGallons = 1 / CONVERSION_FACTORS[inputUnit];
+
   entries.forEach(newEntry => {
+    const gallonsUsage = newEntry.usage * conversionToGallons;
+
     const existingIndex = usageData.findIndex(d => d.userId === newEntry.userId && d.date === newEntry.date);
     
     if (existingIndex !== -1) {
       if (mode === 'overwrite') {
-        usageData[existingIndex] = { ...newEntry, id: usageData[existingIndex].id };
+        usageData[existingIndex] = { ...newEntry, usage: gallonsUsage, id: usageData[existingIndex].id };
         updated++;
       }
       // If mode is 'new_only' and it exists, we do nothing.
     } else {
       // If it doesn't exist, we add it regardless of the mode.
-      usageData.push({ ...newEntry, id: `u${Date.now()}${Math.random()}` });
+      usageData.push({ ...newEntry, usage: gallonsUsage, id: `u${Date.now()}${Math.random()}` });
       added++;
     }
   });
