@@ -138,14 +138,9 @@ export default function AllocationPage() {
             
             // Add in-app notification
             for (const recipient of recipients) {
-                 const link = recipient.role.includes('Admin')
-                  ? `/admin?from=${formatISO(new Date(savedAllocation.startDate))}&to=${formatISO(new Date(savedAllocation.endDate))}`
-                  : `/?from=${formatISO(new Date(savedAllocation.startDate))}&to=${formatISO(new Date(savedAllocation.endDate))}`;
-
                 addNotification({
                     userId: recipient.id,
-                    message: `Your water allocation has been ${updateType}.`,
-                    link: link
+                    message: `Your water allocation has been ${updateType}. The new allocation of ${convertUsage(savedAllocation.gallons).toLocaleString()} ${getUnitLabel()} is valid from ${format(new Date(savedAllocation.startDate), 'P')} to ${format(new Date(savedAllocation.endDate), 'P')}.`,
                 });
             }
             

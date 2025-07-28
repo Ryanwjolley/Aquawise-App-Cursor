@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { CheckCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 
@@ -94,9 +93,6 @@ export default function NotificationsPage() {
                                                 {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                                             </p>
                                             <div className="flex items-center gap-4 mt-1">
-                                                {n.link && (
-                                                    <Link href={n.link} className="text-xs text-primary hover:underline">View Context</Link>
-                                                )}
                                                 {!n.isRead && (
                                                     <Button variant="link" size="sm" className="h-auto p-0 text-xs text-muted-foreground" onClick={() => handleMarkAsRead(n.id)}>Mark as read</Button>
                                                 )}

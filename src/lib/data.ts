@@ -382,8 +382,8 @@ usageData.push(
 
 // Add some notifications
 notifications.push(
-    { id: 'n1', userId: '102', message: 'Your water order was approved.', createdAt: new Date().toISOString(), isRead: false, link: '/water-orders' },
-    { id: 'n2', userId: '102', message: 'Your water order was rejected: Canal Maintenance.', createdAt: new Date(Date.now() - 86400000).toISOString(), isRead: true, link: '/water-orders' }
+    { id: 'n1', userId: '102', message: 'Your water order was approved.', createdAt: new Date().toISOString(), isRead: false },
+    { id: 'n2', userId: '102', message: 'Your water order was rejected: Canal Maintenance.', createdAt: new Date(Date.now() - 86400000).toISOString(), isRead: true }
 );
 
 
@@ -703,7 +703,6 @@ export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' 
             addNotification({
                 userId: admin.id,
                 message: `New water order submitted by ${user.name}.`,
-                link: '/admin/water-orders'
             });
         }
     }
@@ -743,7 +742,6 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
         addNotification({
             userId: order.userId,
             message: message,
-            link: '/water-orders'
         });
     }
 

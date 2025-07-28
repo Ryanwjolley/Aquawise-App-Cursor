@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList, Calendar, Link2, Bell } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList, Calendar, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UnitSwitcher } from "@/components/dashboard/UnitSwitcher";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -107,9 +107,6 @@ function NotificationsPopover() {
                                             {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                                         </p>
                                         <div className="flex items-center gap-4 mt-1">
-                                            {n.link && (
-                                                <Link href={n.link} className="text-xs text-primary hover:underline">View Context</Link>
-                                            )}
                                             {!n.isRead && (
                                                 <Button variant="link" size="sm" className="h-auto p-0 justify-start text-xs text-muted-foreground" onClick={() => handleMarkAsRead(n.id)}>Mark as read</Button>
                                             )}
