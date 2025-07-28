@@ -130,14 +130,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                         </SidebarMenuButton>
                                     </Link>
                                 </SidebarMenuItem>
-                                 <SidebarMenuItem>
-                                    <Link href="/admin/data-sources">
-                                        <SidebarMenuButton tooltip="Data Sources" isActive={pathname.startsWith('/admin/data-sources')}>
-                                        <Link2 />
-                                        <span>Data Sources</span>
-                                        </SidebarMenuButton>
-                                    </Link>
-                                </SidebarMenuItem>
                             </>
                         )}
                         <SidebarMenuItem>

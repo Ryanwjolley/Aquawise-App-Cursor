@@ -73,6 +73,16 @@ const userSettingsSchema = z.object({
 });
 type UserSettingsFormValues = z.infer<typeof userSettingsSchema>;
 
+// Mock data for integrations, moved from the deleted data-sources page
+const availableIntegrations = [
+  { name: "HydroLink Metering", description: "Automated data import for HydroLink smart meters." },
+  { name: "AgriFlow Systems", description: "Connect to AgriFlow pump controllers." },
+  { name: "Trimble Water", description: "Sync usage data from Trimble water management solutions." }
+];
+
+const configuredIntegrations: any[] = [
+    // Initially, no integrations are configured.
+];
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -490,6 +500,7 @@ export default function SettingsPage() {
                         </div>
                     </CardContent>
                 </Card>
+                
                 <Card>
                     <CardHeader>
                         <CardTitle>Integrations</CardTitle>
@@ -497,23 +508,48 @@ export default function SettingsPage() {
                             Connect AquaWise to other services to automate data collection.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0">
-                                <Link2 className="h-8 w-8 text-muted-foreground" />
-                            </div>
-                            <div className="flex-grow">
-                                <h3 className="text-lg font-medium">Data Sources</h3>
-                                <p className="text-sm text-muted-foreground">
-                                   Connect to external meter reading software to automatically fetch usage data.
-                                </p>
-                            </div>
-                            <div className="flex-shrink-0">
-                                <Button asChild>
-                                    <Link href="/admin/data-sources">Manage</Link>
-                                </Button>
-                            </div>
-                        </div>
+                    <CardContent className="space-y-6">
+                         <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">Configured Integrations</CardTitle>
+                                <CardDescription>
+                                    Manage your active integrations for automatic usage data fetching.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {configuredIntegrations.length === 0 ? (
+                                    <div className="text-center text-muted-foreground py-8">
+                                        <p>No integrations configured yet.</p>
+                                        <p className="text-sm">Select from the available integrations below to get started.</p>
+                                    </div>
+                                ) : (
+                                    <div>{/* List of configured integrations would go here */}</div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">Available Integrations</CardTitle>
+                                <CardDescription>
+                                    Connect AquaWise to third-party software to automate your data collection.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="grid gap-6">
+                                {availableIntegrations.map((integration, index) => (
+                                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                                        <div>
+                                            <h3 className="text-lg font-semibold">{integration.name}</h3>
+                                            <p className="text-sm text-muted-foreground">{integration.description}</p>
+                                        </div>
+                                        <Button disabled>
+                                           <PlusCircle className="mr-2 h-4 w-4"/>
+                                           Connect
+                                        </Button>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
                     </CardContent>
                 </Card>
             </>
