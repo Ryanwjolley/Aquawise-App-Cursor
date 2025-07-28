@@ -104,8 +104,7 @@ export default function AllocationPage() {
     
     let savedAllocation;
     const updateType = editingAllocation ? 'updated' : 'created';
-    let recipients: User[] = [];
-
+    
     if (editingAllocation) {
       savedAllocation = await updateAllocation({ ...data, id: editingAllocation.id, companyId: currentUser.companyId });
       toast({
@@ -120,14 +119,18 @@ export default function AllocationPage() {
       });
     }
 
+    // Must re-fetch users to ensure we have the latest list before determining recipients
+    const allUsers = await getUsersByCompany(currentUser.companyId);
+    let recipients: User[] = [];
+
     // Determine recipients
     if(savedAllocation.userId) {
-        const user = companyUsers.find(u => u.id === savedAllocation.userId);
+        const user = allUsers.find(u => u.id === savedAllocation.userId);
         if (user) recipients.push(user);
     } else if (savedAllocation.userGroupId) {
-        recipients = companyUsers.filter(u => u.userGroupId === savedAllocation.userGroupId);
+        recipients = allUsers.filter(u => u.userGroupId === savedAllocation.userGroupId);
     } else {
-        recipients = companyUsers;
+        recipients = allUsers;
     }
 
     // --- Send Notifications ---
@@ -136,11 +139,7 @@ export default function AllocationPage() {
             if (recipients.length > 0) {
                 // Send email
                 await sendAllocationNotificationEmail(savedAllocation, recipients, updateType, company.defaultUnit);
-                toast({
-                    title: "Notifications Sent",
-                    description: `Sent allocation notifications to ${recipients.length} user(s).`
-                });
-
+                
                 // Add in-app notification
                 for (const recipient of recipients) {
                     addNotification({
@@ -149,6 +148,11 @@ export default function AllocationPage() {
                         link: '/'
                     });
                 }
+                
+                toast({
+                    title: "Notifications Sent",
+                    description: `Sent allocation notifications to ${recipients.length} user(s).`
+                });
             }
         } catch (e) {
             console.error("Failed to send notification email:", e);
