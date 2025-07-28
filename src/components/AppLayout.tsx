@@ -119,7 +119,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isSuperAdminView = currentUser?.role === 'Super Admin' && !isImpersonating;
   const isAdminView = currentUser?.role?.includes('Admin');
-  const isCustomerView = currentUser?.role?.includes('Customer');
   
   const dashboardPath = isAdminView ? '/admin' : '/';
   const isDashboardActive = pathname === dashboardPath || (isAdminView && pathname === '/admin' && pathname.length <= 7);
@@ -167,19 +166,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                 </SidebarMenuButton>
                             </Link>
                         </SidebarMenuItem>
-
-                        {isCustomerView && company?.waterOrdersEnabled && (
-                            <SidebarMenuItem>
-                                <Link href="/water-orders">
-                                    <SidebarMenuButton tooltip="My Water Orders" isActive={pathname.startsWith('/water-orders') || pathname.startsWith('/water-calendar')}>
-                                    <ClipboardList />
-                                    <span>My Water Orders</span>
-                                    </SidebarMenuButton>
-                                </Link>
-                            </SidebarMenuItem>
-                        )}
                     
-                        {isAdminView && (
+                        {isAdminView ? (
                             <>
                                 {company?.waterOrdersEnabled && (
                                     <SidebarMenuItem>
@@ -216,6 +204,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                     </Link>
                                 </SidebarMenuItem>
                             </>
+                        ) : ( // Pure Customer View
+                             company?.waterOrdersEnabled && (
+                                <SidebarMenuItem>
+                                    <Link href="/water-calendar">
+                                        <SidebarMenuButton tooltip="Water Calendar" isActive={pathname.startsWith('/water-calendar')}>
+                                        <Calendar />
+                                        <span>Water Calendar</span>
+                                        </SidebarMenuButton>
+                                    </Link>
+                                </SidebarMenuItem>
+                            )
                         )}
                         <SidebarMenuItem>
                             <Link href="/admin/settings">
@@ -269,3 +268,5 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    
