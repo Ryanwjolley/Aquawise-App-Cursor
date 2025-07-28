@@ -95,7 +95,7 @@ export type WaterOrder = {
 
 let companies: Company[] = [
   { id: '0', name: 'AquaWise HQ', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true },
-  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: true },
+  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: false },
   { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true },
   { id: '3', name: 'Pleasant View Orchards', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true },
 ];
