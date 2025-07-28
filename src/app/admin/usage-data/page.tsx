@@ -15,12 +15,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { bulkAddUsageEntries, getUsersByCompany, User, getUnitLabel, getUsageForUser, Allocation, UsageEntry } from "@/lib/data";
+import { bulkAddUsageEntries, getUsersByCompany, User, getUnitLabel, getUsageForUser, Allocation, UsageEntry, findExistingUsageForUsersAndDates } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUnit } from "@/contexts/UnitContext";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+
 
 export default function UsageDataPage() {
   const { currentUser, company } = useAuth();
@@ -31,7 +35,10 @@ export default function UsageDataPage() {
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
-
+  
+  const [isConflictDialogOpen, setIsConflictDialogOpen] = useState(false);
+  const [conflictingEntries, setConflictingEntries] = useState<Omit<UsageEntry, 'id'>[]>([]);
+  const [conflictMode, setConflictMode] = useState<'add' | 'overwrite'>('overwrite');
 
   const userMap = new Map(companyUsers.map(u => [u.id, u.name]));
 
@@ -77,13 +84,33 @@ export default function UsageDataPage() {
   }
 
   const handleManualEntry = async (entries: Omit<UsageEntry, 'id'>[]) => {
-    const { added, updated } = await bulkAddUsageEntries(entries, 'add');
-    toast({
-        title: "Manual Entry Successful",
-        description: `${added} new records added. ${updated} records updated.`,
-    });
-    setIsManualEntryOpen(false);
-    fetchAndSetData();
+    // Check for conflicts before submitting
+    const entriesToCheck = entries.map(e => ({ userId: e.userId, date: e.date }));
+    const duplicates = await findExistingUsageForUsersAndDates(entriesToCheck);
+
+    if (duplicates.length > 0) {
+      setConflictingEntries(entries);
+      setIsConflictDialogOpen(true);
+    } else {
+      // No conflicts, proceed directly
+      await submitManualEntry(entries, 'add');
+    }
+  }
+
+  const submitManualEntry = async (entries: Omit<UsageEntry, 'id'>[], mode: 'add' | 'overwrite') => {
+     const { added, updated } = await bulkAddUsageEntries(entries, mode);
+      toast({
+          title: "Manual Entry Successful",
+          description: `${added} new records added. ${updated} records updated.`,
+      });
+      setIsManualEntryOpen(false);
+      fetchAndSetData();
+  }
+  
+  const handleConflictConfirm = async () => {
+    setIsConflictDialogOpen(false);
+    await submitManualEntry(conflictingEntries, conflictMode);
+    setConflictingEntries([]);
   }
   
   const unitLabel = getUnitLabel();
@@ -171,6 +198,33 @@ export default function UsageDataPage() {
         onSubmit={handleManualEntry}
         companyUsers={companyUsers}
       />
+       <AlertDialog open={isConflictDialogOpen} onOpenChange={setIsConflictDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Existing Data Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              One or more dates in this entry already have usage data. How would you like to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+            <RadioGroup value={conflictMode} onValueChange={(value: 'add' | 'overwrite') => setConflictMode(value)} className="mt-4 space-y-2">
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="overwrite" id="overwrite" />
+                    <Label htmlFor="overwrite">Replace existing data with this new entry.</Label>
+                </div>
+                    <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="add" id="add" />
+                    <Label htmlFor="add">Add this amount to the existing data.</Label>
+                </div>
+            </RadioGroup>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setConflictingEntries([]);
+              setIsConflictDialogOpen(false);
+            }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConflictConfirm}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
