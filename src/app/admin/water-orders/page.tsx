@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Settings } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { WaterOrder, User } from "@/lib/data";
@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 
 export default function AdminWaterOrdersPage() {
     const { currentUser } = useAuth();
@@ -108,6 +109,14 @@ export default function AdminWaterOrdersPage() {
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">Water Orders</h2>
+                 <div className="flex items-center space-x-2">
+                    <Button variant="outline" asChild>
+                        <Link href="/admin/availability">
+                            <Settings className="mr-2 h-4 w-4" />
+                            Manage System Availability
+                        </Link>
+                    </Button>
+                </div>
             </div>
              <Card>
                 <CardHeader>

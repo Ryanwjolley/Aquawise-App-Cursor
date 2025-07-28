@@ -1,4 +1,3 @@
-
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 import { differenceInDays, max, min, parseISO } from "date-fns";
@@ -63,6 +62,14 @@ export type Allocation = {
   gallons: number;
   userId?: string; // Specific user this applies to
   userGroupId?: string; // Specific group this applies to
+  companyId: string;
+};
+
+export type WaterAvailability = {
+  id: string;
+  startDate: string; // ISO 8601 format
+  endDate: string; // ISO 8601 format
+  gallons: number;
   companyId: string;
 };
 
@@ -155,6 +162,12 @@ let allocations: Allocation[] = [
     { id: 'alloc_pvo_304', companyId: '3', userId: '304', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 30 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] },
 ];
 
+let waterAvailabilities: WaterAvailability[] = [
+    { id: 'avail_gva_1', companyId: '1', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 20000000 },
+    { id: 'avail_sf_1', companyId: '2', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 1000000 },
+    { id: 'avail_pvo_1', companyId: '3', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 150 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] },
+];
+
 let waterOrders: WaterOrder[] = [
     { 
         id: 'wo_1', 
@@ -195,6 +208,21 @@ let waterOrders: WaterOrder[] = [
         createdAt: new Date().toISOString(),
         reviewedBy: '201',
         reviewedAt: new Date().toISOString(),
+    },
+    {
+        id: 'wo_4',
+        userId: '102',
+        companyId: '1',
+        startDate: '2025-07-15T08:00:00.000Z',
+        endDate: '2025-07-15T12:00:00.000Z',
+        amount: 2,
+        unit: 'cfs',
+        totalGallons: 5745036.8,
+        status: 'rejected',
+        createdAt: '2025-07-13T10:00:00.000Z',
+        reviewedBy: '101',
+        reviewedAt: '2025-07-13T11:00:00.000Z',
+        adminNotes: 'Canal maintenance scheduled during this time. Please reschedule for after the 18th.'
     },
     // --- Pleasant View Orchards - Completed Water Orders for Full Year ---
     // George Harris (301) - 4 orders
@@ -526,6 +554,32 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
     allocations = allocations.filter(a => a.id !== allocationId);
     return Promise.resolve();
 };
+
+
+// --- Water Availability Functions ---
+export const getWaterAvailabilities = async (companyId: string): Promise<WaterAvailability[]> => {
+    return Promise.resolve(waterAvailabilities.filter(a => a.companyId === companyId));
+};
+
+export const addWaterAvailability = async (availability: Omit<WaterAvailability, 'id'>): Promise<WaterAvailability> => {
+    const newAvailability: WaterAvailability = { ...availability, id: `avail${Date.now()}` };
+    waterAvailabilities.push(newAvailability);
+    return Promise.resolve(newAvailability);
+};
+
+export const updateWaterAvailability = async (updatedAvailability: WaterAvailability): Promise<WaterAvailability> => {
+    const index = waterAvailabilities.findIndex(a => a.id === updatedAvailability.id);
+    if (index === -1) throw new Error("Availability not found");
+    waterAvailabilities[index] = updatedAvailability;
+    return Promise.resolve(updatedAvailability);
+};
+
+export const deleteWaterAvailability = async (availabilityId: string): Promise<void> => {
+    waterAvailabilities = waterAvailabilities.filter(a => a.id !== availabilityId);
+    return Promise.resolve();
+};
+
+
 
 // --- Water Order Functions ---
 export const getWaterOrdersByCompany = async (companyId: string): Promise<WaterOrder[]> => {
