@@ -270,7 +270,7 @@ function DayCell({ dayData, onOrderClick }: { dayData: DailyData | null, onOrder
   const isOverCapacity = totalDemand > availability;
   
   const approvedPercent = availability > 0 ? (approved / availability) * 100 : 0;
-  const pendingPercent = remainingForPending > 0 ? (pending / remainingForPending) * 100 : 0;
+  const pendingPercent = availability > 0 ? (pending / (availability - approved)) * 100 : 0;
   
   const isToday = isSameDay(date, new Date());
 
@@ -283,23 +283,20 @@ function DayCell({ dayData, onOrderClick }: { dayData: DailyData | null, onOrder
               {format(date, 'd')}
           </div>
           {availability > 0 && (
-            <div className="mt-2 space-y-2 flex-grow">
+            <div className="mt-2 space-y-1 flex-grow">
               <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden flex">
                 <div className="bg-primary h-full" style={{ width: `${Math.min(approvedPercent, 100)}%` }} />
                 <div className="bg-amber-400 h-full" style={{ width: `${Math.min(pendingPercent, 100 - approvedPercent)}%` }} />
               </div>
-              <div className="text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-primary" />
-                  <span>{convertUsage(approved).toLocaleString(undefined, { maximumFractionDigits: 0 })} Approved</span>
+               <div className="text-xs font-medium pt-1 space-y-0.5">
+                <div>
+                    <span>Avail:</span>
+                    <span className="font-semibold float-right">{convertUsage(availability).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
                 </div>
-                 <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-amber-400" />
-                   <span>{convertUsage(pending).toLocaleString(undefined, { maximumFractionDigits: 0 })} Pending</span>
+                <div>
+                    <span>Req:</span>
+                    <span className="font-semibold float-right">{convertUsage(totalDemand).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
                 </div>
-              </div>
-               <div className="text-xs font-medium pt-1">
-                {convertUsage(availability).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()} Avail.
               </div>
             </div>
           )}
