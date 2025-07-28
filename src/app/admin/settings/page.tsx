@@ -96,6 +96,10 @@ export default function SettingsPage() {
     formState: { isSubmitting: isDisplaySubmitting, isDirty: isDisplayDirty }
   } = useForm<DisplaySettingsFormValues>({
     resolver: zodResolver(displaySettingsSchema),
+    defaultValues: {
+      defaultUnit: company?.defaultUnit || 'gallons',
+      userGroupsEnabled: company?.userGroupsEnabled || false,
+    }
   });
   
    const { 
@@ -170,6 +174,7 @@ export default function SettingsPage() {
             description: "Display settings have been updated.",
         });
         await reloadCompany();
+        resetDisplayForm(data); // Resets the dirty state after successful save
     } catch (e) {
         console.error("Failed to save display settings:", e);
         toast({
@@ -540,3 +545,5 @@ export default function SettingsPage() {
     </AppLayout>
   );
 }
+
+    

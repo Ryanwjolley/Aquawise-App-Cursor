@@ -92,8 +92,8 @@ export type WaterOrder = {
 
 
 let companies: Company[] = [
-  { id: '0', name: 'AquaWise HQ', defaultUnit: 'gallons', userGroupsEnabled: false },
-  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'gallons', userGroupsEnabled: true },
+  { id: '0', name: 'AquaWise HQ', defaultUnit: 'acre-feet', userGroupsEnabled: false },
+  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'acre-feet', userGroupsEnabled: true },
   { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet', userGroupsEnabled: false },
   { id: '3', name: 'Pleasant View Orchards', defaultUnit: 'acre-feet', userGroupsEnabled: false },
 ];
@@ -303,7 +303,7 @@ const generateMockUsage = () => {
         const startDate = parseISO(order.startDate);
         const endDate = parseISO(order.endDate);
         // Add 1 to include the end day fully in the calculation
-        const totalDays = differenceInDays(endDate, startDate) + 1;
+        const totalDays = (differenceInDays(endDate, startDate) || 0) + 1;
         const dailyGallons = order.totalGallons / totalDays;
         
         let currentDate = new Date(startDate);
@@ -479,6 +479,14 @@ export const getUsageForUser = async (userId: string, startDate?: string, endDat
   return Promise.resolve(userUsage.sort((a, b) => a.date.localeCompare(b.date)));
 };
 
+export type UsageEntry = {
+    id: string;
+    userId: string;
+    date: string; // YYYY-MM-DD
+    usage: number; // in gallons
+}
+
+
 // Function to simulate bulk adding/overwriting usage data
 export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only' | 'add' = 'overwrite', inputUnit: Unit = 'gallons'): Promise<{ added: number, updated: number }> => {
   let added = 0;
@@ -633,3 +641,5 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
 
     return Promise.resolve(waterOrders[index]);
 }
+
+    
