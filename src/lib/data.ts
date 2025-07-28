@@ -93,6 +93,7 @@ let companies: Company[] = [
   { id: '0', name: 'AquaWise HQ', defaultUnit: 'gallons', userGroupsEnabled: false },
   { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'gallons', userGroupsEnabled: true },
   { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet', userGroupsEnabled: false },
+  { id: '3', name: 'Pleasant View Orchards', defaultUnit: 'acre-feet', userGroupsEnabled: false },
 ];
 
 let userGroups: UserGroup[] = [
@@ -118,6 +119,12 @@ let users: User[] = [
   { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', mobileNumber: '555-0201', role: 'Admin', companyId: '2', notificationPreference: 'email' },
   { id: '202', name: 'Evan Davis', email: 'evan@sunrise.com', role: 'Customer', companyId: '2', shares: 12, notificationPreference: 'email' },
   { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', mobileNumber: '555-0203', role: 'Customer', companyId: '2', shares: 18, notificationPreference: 'mobile' },
+  
+  // Pleasant View Orchards
+  { id: '301', name: 'George Harris', email: 'george@pvo.com', mobileNumber: '555-0301', role: 'Admin & Customer', companyId: '3', shares: 100, notificationPreference: 'email' },
+  { id: '302', name: 'Hannah Martin', email: 'hannah@pvo.com', mobileNumber: '555-0302', role: 'Customer', companyId: '3', shares: 75, notificationPreference: 'email' },
+  { id: '303', name: 'Ian Thompson', email: 'ian@pvo.com', mobileNumber: '555-0303', role: 'Customer', companyId: '3', shares: 85, notificationPreference: 'mobile' },
+  { id: '304', name: 'Jane King', email: 'jane@pvo.com', mobileNumber: '555-0304', role: 'Customer', companyId: '3', shares: 90, notificationPreference: 'email' },
 ];
 
 let allocations: Allocation[] = [
@@ -139,6 +146,12 @@ let allocations: Allocation[] = [
     { id: 'alloc_sf_4', companyId: '2', startDate: '2025-06-22T00:00:00.000Z', endDate: '2025-06-28T23:59:59.000Z', gallons: 62000 },
     { id: 'alloc_sf_5', companyId: '2', startDate: '2025-06-29T00:00:00.000Z', endDate: '2025-07-05T23:59:59.000Z', gallons: 58000 },
     { id: 'alloc_sf_6', companyId: '2', startDate: '2025-07-06T00:00:00.000Z', endDate: '2025-07-12T23:59:59.000Z', gallons: 53000 },
+
+    // Annual Allocations for Pleasant View Orchards (companyId: '3')
+    { id: 'alloc_pvo_301', companyId: '3', userId: '301', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 10 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] }, // 10 ac-ft
+    { id: 'alloc_pvo_302', companyId: '3', userId: '302', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 8 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] }, // 8 ac-ft
+    { id: 'alloc_pvo_303', companyId: '3', userId: '303', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 9 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] }, // 9 ac-ft
+    { id: 'alloc_pvo_304', companyId: '3', userId: '304', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 9.5 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] }, // 9.5 ac-ft
 ];
 
 let usageData: UsageEntry[] = [];
@@ -183,7 +196,18 @@ let waterOrders: WaterOrder[] = [
         createdAt: new Date().toISOString(),
         reviewedBy: '201',
         reviewedAt: new Date().toISOString(),
-    }
+    },
+    // Completed Water Orders for Pleasant View Orchards
+    // George Harris (301)
+    { id: 'wo_pvo_301_1', userId: '301', companyId: '3', startDate: '2025-05-15T06:00:00.000Z', endDate: '2025-05-16T06:00:00.000Z', amount: 1, unit: 'acre-feet', totalGallons: 325851, status: 'completed', createdAt: '2025-05-14T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-05-14T11:00:00.000Z' },
+    { id: 'wo_pvo_301_2', userId: '301', companyId: '3', startDate: '2025-06-20T06:00:00.000Z', endDate: '2025-06-21T18:00:00.000Z', amount: 1.5, unit: 'cfs', totalGallons: 3878144.4, status: 'completed', createdAt: '2025-06-19T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-06-19T11:00:00.000Z' },
+    // Hannah Martin (302)
+    { id: 'wo_pvo_302_1', userId: '302', companyId: '3', startDate: '2025-06-01T08:00:00.000Z', endDate: '2025-06-01T16:00:00.000Z', amount: 2, unit: 'cfs', totalGallons: 5745036.8, status: 'completed', createdAt: '2025-05-31T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-05-31T11:00:00.000Z' },
+    // Ian Thompson (303)
+    { id: 'wo_pvo_303_1', userId: '303', companyId: '3', startDate: '2025-07-01T00:00:00.000Z', endDate: '2025-07-03T00:00:00.000Z', amount: 2, unit: 'acre-feet', totalGallons: 651702, status: 'completed', createdAt: '2025-06-30T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-06-30T11:00:00.000Z' },
+    // Jane King (304)
+    { id: 'wo_pvo_304_1', userId: '304', companyId: '3', startDate: '2025-07-05T09:00:00.000Z', endDate: '2025-07-06T09:00:00.000Z', amount: 1.2, unit: 'acre-feet', totalGallons: 391021.2, status: 'completed', createdAt: '2025-07-04T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-07-04T11:00:00.000Z' },
+    { id: 'wo_pvo_304_2', userId: '304', companyId: '3', startDate: '2025-07-20T09:00:00.000Z', endDate: '2025-07-21T09:00:00.000Z', amount: 1.2, unit: 'acre-feet', totalGallons: 391021.2, status: 'completed', createdAt: '2025-07-19T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-07-19T11:00:00.000Z' },
 ];
 
 
@@ -192,7 +216,10 @@ const generateMockUsage = () => {
     const generatedData: UsageEntry[] = [];
     let idCounter = 1;
 
+    // Generate from periodic allocations
     for (const alloc of allocations) {
+        if(alloc.companyId === '3') continue; // Skip PVO, their usage is from water orders
+
         let relevantUsers: User[];
         if (alloc.userId) {
             relevantUsers = users.filter(u => u.id === alloc.userId);
@@ -205,11 +232,11 @@ const generateMockUsage = () => {
         if (relevantUsers.length === 0) continue;
 
         const totalShares = relevantUsers.reduce((sum, u) => sum + (u.shares || 1), 0);
-        const dailyAllocation = alloc.gallons / 7;
+        const allocDurationDays = differenceInDays(parseISO(alloc.endDate), parseISO(alloc.startDate)) + 1;
+        const dailyAllocation = alloc.gallons / allocDurationDays;
 
-        const startDate = new Date(alloc.startDate);
+        const currentDate = new Date(alloc.startDate);
         const endDate = new Date(alloc.endDate);
-        const currentDate = new Date(startDate);
         
         while(currentDate <= endDate) {
             for (const user of relevantUsers) {
@@ -230,6 +257,29 @@ const generateMockUsage = () => {
              currentDate.setDate(currentDate.getDate() + 1);
         }
     }
+    
+    // Generate from completed water orders
+    for (const order of waterOrders) {
+        if(order.status !== 'completed') continue;
+        
+        const startDate = parseISO(order.startDate);
+        const endDate = parseISO(order.endDate);
+        const totalDays = differenceInDays(endDate, startDate) || 1;
+        const dailyGallons = order.totalGallons / totalDays;
+        
+        let currentDate = new Date(startDate);
+        while(currentDate <= endDate) {
+             generatedData.push({
+                id: `gen_wo_${order.id}_${idCounter++}`,
+                userId: order.userId,
+                date: currentDate.toISOString().split('T')[0],
+                usage: dailyGallons
+            });
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+    }
+
+
     return generatedData;
 }
 usageData = generateMockUsage();
