@@ -53,8 +53,12 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
     if (!user) return null;
     
     const totalUsage = usageData.reduce((acc, entry) => acc + entry.usage, 0);
-    const avgDailyUsage = usageData.length > 0 ? totalUsage / usageData.length : 0;
-    const daysWithUsage = usageData.length;
+
+    // Correctly calculate the number of unique days with usage.
+    const uniqueDaysWithUsage = new Set(usageData.map(entry => entry.date));
+    const daysWithUsage = uniqueDaysWithUsage.size;
+    
+    const avgDailyUsage = daysWithUsage > 0 ? totalUsage / daysWithUsage : 0;
 
     const dailyChartData = usageData.map(entry => ({
         date: entry.date,
