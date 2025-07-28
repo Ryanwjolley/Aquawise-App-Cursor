@@ -36,7 +36,7 @@ function ImpersonationBanner() {
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser, isImpersonating, stopImpersonating } = useAuth();
+  const { currentUser, company, isImpersonating, stopImpersonating } = useAuth();
   const pathname = usePathname();
 
   const isSuperAdminView = currentUser?.role === 'Super Admin' && !isImpersonating;
@@ -91,7 +91,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             </Link>
                         </SidebarMenuItem>
 
-                        {(isCustomerView || isAdminView) && (
+                        {(isCustomerView || isAdminView) && company?.waterOrdersEnabled && (
                              <>
                                 <SidebarMenuItem>
                                     <Link href={waterOrdersPath}>

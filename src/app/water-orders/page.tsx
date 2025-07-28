@@ -31,7 +31,7 @@ import Link from "next/link";
 
 
 export default function CustomerWaterOrdersPage() {
-    const { currentUser } = useAuth();
+    const { currentUser, company } = useAuth();
     const { toast } = useToast();
     const [orders, setOrders] = useState<WaterOrder[]>([]);
     const [loading, setLoading] = useState(true);
@@ -46,10 +46,13 @@ export default function CustomerWaterOrdersPage() {
     }
 
     useEffect(() => {
-        if (currentUser) {
+        if (currentUser && company?.waterOrdersEnabled) {
             fetchOrders();
+        } else {
+            setLoading(false);
         }
-    }, [currentUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUser, company]);
 
     const handleFormSubmit = async (data: Omit<WaterOrder, 'id' | 'companyId' | 'userId' | 'status' | 'createdAt'>) => {
         if (!currentUser) return;
@@ -89,23 +92,30 @@ export default function CustomerWaterOrdersPage() {
                 <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
                     <div className="flex items-center justify-between space-y-2">
                         <h2 className="text-3xl font-bold tracking-tight">My Water Orders</h2>
-                        <div className="flex items-center space-x-2">
-                             <Button variant="outline" asChild>
-                                <Link href="/water-calendar">
-                                    <Calendar className="mr-2 h-4 w-4" />
-                                    View Calendar
-                                </Link>
-                            </Button>
-                            <Button onClick={() => setIsFormOpen(true)}>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Request Water Order
-                            </Button>
-                        </div>
+                        {company?.waterOrdersEnabled && (
+                            <div className="flex items-center space-x-2">
+                                <Button variant="outline" asChild>
+                                    <Link href="/water-calendar">
+                                        <Calendar className="mr-2 h-4 w-4" />
+                                        View Calendar
+                                    </Link>
+                                </Button>
+                                <Button onClick={() => setIsFormOpen(true)}>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Request Water Order
+                                </Button>
+                            </div>
+                        )}
                     </div>
                     <Card>
                         <CardHeader>
                             <CardTitle>My Order History</CardTitle>
-                            <CardDescription>A list of all your submitted water order requests.</CardDescription>
+                            <CardDescription>
+                                {company?.waterOrdersEnabled 
+                                    ? "A list of all your submitted water order requests."
+                                    : "Water ordering is currently disabled. Please contact an administrator for assistance."
+                                }
+                            </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -124,7 +134,7 @@ export default function CustomerWaterOrdersPage() {
                                         Loading orders...
                                         </TableCell>
                                     </TableRow>
-                                    ) : orders.length > 0 ? (
+                                    ) : orders.length > 0 && company?.waterOrdersEnabled ? (
                                         orders.map((order) => (
                                             <TableRow key={order.id}>
                                                 <TableCell className="font-medium">

@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
 export default function AdminWaterOrdersPage() {
-    const { currentUser } = useAuth();
+    const { currentUser, company } = useAuth();
     const { toast } = useToast();
     const [orders, setOrders] = useState<WaterOrder[]>([]);
     const [users, setUsers] = useState<User[]>([]);
@@ -51,10 +51,13 @@ export default function AdminWaterOrdersPage() {
     }
 
     useEffect(() => {
-        if (currentUser?.companyId) {
+        if (currentUser?.companyId && company?.waterOrdersEnabled) {
             fetchOrdersAndUsers();
+        } else {
+            setLoading(false);
         }
-    }, [currentUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUser, company]);
 
     const handleStatusChange = async (orderId: string, status: 'approved' | 'rejected' | 'completed', notes?: string) => {
         if (!currentUser) return;
@@ -109,25 +112,32 @@ export default function AdminWaterOrdersPage() {
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">Water Orders</h2>
-                 <div className="flex items-center space-x-2">
-                     <Button variant="outline" asChild>
-                        <Link href="/admin/water-calendar">
-                            <Calendar className="mr-2 h-4 w-4" />
-                            View Calendar
-                        </Link>
-                    </Button>
-                    <Button variant="outline" asChild>
-                        <Link href="/admin/availability">
-                            <Settings className="mr-2 h-4 w-4" />
-                            Manage System Availability
-                        </Link>
-                    </Button>
-                </div>
+                {company?.waterOrdersEnabled && (
+                    <div className="flex items-center space-x-2">
+                        <Button variant="outline" asChild>
+                            <Link href="/water-calendar">
+                                <Calendar className="mr-2 h-4 w-4" />
+                                View Calendar
+                            </Link>
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href="/admin/availability">
+                                <Settings className="mr-2 h-4 w-4" />
+                                Manage System Availability
+                            </Link>
+                        </Button>
+                    </div>
+                )}
             </div>
              <Card>
                 <CardHeader>
                     <CardTitle>Water Order Requests</CardTitle>
-                    <CardDescription>Review and manage all user-submitted water order requests.</CardDescription>
+                    <CardDescription>
+                        {company?.waterOrdersEnabled
+                            ? "Review and manage all user-submitted water order requests."
+                            : "Water ordering is currently disabled for this company. To enable it, go to Settings."
+                        }
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                      <Table>
@@ -148,7 +158,7 @@ export default function AdminWaterOrdersPage() {
                                 Loading orders...
                                 </TableCell>
                             </TableRow>
-                            ) : orders.length > 0 ? (
+                            ) : orders.length > 0 && company?.waterOrdersEnabled ? (
                                 orders.map((order) => (
                                     <TableRow key={order.id}>
                                         <TableCell className="font-medium">{userMap.get(order.userId) || 'Unknown User'}</TableCell>

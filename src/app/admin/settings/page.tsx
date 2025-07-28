@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { BellRing, Mail, Droplets, Users, PlusCircle, Trash2, MoreHorizontal } from "lucide-react";
+import { BellRing, Mail, Droplets, Users, PlusCircle, Trash2, MoreHorizontal, ClipboardList } from "lucide-react";
 import { NotificationsSetup } from "@/components/dashboard/NotificationsSetup";
 import { useToast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
@@ -56,6 +56,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 const displaySettingsSchema = z.object({
   defaultUnit: z.enum(["gallons", "kgal", "acre-feet", "cubic-feet"]),
   userGroupsEnabled: z.boolean().default(false),
+  waterOrdersEnabled: z.boolean().default(true),
 });
 type DisplaySettingsFormValues = z.infer<typeof displaySettingsSchema>;
 
@@ -99,6 +100,7 @@ export default function SettingsPage() {
     defaultValues: {
       defaultUnit: company?.defaultUnit || 'gallons',
       userGroupsEnabled: company?.userGroupsEnabled || false,
+      waterOrdersEnabled: company?.waterOrdersEnabled || true,
     }
   });
   
@@ -135,7 +137,8 @@ export default function SettingsPage() {
     if (company && isAdmin) {
       resetDisplayForm({ 
           defaultUnit: company.defaultUnit || 'gallons',
-          userGroupsEnabled: company.userGroupsEnabled || false
+          userGroupsEnabled: company.userGroupsEnabled || false,
+          waterOrdersEnabled: company.waterOrdersEnabled ?? true,
       });
       if(company.userGroupsEnabled) {
         fetchUserGroups();
@@ -168,7 +171,7 @@ export default function SettingsPage() {
     if (!company) return;
     
     try {
-        await updateCompany({ ...company, defaultUnit: data.defaultUnit as Unit, userGroupsEnabled: data.userGroupsEnabled });
+        await updateCompany({ ...company, ...data });
         toast({
             title: "Settings Saved",
             description: "Display settings have been updated.",
@@ -324,12 +327,12 @@ export default function SettingsPage() {
                 <form onSubmit={handleDisplaySubmit(onDisplaySettingsSubmit)}>
                     <Card>
                         <CardHeader>
-                            <CardTitle>Display Settings</CardTitle>
+                            <CardTitle>Company Settings</CardTitle>
                             <CardDescription>
-                                Configure system-wide display preferences and feature flags for the entire company.
+                                Configure system-wide preferences and feature flags for the entire company.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-6">
+                        <CardContent className="space-y-8">
                             <div className="grid gap-2 max-w-sm">
                                 <Label htmlFor="defaultUnit">Default Reporting Unit</Label>
                                 <Controller
@@ -352,6 +355,25 @@ export default function SettingsPage() {
                             </div>
                             <div className="flex items-center space-x-2">
                                 <Controller
+                                    name="waterOrdersEnabled"
+                                    control={displayControl}
+                                    render={({ field }) => (
+                                        <Switch
+                                            id="water-orders-enabled"
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    )}
+                                />
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="water-orders-enabled">Enable Water Orders Feature</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Allows users to request water orders and enables the system calendar.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Controller
                                     name="userGroupsEnabled"
                                     control={displayControl}
                                     render={({ field }) => (
@@ -362,11 +384,16 @@ export default function SettingsPage() {
                                         />
                                     )}
                                 />
-                                <Label htmlFor="user-groups-enabled">Enable User Groups Feature</Label>
+                                 <div className="grid gap-1.5">
+                                    <Label htmlFor="user-groups-enabled">Enable User Groups Feature</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                       Allows users to be organized into groups for reporting and allocations.
+                                    </p>
+                                </div>
                             </div>
                         </CardContent>
                         <CardFooter className="border-t px-6 py-4">
-                            <Button type="submit" disabled={isDisplaySubmitting || !isDisplayDirty}>Save Display Settings</Button>
+                            <Button type="submit" disabled={isDisplaySubmitting || !isDisplayDirty}>Save Settings</Button>
                         </CardFooter>
                     </Card>
                 </form>
@@ -545,5 +572,3 @@ export default function SettingsPage() {
     </AppLayout>
   );
 }
-
-    
