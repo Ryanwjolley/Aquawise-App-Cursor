@@ -151,10 +151,23 @@ export default function AdminDashboardPage() {
   // Set initial user from search params
   useEffect(() => {
     const viewUserId = searchParams.get('viewUser');
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
+
     if (viewUserId) {
         setSelectedView(viewUserId);
-        // Clean up URL
-        router.replace('/admin');
+    }
+    if (fromParam && toParam) {
+        setQueryRange({
+            from: parseISO(fromParam),
+            to: parseISO(toParam)
+        });
+        setInitialRangeSet(true);
+    }
+
+    // Clean up URL
+    if (viewUserId || fromParam || toParam) {
+        router.replace('/admin', { scroll: false });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

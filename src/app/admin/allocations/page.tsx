@@ -20,7 +20,7 @@ import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByComp
 import { sendAllocationNotificationEmail } from "@/lib/actions";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, formatISO } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useUnit } from "@/contexts/UnitContext";
@@ -142,10 +142,14 @@ export default function AllocationPage() {
                 
                 // Add in-app notification
                 for (const recipient of recipients) {
+                     const link = recipient.role.includes('Admin')
+                      ? `/admin?from=${formatISO(new Date(savedAllocation.startDate))}&to=${formatISO(new Date(savedAllocation.endDate))}`
+                      : `/?from=${formatISO(new Date(savedAllocation.startDate))}&to=${formatISO(new Date(savedAllocation.endDate))}`;
+
                     addNotification({
                         userId: recipient.id,
                         message: `Your water allocation has been ${updateType}.`,
-                        link: '/'
+                        link
                     });
                 }
                 

@@ -11,10 +11,14 @@ import { getUsageForUser, getAllocationsForUser } from "@/lib/data";
 import { format, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSearchParams, useRouter } from 'next/navigation';
 
 
 export default function CustomerDashboardPage() {
   const { currentUser } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [usageData, setUsageData] = useState<UsageEntry[]>([]);
   const [allAllocations, setAllAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +28,21 @@ export default function CustomerDashboardPage() {
     from: undefined,
     to: undefined,
   });
+
+  useEffect(() => {
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
+    
+    if (fromParam && toParam) {
+        setQueryRange({
+            from: parseISO(fromParam),
+            to: parseISO(toParam)
+        });
+        setInitialRangeSet(true);
+        // Clean up URL
+        router.replace('/', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     const fetchData = async () => {
