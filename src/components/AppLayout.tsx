@@ -40,7 +40,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const isAdminView = currentUser?.role?.includes('Admin');
-  const isCustomerView = currentUser?.role?.includes('Customer');
+  
+  const dashboardPath = isAdminView ? '/admin' : '/';
+  const isDashboardActive = isAdminView ? pathname === '/admin' : pathname === '/';
+
 
   return (
     <SidebarProvider>
@@ -56,26 +59,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              {isCustomerView && (
-                <SidebarMenuItem>
-                  <Link href="/">
-                    <SidebarMenuButton tooltip="My Usage" isActive={pathname === '/'}>
-                      <Home />
-                      <span>My Usage</span>
-                    </SidebarMenuButton>
-                  </Link>
+                 <SidebarMenuItem>
+                    <Link href={dashboardPath}>
+                        <SidebarMenuButton tooltip="Dashboard" isActive={isDashboardActive}>
+                        <AreaChart />
+                        <span>Dashboard</span>
+                        </SidebarMenuButton>
+                    </Link>
                 </SidebarMenuItem>
-              )}
+             
               {isAdminView && (
                 <>
-                    <SidebarMenuItem>
-                        <Link href="/admin">
-                            <SidebarMenuButton tooltip="Dashboard" isActive={pathname === '/admin'}>
-                            <AreaChart />
-                            <span>Dashboard</span>
-                            </SidebarMenuButton>
-                        </Link>
-                    </SidebarMenuItem>
                     <SidebarMenuItem>
                         <Link href="/admin/users">
                             <SidebarMenuButton tooltip="Users" isActive={pathname.startsWith('/admin/users')}>
