@@ -16,7 +16,7 @@ import {
 import { AllocationForm } from "@/components/dashboard/AllocationForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Allocation, User, UserGroup } from "@/lib/data";
-import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById, getGroupsByCompany, addNotification } from "@/lib/data";
+import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById, getGroupsByCompany, addNotification, checkAllUsersForAlerts } from "@/lib/data";
 import { sendAllocationNotificationEmail } from "@/lib/actions";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -104,6 +104,7 @@ export default function AllocationPage() {
     
     let savedAllocation;
     const updateType = editingAllocation ? 'updated' : 'created';
+    let recipients: User[] = [];
 
     if (editingAllocation) {
       savedAllocation = await updateAllocation({ ...data, id: editingAllocation.id, companyId: currentUser.companyId });
@@ -119,20 +120,19 @@ export default function AllocationPage() {
       });
     }
 
+    // Determine recipients
+    if(savedAllocation.userId) {
+        const user = companyUsers.find(u => u.id === savedAllocation.userId);
+        if (user) recipients.push(user);
+    } else if (savedAllocation.userGroupId) {
+        recipients = companyUsers.filter(u => u.userGroupId === savedAllocation.userGroupId);
+    } else {
+        recipients = companyUsers;
+    }
+
     // --- Send Notifications ---
     if (notificationSettings.allocationChangeAlerts.enabled) {
         try {
-            let recipients: User[] = [];
-            
-            if(savedAllocation.userId) {
-                const user = companyUsers.find(u => u.id === savedAllocation.userId);
-                if (user) recipients.push(user);
-            } else if (savedAllocation.userGroupId) {
-                recipients = companyUsers.filter(u => u.userGroupId === savedAllocation.userGroupId);
-            } else {
-                recipients = companyUsers;
-            }
-            
             if (recipients.length > 0) {
                 // Send email
                 await sendAllocationNotificationEmail(savedAllocation, recipients, updateType, company.defaultUnit);
@@ -158,6 +158,12 @@ export default function AllocationPage() {
                 description: "Could not send allocation notifications. Please check the logs."
             })
         }
+    }
+    
+    // --- Re-check for threshold alerts after allocation change ---
+    if (recipients.length > 0) {
+        await checkAllUsersForAlerts(recipients.map(r => r.id), savedAllocation.startDate);
+        console.log(`Re-checked alerts for ${recipients.length} users after allocation change.`);
     }
 
 

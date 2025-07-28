@@ -763,12 +763,17 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
                 usage: dailyGallons
             };
             entries.push(entry);
-            // Check for alerts for each day of usage added
-            await checkAndTriggerAlerts(entry.userId, entry.date);
             currentDate.setDate(currentDate.getDate() + 1);
         }
         // Use bulkAddUsageEntries to actually add the data
-        await bulkAddUsageEntries(entries, 'add');
+        const { added, updated } = await bulkAddUsageEntries(entries, 'add');
+        
+        // After bulk adding, re-check alerts for each day to ensure accuracy with the new totals
+        currentDate = new Date(startDate);
+        while(currentDate <= endDate) {
+            await checkAndTriggerAlerts(order.userId, format(currentDate, 'yyyy-MM-dd'));
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
     }
 
     return Promise.resolve(waterOrders[index]);
@@ -922,3 +927,8 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
     }
 };
 
+export const checkAllUsersForAlerts = async (userIds: string[], date: string) => {
+    for (const userId of userIds) {
+        await checkAndTriggerAlerts(userId, date);
+    }
+}
