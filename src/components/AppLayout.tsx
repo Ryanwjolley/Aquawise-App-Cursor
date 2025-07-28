@@ -44,7 +44,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isCustomerView = currentUser?.role?.includes('Customer');
   
   const dashboardPath = isAdminView ? '/admin' : '/';
-  const isDashboardActive = pathname === dashboardPath || (isAdminView && pathname === '/');
+  const isDashboardActive = pathname === dashboardPath || (isAdminView && pathname === '/admin' && pathname.length <= 7);
   const waterOrdersPath = isAdminView ? '/admin/water-orders' : '/water-orders';
 
   return (
@@ -91,7 +91,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             </Link>
                         </SidebarMenuItem>
 
-                        {isCustomerView && (
+                        {(isCustomerView || isAdminView) && (
                              <SidebarMenuItem>
                                 <Link href={waterOrdersPath}>
                                     <SidebarMenuButton tooltip="Water Orders" isActive={pathname.startsWith(waterOrdersPath)}>
@@ -117,14 +117,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                         <SidebarMenuButton tooltip="Allocations" isActive={pathname.startsWith('/admin/allocations')}>
                                         <Target />
                                         <span>Allocations</span>
-                                        </SidebarMenuButton>
-                                    </Link>
-                                </SidebarMenuItem>
-                                 <SidebarMenuItem>
-                                    <Link href="/admin/water-orders">
-                                        <SidebarMenuButton tooltip="Water Orders" isActive={pathname.startsWith('/admin/water-orders')}>
-                                        <ClipboardList />
-                                        <span>Water Orders</span>
                                         </SidebarMenuButton>
                                     </Link>
                                 </SidebarMenuItem>
