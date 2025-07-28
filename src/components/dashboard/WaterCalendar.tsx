@@ -270,7 +270,7 @@ function DayCell({ dayData, onOrderClick }: { dayData: DailyData | null, onOrder
   const isOverCapacity = totalDemand > availability;
   
   const approvedPercent = availability > 0 ? (approved / availability) * 100 : 0;
-  const pendingPercent = availability > 0 ? (pending / (availability - approved)) * 100 : 0;
+  const pendingPercent = remainingForPending > 0 ? (pending / remainingForPending) * 100 : 0;
   
   const isToday = isSameDay(date, new Date());
 
@@ -291,11 +291,11 @@ function DayCell({ dayData, onOrderClick }: { dayData: DailyData | null, onOrder
                <div className="text-xs font-medium pt-1 space-y-0.5">
                 <div>
                     <span>Avail:</span>
-                    <span className="font-semibold float-right">{convertUsage(availability).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
+                    <span className="font-semibold float-right">{convertUsage(availability).toLocaleString(undefined, { maximumFractionDigits: 1 })} {getUnitLabel()}</span>
                 </div>
                 <div>
                     <span>Req:</span>
-                    <span className="font-semibold float-right">{convertUsage(totalDemand).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
+                    <span className="font-semibold float-right">{convertUsage(totalDemand).toLocaleString(undefined, { maximumFractionDigits: 1 })} {getUnitLabel()}</span>
                 </div>
               </div>
             </div>
@@ -308,10 +308,10 @@ function DayCell({ dayData, onOrderClick }: { dayData: DailyData | null, onOrder
                 <div className="space-y-2">
                     <h4 className="font-medium leading-none">Status for {format(date, 'MMM d, yyyy')}</h4>
                     <div className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
-                        <span className="font-semibold">Total Available:</span><span>{convertUsage(availability).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
-                        <span className="font-semibold">Approved:</span><span>{convertUsage(approved).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
-                        <span className="font-semibold">Pending:</span><span>{convertUsage(pending).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
-                        <span className="font-semibold text-foreground">Remaining:</span><span className="font-bold text-foreground">{convertUsage(availability - approved).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
+                        <span className="font-semibold">Total Available:</span><span>{convertUsage(availability).toLocaleString(undefined, { maximumFractionDigits: 1 })} {getUnitLabel()}</span>
+                        <span className="font-semibold">Approved:</span><span>{convertUsage(approved).toLocaleString(undefined, { maximumFractionDigits: 1 })} {getUnitLabel()}</span>
+                        <span className="font-semibold">Pending:</span><span>{convertUsage(pending).toLocaleString(undefined, { maximumFractionDigits: 1 })} {getUnitLabel()}</span>
+                        <span className="font-semibold text-foreground">Remaining:</span><span className="font-bold text-foreground">{convertUsage(availability - approved).toLocaleString(undefined, { maximumFractionDigits: 1 })} {getUnitLabel()}</span>
                     </div>
                 </div>
                  <div className="grid gap-2 max-h-48 overflow-auto">
@@ -373,7 +373,7 @@ function OrderDetailsDialog({ isOpen, onOpenChange, order, onStatusChange, onRej
                     </div>
                     <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                         <Label>Total Volume</Label>
-                        <span>{order.totalGallons.toLocaleString(undefined, {maximumFractionDigits: 0})} Gallons</span>
+                        <span>{order.totalGallons.toLocaleString(undefined, {maximumFractionDigits: 1})} Gallons</span>
                     </div>
                     {order.adminNotes && (
                         <div className="grid grid-cols-[120px_1fr] items-start gap-4">
