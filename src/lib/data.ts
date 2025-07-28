@@ -148,10 +148,10 @@ let allocations: Allocation[] = [
     { id: 'alloc_sf_6', companyId: '2', startDate: '2025-07-06T00:00:00.000Z', endDate: '2025-07-12T23:59:59.000Z', gallons: 53000 },
 
     // Annual Allocations for Pleasant View Orchards (companyId: '3')
-    { id: 'alloc_pvo_301', companyId: '3', userId: '301', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 10 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] }, // 10 ac-ft
-    { id: 'alloc_pvo_302', companyId: '3', userId: '302', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 8 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] }, // 8 ac-ft
-    { id: 'alloc_pvo_303', companyId: '3', userId: '303', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 9 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] }, // 9 ac-ft
-    { id: 'alloc_pvo_304', companyId: '3', userId: '304', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 9.5 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] }, // 9.5 ac-ft
+    { id: 'alloc_pvo_301', companyId: '3', userId: '301', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 25 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] },
+    { id: 'alloc_pvo_302', companyId: '3', userId: '302', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 22 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] },
+    { id: 'alloc_pvo_303', companyId: '3', userId: '303', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 28 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] },
+    { id: 'alloc_pvo_304', companyId: '3', userId: '304', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 30 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] },
 ];
 
 let usageData: UsageEntry[] = [];
