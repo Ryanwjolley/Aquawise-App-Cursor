@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import Link from 'next/link';
 
 type DailyData = {
   date: Date;
@@ -175,6 +176,8 @@ export function WaterCalendar() {
 
 function DayCell({ dayData }: { dayData: DailyData | null }) {
   const { convertUsage, getUnitLabel } = useUnit();
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role?.includes('Admin');
 
   if (!dayData) {
     return <div className="h-32 border-b border-r bg-muted/50" />;
@@ -186,7 +189,7 @@ function DayCell({ dayData }: { dayData: DailyData | null }) {
   const isOverCapacity = totalDemand > availability;
   
   const approvedPercent = availability > 0 ? (approved / availability) * 100 : 0;
-  // Calculate pending percentage based on the remaining availability
+  // Calculate pending percentage based on the remaining availability after approved amounts are used.
   const pendingPercent = remainingForPending > 0 ? (pending / remainingForPending) * 100 : 0;
   
   const isToday = isSameDay(date, new Date());
@@ -231,18 +234,29 @@ function DayCell({ dayData }: { dayData: DailyData | null }) {
                         <span className="font-semibold">Total Available:</span><span>{convertUsage(availability).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
                         <span className="font-semibold">Approved:</span><span>{convertUsage(approved).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
                         <span className="font-semibold">Pending:</span><span>{convertUsage(pending).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
-                        <span className="font-semibold">Remaining:</span><span>{convertUsage(availability - approved).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
+                        <span className="font-semibold">Remaining:</span><span className="font-bold text-foreground">{convertUsage(availability - approved).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
                     </div>
                 </div>
                  <div className="grid gap-2 max-h-48 overflow-auto">
                     <h5 className="font-medium leading-none text-sm">Orders</h5>
-                    {dayData.orders.map(order => (
-                        <div key={order.id} className="grid grid-cols-3 items-center gap-4 text-xs">
-                            <span className="col-span-1 truncate">{order.userName || 'Unknown User'}</span>
-                            <span className="col-span-1">{order.amount} {order.unit}</span>
-                             <Badge variant={order.status === 'approved' || order.status === 'completed' ? 'default' : order.status === 'pending' ? 'outline' : 'destructive'} className="capitalize justify-self-end">{order.status}</Badge>
-                        </div>
-                    ))}
+                    {dayData.orders.map(order => {
+                        const orderRow = (
+                            <div className="grid grid-cols-3 items-center gap-4 text-xs">
+                                <span className="col-span-1 truncate">{order.userName || 'Unknown User'}</span>
+                                <span className="col-span-1">{order.amount.toLocaleString()} {getUnitLabel(order.unit)}</span>
+                                 <Badge variant={order.status === 'approved' || order.status === 'completed' ? 'default' : order.status === 'pending' ? 'outline' : 'destructive'} className="capitalize justify-self-end">{order.status}</Badge>
+                            </div>
+                        );
+
+                        if (isAdmin) {
+                            return (
+                                <Link href="/admin/water-orders" key={order.id} className="rounded-md p-1 -m-1 hover:bg-accent block">
+                                    {orderRow}
+                                </Link>
+                            )
+                        }
+                        return <div key={order.id} className="p-1">{orderRow}</div>;
+                    })}
                 </div>
             </div>
          </PopoverContent>
