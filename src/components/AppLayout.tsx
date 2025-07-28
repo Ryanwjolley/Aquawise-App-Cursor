@@ -87,10 +87,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         </Link>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                        <Link href="/admin/data-upload">
-                            <SidebarMenuButton tooltip="Data Upload" isActive={pathname.startsWith('/admin/data-upload')}>
+                        <Link href="/admin/usage-data">
+                            <SidebarMenuButton tooltip="Usage Data" isActive={pathname.startsWith('/admin/usage-data')}>
                             <Upload />
-                            <span>Data Upload</span>
+                            <span>Usage Data</span>
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
