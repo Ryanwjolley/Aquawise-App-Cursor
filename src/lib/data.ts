@@ -1,13 +1,15 @@
+
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 
-export type Unit = 'gallons' | 'kgal' | 'acre-feet';
-export type UnitLabel = 'Gallons' | 'kGal' | 'Acre-Feet';
+export type Unit = 'gallons' | 'kgal' | 'acre-feet' | 'cubic-feet';
+export type UnitLabel = 'Gallons' | 'kGal' | 'Acre-Feet' | 'Cubic Feet';
 
 export const CONVERSION_FACTORS: Record<Unit, number> = {
     'gallons': 1,
-    'kgal': 1 / 1000,
-    'acre-feet': 1 / 325851,
+    'kgal': 1000,
+    'acre-feet': 325851,
+    'cubic-feet': 7.48052,
 };
 
 export type Company = {
@@ -34,6 +36,24 @@ export type UserGroup = {
     name: string;
     companyId: string;
 }
+
+export type Allocation = {
+  id: string;
+  startDate: string; // ISO 8601 format
+  endDate: string; // ISO 8601 format
+  gallons: number;
+  userId?: string; // Specific user this applies to
+  userGroupId?: string; // Specific group this applies to
+  companyId: string;
+};
+
+export type UsageEntry = {
+    id: string;
+    userId: string;
+    date: string; // YYYY-MM-DD
+    usage: number; // Always in gallons
+}
+
 
 let companies: Company[] = [
   { id: '0', name: 'AquaWise HQ', defaultUnit: 'gallons', userGroupsEnabled: false },
@@ -159,6 +179,7 @@ export const getUnitLabel = (unit: Unit): UnitLabel => {
         'gallons': 'Gallons',
         'kgal': 'kGal',
         'acre-feet': 'Acre-Feet',
+        'cubic-feet': 'Cubic Feet',
     };
     return UNIT_LABELS[unit];
 }
@@ -264,7 +285,7 @@ export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mod
   let added = 0;
   let updated = 0;
 
-  const conversionToGallons = 1 / CONVERSION_FACTORS[inputUnit];
+  const conversionToGallons = CONVERSION_FACTORS[inputUnit];
 
   entries.forEach(newEntry => {
     const gallonsUsage = newEntry.usage * conversionToGallons;
@@ -327,4 +348,11 @@ export const updateAllocation = async (updatedAllocation: Allocation): Promise<A
 export const deleteAllocation = async (allocationId: string): Promise<void> => {
     allocations = allocations.filter(a => a.id !== allocationId);
     return Promise.resolve();
+};
+
+export const CONVERSION_FACTORS_FROM_GALLONS: Record<Unit, number> = {
+    'gallons': 1,
+    'kgal': 1 / 1000,
+    'acre-feet': 1 / 325851,
+    'cubic-feet': 1/ 7.48052,
 };

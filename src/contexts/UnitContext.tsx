@@ -3,7 +3,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Unit, UnitLabel } from '@/lib/data';
-import { getUnitLabel as getLabel } from '@/lib/data';
+import { getUnitLabel as getLabel, CONVERSION_FACTORS_FROM_GALLONS } from '@/lib/data';
 import { useAuth } from './AuthContext';
 
 
@@ -15,12 +15,6 @@ interface UnitContextValue {
 }
 
 const UnitContext = createContext<UnitContextValue | undefined>(undefined);
-
-const CONVERSION_FACTORS = {
-    'gallons': 1,
-    'kgal': 1 / 1000,
-    'acre-feet': 1 / 325851,
-};
 
 
 export const UnitProvider = ({ children }: { children: ReactNode }) => {
@@ -36,7 +30,7 @@ export const UnitProvider = ({ children }: { children: ReactNode }) => {
 
 
   const convertUsage = (gallons: number): number => {
-    return gallons * CONVERSION_FACTORS[unit];
+    return gallons * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
   };
   
   const getUnitLabel = (): UnitLabel => {

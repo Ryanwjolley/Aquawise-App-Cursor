@@ -54,7 +54,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 // --- Zod Schemas ---
 const displaySettingsSchema = z.object({
-  defaultUnit: z.enum(["gallons", "kgal", "acre-feet"]),
+  defaultUnit: z.enum(["gallons", "kgal", "acre-feet", "cubic-feet"]),
   userGroupsEnabled: z.boolean().default(false),
 });
 type DisplaySettingsFormValues = z.infer<typeof displaySettingsSchema>;
@@ -339,6 +339,7 @@ export default function SettingsPage() {
                                             <SelectItem value="gallons">Gallons</SelectItem>
                                             <SelectItem value="kgal">kGal (Thousands)</SelectItem>
                                             <SelectItem value="acre-feet">Acre-Feet</SelectItem>
+                                            <SelectItem value="cubic-feet">Cubic Feet</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     )}
@@ -539,4 +540,3 @@ export default function SettingsPage() {
     </AppLayout>
   );
 }
-

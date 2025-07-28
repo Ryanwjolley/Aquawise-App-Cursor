@@ -23,12 +23,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { Allocation, User, UserGroup } from "@/lib/data";
+import type { Allocation, User, UserGroup, Unit } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, differenceInMinutes, addMinutes, subMinutes, parseISO } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import { useUnit } from "@/contexts/UnitContext";
-import { getGroupsByCompany } from "@/lib/data";
+import { getGroupsByCompany, CONVERSION_FACTORS, getUnitLabel, CONVERSION_FACTORS_FROM_GALLONS } from "@/lib/data";
 
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -40,6 +40,7 @@ const allocationFormSchema = z.object({
   startTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   endTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }),
+  unit: z.enum(['gallons', 'kgal', 'acre-feet', 'cubic-feet']),
   appliesTo: z.string().min(1, { message: "Please select who this applies to." }),
 }).refine(data => {
     const start = combineDateTime(data.startDate, data.startTime);
@@ -79,12 +80,10 @@ export function AllocationForm({
   defaultValues
 }: AllocationFormProps) {
   const { company } = useAuth();
-  const { unit, convertUsage, getUnitLabel } = useUnit();
+  const { unit, getUnitLabel: getDisplayUnitLabel } = useUnit();
   const [overlapWarning, setOverlapWarning] = useState<string | null>(null);
   const [gapWarning, setGapWarning] = useState<string | null>(null);
   const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
-  
-  const unitLabel = getUnitLabel();
   
   const {
     handleSubmit,
@@ -108,9 +107,11 @@ export function AllocationForm({
 
 
   const getInitialValues = () => {
+      const defaultUnit = company?.defaultUnit || 'gallons';
+
       if (defaultValues) {
-        // Convert the stored gallon value to the company's default unit for display
-        const displayAmount = convertUsage(defaultValues.gallons);
+        // When editing, convert the stored gallon value to the company's default display unit.
+        const displayAmount = defaultValues.gallons * (CONVERSION_FACTORS_FROM_GALLONS[defaultUnit] || 1);
         const start = new Date(defaultValues.startDate);
         const end = new Date(defaultValues.endDate);
         let appliesTo = "all";
@@ -122,6 +123,7 @@ export function AllocationForm({
 
         return {
           amount: displayAmount,
+          unit: defaultUnit,
           appliesTo: appliesTo,
           startDate: format(start, "yyyy-MM-dd"),
           startTime: format(start, "HH:mm"),
@@ -131,6 +133,7 @@ export function AllocationForm({
       }
       return {
         amount: 0,
+        unit: defaultUnit,
         appliesTo: "all",
         startDate: format(new Date(), "yyyy-MM-dd"),
         endDate: format(new Date(), "yyyy-MM-dd"),
@@ -143,7 +146,7 @@ export function AllocationForm({
     if (isOpen) {
         reset(getInitialValues());
     }
-  }, [isOpen, defaultValues, reset, unit]);
+  }, [isOpen, defaultValues, reset, company]);
   
   useEffect(() => {
     if (isOpen && watchedValues.startDate && watchedValues.endDate && watchedValues.startTime && watchedValues.endTime) {
@@ -225,12 +228,8 @@ export function AllocationForm({
         return;
     }
 
-    const conversionFactors: Record<string, number> = {
-        'gallons': 1,
-        'kgal': 1000,
-        'acre-feet': 325851,
-    };
-    const totalGallons = data.amount * (conversionFactors[unit] || 1);
+    // Convert the entered amount to gallons for consistent storage
+    const totalGallons = data.amount * (CONVERSION_FACTORS[data.unit] || 1);
 
     const isGroupAllocation = data.appliesTo.startsWith('group_');
     const userId = !isGroupAllocation && data.appliesTo !== 'all' ? data.appliesTo : undefined;
@@ -255,7 +254,7 @@ export function AllocationForm({
           <SheetHeader>
             <SheetTitle>{defaultValues ? 'Edit Allocation' : 'New Allocation'}</SheetTitle>
             <SheetDescription>
-              Set a water usage budget for a specific period for all or one of your users. Values are in your company's default unit ({unitLabel}).
+              Set a water usage budget for a specific period. The final value will be stored in gallons.
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-6 overflow-y-auto py-6 pr-6 pl-1">
@@ -329,16 +328,38 @@ export function AllocationForm({
               </div>
             )}
             
-            <div className="grid gap-2 pl-5">
-              <Label htmlFor="amount">Amount (in {unitLabel})</Label>
-               <Controller
-                  name="amount"
-                  control={control}
-                  render={({ field }) => <Input id="amount" type="number" step="any" {...field} />}
-              />
-               {errors.amount && (
-                  <p className="text-sm text-destructive">{errors.amount.message}</p>
-              )}
+            <div className="grid grid-cols-3 gap-4 pl-5">
+                <div className="col-span-2 grid gap-2">
+                    <Label htmlFor="amount">Amount</Label>
+                    <Controller
+                        name="amount"
+                        control={control}
+                        render={({ field }) => <Input id="amount" type="number" step="any" {...field} />}
+                    />
+                    {errors.amount && (
+                        <p className="text-sm text-destructive">{errors.amount.message}</p>
+                    )}
+                </div>
+                 <div className="grid gap-2">
+                    <Label htmlFor="unit">Unit</Label>
+                    <Controller
+                        name="unit"
+                        control={control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger id="unit">
+                                    <SelectValue placeholder="Select unit" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="gallons">Gallons</SelectItem>
+                                    <SelectItem value="kgal">kGal</SelectItem>
+                                    <SelectItem value="acre-feet">Acre-Feet</SelectItem>
+                                    <SelectItem value="cubic-feet">Cubic Feet</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                </div>
             </div>
 
             <div className="grid gap-2 pl-5">
@@ -355,14 +376,14 @@ export function AllocationForm({
                       <SelectItem value="all">All Users</SelectItem>
                       {company?.userGroupsEnabled && userGroups.length > 0 && (
                         <SelectGroup>
-                            <Label className="px-2 py-1.5 text-xs">Groups</Label>
+                            <Label className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Groups</Label>
                              {userGroups.map(group => (
                                 <SelectItem key={group.id} value={`group_${group.id}`}>{group.name}</SelectItem>
                             ))}
                         </SelectGroup>
                       )}
                       <SelectGroup>
-                        <Label className="px-2 py-1.5 text-xs">Users</Label>
+                        <Label className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Users</Label>
                          {companyUsers.map(user => (
                             <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                         ))}
