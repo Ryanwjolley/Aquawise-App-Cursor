@@ -102,24 +102,21 @@ export default function AllocationPage() {
   const handleFormSubmit = async (data: Omit<Allocation, 'id' | 'companyId'>) => {
     if (!currentUser?.companyId || !company) return;
     
-    let savedAllocation;
     const updateType = editingAllocation ? 'updated' : 'created';
+    let savedAllocation: Allocation;
     
     if (editingAllocation) {
       savedAllocation = await updateAllocation({ ...data, id: editingAllocation.id, companyId: currentUser.companyId });
-      toast({
-        title: "Allocation Updated",
-        description: "The allocation has been successfully saved.",
-      });
     } else {
       savedAllocation = await addAllocation({ ...data, companyId: currentUser.companyId });
-      toast({
-        title: "Allocation Created",
-        description: "The new water allocation has been successfully saved.",
-      });
     }
 
-    // Must re-fetch users to ensure we have the latest list before determining recipients
+    toast({
+      title: `Allocation ${updateType}`,
+      description: `The allocation has been successfully ${updateType}.`,
+    });
+
+    // Re-fetch users to ensure we have the latest list for notifications
     const allUsers = await getUsersByCompany(currentUser.companyId);
     let recipients: User[] = [];
 
@@ -134,30 +131,28 @@ export default function AllocationPage() {
     }
 
     // --- Send Notifications ---
-    if (notificationSettings.allocationChangeAlerts.enabled) {
+    if (notificationSettings.allocationChangeAlerts.enabled && recipients.length > 0) {
         try {
-            if (recipients.length > 0) {
-                // Send email
-                await sendAllocationNotificationEmail(savedAllocation, recipients, updateType, company.defaultUnit);
-                
-                // Add in-app notification
-                for (const recipient of recipients) {
-                     const link = recipient.role.includes('Admin')
-                      ? `/admin?from=${formatISO(new Date(savedAllocation.startDate))}&to=${formatISO(new Date(savedAllocation.endDate))}`
-                      : `/?from=${formatISO(new Date(savedAllocation.startDate))}&to=${formatISO(new Date(savedAllocation.endDate))}`;
+            // Send email
+            await sendAllocationNotificationEmail(savedAllocation, recipients, updateType, company.defaultUnit);
+            
+            // Add in-app notification
+            for (const recipient of recipients) {
+                 const link = recipient.role.includes('Admin')
+                  ? `/admin?from=${formatISO(new Date(savedAllocation.startDate))}&to=${formatISO(new Date(savedAllocation.endDate))}`
+                  : `/?from=${formatISO(new Date(savedAllocation.startDate))}&to=${formatISO(new Date(savedAllocation.endDate))}`;
 
-                    addNotification({
-                        userId: recipient.id,
-                        message: `Your water allocation has been ${updateType}.`,
-                        link
-                    });
-                }
-                
-                toast({
-                    title: "Notifications Sent",
-                    description: `Sent allocation notifications to ${recipients.length} user(s).`
+                addNotification({
+                    userId: recipient.id,
+                    message: `Your water allocation has been ${updateType}.`,
+                    link: link
                 });
             }
+            
+            toast({
+                title: "Notifications Sent",
+                description: `Sent allocation notifications to ${recipients.length} user(s).`
+            });
         } catch (e) {
             console.error("Failed to send notification email:", e);
             toast({

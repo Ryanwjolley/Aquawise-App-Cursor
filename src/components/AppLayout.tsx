@@ -106,12 +106,14 @@ function NotificationsPopover() {
                                         <p className="text-xs text-muted-foreground">
                                             {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                                         </p>
-                                        {n.link && (
-                                            <Link href={n.link} className="text-xs text-primary hover:underline">View Details</Link>
-                                        )}
-                                        {!n.isRead && (
-                                            <Button variant="link" size="sm" className="h-auto p-0 justify-start text-xs" onClick={() => handleMarkAsRead(n.id)}>Mark as read</Button>
-                                        )}
+                                        <div className="flex items-center gap-4 mt-1">
+                                            {n.link && (
+                                                <Link href={n.link} className="text-xs text-primary hover:underline">View Context</Link>
+                                            )}
+                                            {!n.isRead && (
+                                                <Button variant="link" size="sm" className="h-auto p-0 justify-start text-xs text-muted-foreground" onClick={() => handleMarkAsRead(n.id)}>Mark as read</Button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ))

@@ -95,9 +95,7 @@ export default function NotificationsPage() {
                                             </p>
                                             <div className="flex items-center gap-4 mt-1">
                                                 {n.link && (
-                                                    <Button asChild variant="link" size="sm" className="h-auto p-0 text-xs">
-                                                        <Link href={n.link}>View Details</Link>
-                                                    </Button>
+                                                    <Link href={n.link} className="text-xs text-primary hover:underline">View Context</Link>
                                                 )}
                                                 {!n.isRead && (
                                                     <Button variant="link" size="sm" className="h-auto p-0 text-xs text-muted-foreground" onClick={() => handleMarkAsRead(n.id)}>Mark as read</Button>
