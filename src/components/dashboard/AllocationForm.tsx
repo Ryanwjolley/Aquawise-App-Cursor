@@ -177,11 +177,11 @@ export function AllocationForm({
       const overlappingAlloc = relevantAllocations.find(alloc => {
         const existingStart = new Date(alloc.startDate);
         const existingEnd = new Date(alloc.endDate);
-        return newStart < addMinutes(existingEnd, GAP_THRESHOLD_MINUTES) && newEnd > subMinutes(existingStart, GAP_THRESHOLD_MINUTES);
+        return newStart < existingEnd && newEnd > existingStart;
       });
 
       if (overlappingAlloc) {
-        setOverlapWarning(`This period is too close to an existing allocation from ${format(new Date(overlappingAlloc.startDate), 'P p')} to ${format(new Date(overlappingAlloc.endDate), 'P p')}.`);
+        setOverlapWarning(`This period overlaps with an existing allocation from ${format(new Date(overlappingAlloc.startDate), 'P p')} to ${format(new Date(overlappingAlloc.endDate), 'P p')}.`);
       } else {
         setOverlapWarning(null);
       }
