@@ -2,7 +2,7 @@
 // /src/components/AppLayout.tsx
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -18,9 +18,13 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList, Calendar, Link2 } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList, Calendar, Link2, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UnitSwitcher } from "@/components/dashboard/UnitSwitcher";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getNotificationsForUser, markNotificationAsRead, Notification } from "@/lib/data";
+import { formatDistanceToNow } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 function ImpersonationBanner() {
     const { stopImpersonating, currentUser } = useAuth();
@@ -35,8 +39,82 @@ function ImpersonationBanner() {
     )
 }
 
+function NotificationsPopover() {
+    const { currentUser } = useAuth();
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [isOpen, setIsOpen] = useState(false);
+
+    const fetchNotifications = async () => {
+        if (!currentUser) return;
+        const userNotifications = await getNotificationsForUser(currentUser.id);
+        setNotifications(userNotifications);
+    };
+
+    useEffect(() => {
+        if (isOpen && currentUser) {
+            fetchNotifications();
+        }
+    }, [isOpen, currentUser]);
+
+    const handleMarkAsRead = async (id: string) => {
+        await markNotificationAsRead(id);
+        fetchNotifications(); // Refresh list
+    }
+    
+    const unreadCount = notifications.filter(n => !n.isRead).length;
+
+    return (
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                    <Bell />
+                    {unreadCount > 0 && (
+                        <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">{unreadCount}</Badge>
+                    )}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+                <div className="grid gap-4">
+                    <div className="space-y-2">
+                        <h4 className="font-medium leading-none">Notifications</h4>
+                        <p className="text-sm text-muted-foreground">
+                            Recent alerts and updates.
+                        </p>
+                    </div>
+                    <div className="grid gap-2 max-h-80 overflow-y-auto">
+                        {notifications.length > 0 ? (
+                            notifications.map(n => (
+                                <div key={n.id} className={`grid grid-cols-[25px_1fr] items-start pb-4 last:pb-0 ${!n.isRead ? 'font-bold' : ''}`}>
+                                    <span className="flex h-2 w-2 translate-y-1 rounded-full bg-sky-500" />
+                                    <div className="grid gap-1">
+                                        <p className="text-sm">
+                                            {n.message}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                                        </p>
+                                        {n.link && (
+                                            <Link href={n.link} className="text-xs text-primary hover:underline">View Details</Link>
+                                        )}
+                                        {!n.isRead && (
+                                            <Button variant="link" size="sm" className="h-auto p-0 justify-start text-xs" onClick={() => handleMarkAsRead(n.id)}>Mark as read</Button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-sm text-center text-muted-foreground py-4">No new notifications.</p>
+                        )}
+                    </div>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser, company, isImpersonating, stopImpersonating } = useAuth();
+  const { currentUser, company, isImpersonating, stopImpersonating, logout } = useAuth();
   const pathname = usePathname();
 
   const isSuperAdminView = currentUser?.role === 'Super Admin' && !isImpersonating;
@@ -167,9 +245,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   {isImpersonating ? '(Impersonating)' : currentUser?.email}
                 </span>
               </div>
-              <Button variant="ghost" size="icon" className="ml-auto" onClick={isImpersonating ? stopImpersonating : undefined}>
-                {isImpersonating ? <XSquare /> : <LogOut />}
-              </Button>
+              <div className="ml-auto flex items-center">
+                 <NotificationsPopover />
+                  <Button variant="ghost" size="icon" onClick={isImpersonating ? stopImpersonating : logout}>
+                    {isImpersonating ? <XSquare /> : <LogOut />}
+                  </Button>
+              </div>
             </div>
           </SidebarFooter>
         </Sidebar>

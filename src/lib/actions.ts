@@ -3,7 +3,7 @@
 
 import sgMail from '@sendgrid/mail';
 import { format } from 'date-fns';
-import type { Allocation, User, Unit } from './data';
+import type { Allocation, User, Unit, WaterOrder } from './data';
 import { getUnitLabel } from './data';
 import "dotenv/config";
 
@@ -62,3 +62,42 @@ export const sendAllocationNotificationEmail = async (allocation: Allocation, re
         throw new Error('Failed to send notification email.');
     }
 };
+
+export const sendWaterOrderSubmissionEmail = async (order: WaterOrder, user: User, recipients: User[]) => {
+     if (!process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY === "YOUR_SENDGRID_API_KEY_HERE" || !process.env.SENDGRID_FROM_EMAIL) {
+        console.log("SENDGRID_API_KEY or SENDGRID_FROM_EMAIL not set. Skipping email send. Email content for water order submission:");
+        console.log({
+            to: recipients.map(r => r.email),
+            from: process.env.SENDGRID_FROM_EMAIL || 'test@example.com',
+            subject: 'New Water Order Submitted',
+            text: `Order from ${user.name}: ${JSON.stringify(order)}`
+        });
+        return;
+    }
+
+    const formattedStart = format(new Date(order.startDate), 'P p');
+    const formattedEnd = format(new Date(order.endDate), 'P p');
+    const unitLabel = getUnitLabel(order.unit);
+
+    const msg = {
+        to: recipients.map(r => r.email),
+        from: process.env.SENDGRID_FROM_EMAIL!,
+        subject: `New Water Order Submitted by ${user.name}`,
+        html: `
+            <p>A new water order has been submitted for your review.</p>
+            <ul>
+                <li><strong>User:</strong> ${user.name} (${user.email})</li>
+                <li><strong>Period:</strong> ${formattedStart} to ${formattedEnd}</li>
+                <li><strong>Requested Amount:</strong> ${order.amount.toLocaleString()} ${unitLabel}</li>
+            </ul>
+            <p>Please log in to the AquaWise admin dashboard to approve or reject this request.</p>
+        `,
+    };
+
+    try {
+        await sgMail.send(msg);
+    } catch (error) {
+        console.error('Error sending water order submission email', error);
+        throw new Error('Failed to send water order submission email.');
+    }
+}

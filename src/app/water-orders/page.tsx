@@ -17,7 +17,7 @@ import { PlusCircle, Info, Calendar } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { WaterOrder, User, Unit } from "@/lib/data";
-import { getWaterOrdersForUser, addWaterOrder, getUnitLabel } from "@/lib/data";
+import { getWaterOrdersForUser, addWaterOrder, getUnitLabel, checkOrderAvailability } from "@/lib/data";
 import { WaterOrderForm } from "@/components/dashboard/WaterOrderForm";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 export default function CustomerWaterOrdersPage() {
@@ -55,7 +56,20 @@ export default function CustomerWaterOrdersPage() {
     }, [currentUser, company]);
 
     const handleFormSubmit = async (data: Omit<WaterOrder, 'id' | 'companyId' | 'userId' | 'status' | 'createdAt'>) => {
-        if (!currentUser) return;
+        if (!currentUser || !currentUser.companyId) return;
+
+        const isAvailable = await checkOrderAvailability(currentUser.companyId, data.startDate, data.endDate, data.totalGallons);
+
+        if (!isAvailable) {
+            toast({
+                variant: "destructive",
+                title: "Request Exceeds Availability",
+                description: "Your requested water order exceeds the system's available capacity for that period. Please view the calendar and choose a different date or time.",
+                duration: 9000
+            });
+            // Don't close the form, allow user to edit
+            return;
+        }
 
         await addWaterOrder({
             ...data,

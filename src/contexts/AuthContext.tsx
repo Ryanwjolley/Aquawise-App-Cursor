@@ -11,6 +11,7 @@ interface AuthContextValue {
   company: Company | null;
   impersonateUser: (userId: string) => Promise<void>;
   stopImpersonating: () => Promise<void>;
+  logout: () => void;
   isImpersonating: boolean;
   loading: boolean;
   reloadCompany: () => Promise<void>;
@@ -27,7 +28,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isImpersonating, setIsImpersonating] = useState(false);
 
-  const defaultUserId = '100'; // Ryan Jolley (Super Admin)
+  const defaultUserId = '101'; // Alice Johnson (Admin & Customer for GVA)
 
   useEffect(() => {
     const handleUserUpdate = (event: Event) => {
@@ -122,8 +123,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await loadUser(adminId, true);
     }
   }
+  
+  const logout = () => {
+      sessionStorage.clear();
+      setIsImpersonating(false);
+      loadUser(defaultUserId, true);
+  }
 
-  const value = { currentUser, company, impersonateUser, loading, isImpersonating, stopImpersonating, reloadCompany };
+  const value = { currentUser, company, impersonateUser, loading, isImpersonating, stopImpersonating, reloadCompany, logout };
 
   return (
     <AuthContext.Provider value={value}>

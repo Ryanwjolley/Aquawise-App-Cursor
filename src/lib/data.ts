@@ -2,7 +2,7 @@
 
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
-import { differenceInDays, max, min, parseISO } from "date-fns";
+import { differenceInDays, max, min, parseISO, format, startOfDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
 export type Unit = 'gallons' | 'kgal' | 'acre-feet' | 'cubic-feet' | 'cfs' | 'gpm' | 'acre-feet-day';
@@ -92,12 +92,21 @@ export type WaterOrder = {
     adminNotes?: string;
 };
 
+export type Notification = {
+    id: string;
+    userId: string;
+    message: string;
+    createdAt: string; // ISO 8601 format
+    isRead: boolean;
+    link?: string;
+}
+
 
 let companies: Company[] = [
   { id: '0', name: 'AquaWise HQ', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true },
   { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: false },
   { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true },
-  { id: '3', name: 'Pleasant View Orchards', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true },
+  { id: '3', name: 'Pleasant View Orchards', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: true },
 ];
 
 let userGroups: UserGroup[] = [
@@ -250,6 +259,7 @@ let waterOrders: WaterOrder[] = [
 ];
 
 let usageData: UsageEntry[] = [];
+let notifications: Notification[] = [];
 
 // --- Generate extensive mock data for June and July 2025 ---
 const generateMockUsage = () => {
@@ -337,6 +347,12 @@ const getRecentDate = (daysAgo: number): string => {
 usageData.push(
   { id: 'u1', userId: '101', date: getRecentDate(2), usage: 4500 },
   { id: 'u2', userId: '101', date: getRecentDate(1), usage: 5200 },
+);
+
+// Add some notifications
+notifications.push(
+    { id: 'n1', userId: '102', message: 'Your water order was approved.', createdAt: new Date().toISOString(), isRead: false, link: '/water-orders' },
+    { id: 'n2', userId: '102', message: 'Your water order was rejected: Canal Maintenance.', createdAt: new Date(Date.now() - 86400000).toISOString(), isRead: true, link: '/water-orders' }
 );
 
 
@@ -625,8 +641,6 @@ export const deleteWaterAvailability = async (availabilityId: string): Promise<v
     return Promise.resolve();
 };
 
-
-
 // --- Water Order Functions ---
 export const getWaterOrdersByCompany = async (companyId: string): Promise<WaterOrder[]> => {
     return Promise.resolve(waterOrders.filter(wo => wo.companyId === companyId));
@@ -644,6 +658,20 @@ export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' 
         createdAt: new Date().toISOString(),
     };
     waterOrders.push(newOrder);
+
+    // Create notification for admin
+    const companyAdmins = await getUsersByCompany(orderData.companyId);
+    const admins = companyAdmins.filter(u => u.role.includes('Admin'));
+    const user = await getUserById(orderData.userId);
+
+    for (const admin of admins) {
+        addNotification({
+            userId: admin.id,
+            message: `New water order submitted by ${user?.name}.`,
+            link: '/admin/water-orders'
+        });
+    }
+
     return Promise.resolve(newOrder);
 }
 
@@ -651,6 +679,7 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
     const index = waterOrders.findIndex(wo => wo.id === orderId);
     if (index === -1) throw new Error("Water order not found");
     
+    const originalStatus = waterOrders[index].status;
     waterOrders[index] = {
         ...waterOrders[index],
         status,
@@ -659,6 +688,19 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
         adminNotes: notes,
     };
     
+    // Create notification for user if status changed
+    if (originalStatus !== status) {
+        let message = `Your water order has been ${status}.`;
+        if (status === 'rejected' && notes) {
+            message = `Your water order was rejected: ${notes}`;
+        }
+        addNotification({
+            userId: waterOrders[index].userId,
+            message: message,
+            link: '/water-orders'
+        });
+    }
+
     // If completed, record the usage
     if (status === 'completed') {
         const order = waterOrders[index];
@@ -681,4 +723,70 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
     }
 
     return Promise.resolve(waterOrders[index]);
+}
+
+export const checkOrderAvailability = async (companyId: string, startDate: string, endDate: string, totalGallons: number): Promise<boolean> => {
+    const avails = await getWaterAvailabilities(companyId);
+    const orders = await getWaterOrdersByCompany(companyId);
+
+    const start = startOfDay(parseISO(startDate));
+    const end = startOfDay(parseISO(endDate));
+    let isAvailable = true;
+
+    for (let day = start; day <= end; day.setDate(day.getDate() + 1)) {
+        const dayKey = format(day, 'yyyy-MM-dd');
+        
+        const dayAvailability = avails.reduce((total, avail) => {
+            const availStart = startOfDay(parseISO(avail.startDate));
+            const availEnd = startOfDay(parseISO(avail.endDate));
+            if (day >= availStart && day <= availEnd) {
+                const durationDays = differenceInDays(availEnd, availStart) + 1;
+                return total + (avail.gallons / durationDays);
+            }
+            return total;
+        }, 0);
+
+        const approvedDemand = orders.filter(o => o.status === 'approved' || o.status === 'completed').reduce((total, order) => {
+            const orderStart = startOfDay(parseISO(order.startDate));
+            const orderEnd = startOfDay(parseISO(order.endDate));
+            if (day >= orderStart && day <= orderEnd) {
+                const durationDays = differenceInDays(orderEnd, orderStart) + 1;
+                return total + (order.totalGallons / durationDays);
+            }
+            return total;
+        }, 0);
+        
+        const durationDays = differenceInDays(end, start) + 1;
+        const requestedDailyAmount = totalGallons / durationDays;
+
+        if ((approvedDemand + requestedDailyAmount) > dayAvailability) {
+            isAvailable = false;
+            break;
+        }
+    }
+    return Promise.resolve(isAvailable);
+}
+
+// --- Notification Functions ---
+export const getNotificationsForUser = async (userId: string): Promise<Notification[]> => {
+    return Promise.resolve(notifications.filter(n => n.userId === userId).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+}
+
+export const addNotification = (data: Omit<Notification, 'id' | 'createdAt' | 'isRead'>): Notification => {
+    const newNotification: Notification = {
+        ...data,
+        id: `n${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+    };
+    notifications.push(newNotification);
+    return newNotification;
+}
+
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+    const index = notifications.findIndex(n => n.id === notificationId);
+    if(index > -1) {
+        notifications[index].isRead = true;
+    }
+    return Promise.resolve();
 }
