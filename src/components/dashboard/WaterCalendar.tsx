@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameDay } from 'date-fns';
-import { getWaterAvailabilities, getWaterOrdersByCompany, WaterAvailability, WaterOrder } from '@/lib/data';
+import { getWaterAvailabilities, getWaterOrdersByCompany, WaterAvailability, WaterOrder, getUsersByCompany, User } from '@/lib/data';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnit } from '@/contexts/UnitContext';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ type DailyData = {
   availability: number;
   approved: number;
   pending: number;
-  orders: WaterOrder[];
+  orders: (WaterOrder & { userName?: string })[];
 };
 
 export function WaterCalendar() {
@@ -35,10 +35,13 @@ export function WaterCalendar() {
       const monthStart = startOfMonth(currentDate);
       const monthEnd = endOfMonth(currentDate);
 
-      const [availabilities, orders] = await Promise.all([
+      const [availabilities, orders, users] = await Promise.all([
         getWaterAvailabilities(currentUser.companyId),
         getWaterOrdersByCompany(currentUser.companyId),
+        getUsersByCompany(currentUser.companyId),
       ]);
+      
+      const userMap = new Map(users.map(u => [u.id, u.name]));
 
       const data: Record<string, DailyData> = {};
       const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -60,7 +63,7 @@ export function WaterCalendar() {
         // Calculate demand from orders for the day
         let approvedDemand = 0;
         let pendingDemand = 0;
-        const dayOrders: WaterOrder[] = [];
+        const dayOrders: (WaterOrder & { userName?: string })[] = [];
 
         for (const order of orders) {
           const orderStart = new Date(order.startDate);
@@ -73,7 +76,7 @@ export function WaterCalendar() {
             } else if (order.status === 'pending') {
               pendingDemand += dailyGallons;
             }
-            dayOrders.push(order);
+            dayOrders.push({...order, userName: userMap.get(order.userId)});
           }
         }
 
@@ -176,11 +179,15 @@ function DayCell({ dayData }: { dayData: DailyData | null }) {
     return <div className="h-32 border-b border-r bg-muted/50" />;
   }
 
-  const { date, availability, approved, pending } = dayData;
+  const { date, availability, approved, pending, orders } = dayData;
+  const remainingAvailability = availability - approved;
   const totalDemand = approved + pending;
   const isOverCapacity = totalDemand > availability;
+  
   const approvedPercent = availability > 0 ? (approved / availability) * 100 : 0;
-  const pendingPercent = availability > 0 ? (pending / availability) * 100 : 0;
+  // Calculate pending percentage based on the remaining availability
+  const pendingPercent = remainingAvailability > 0 ? (pending / remainingAvailability) * 100 : 0;
+  
   const isToday = isSameDay(date, new Date());
 
 
@@ -218,16 +225,20 @@ function DayCell({ dayData }: { dayData: DailyData | null }) {
          <PopoverContent className="w-80">
             <div className="grid gap-4">
                 <div className="space-y-2">
-                    <h4 className="font-medium leading-none">Orders for {format(date, 'MMM d, yyyy')}</h4>
-                    <p className="text-sm text-muted-foreground">
-                        {dayData.orders.length} order(s) scheduled for this day.
-                    </p>
+                    <h4 className="font-medium leading-none">Status for {format(date, 'MMM d, yyyy')}</h4>
+                    <div className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
+                        <span className="font-semibold">Total Available:</span><span>{convertUsage(availability).toLocaleString()} {getUnitLabel()}</span>
+                        <span className="font-semibold">Approved:</span><span>{convertUsage(approved).toLocaleString()} {getUnitLabel()}</span>
+                        <span className="font-semibold">Pending:</span><span>{convertUsage(pending).toLocaleString()} {getUnitLabel()}</span>
+                        <span className="font-semibold">Remaining:</span><span>{convertUsage(remainingAvailability).toLocaleString()} {getUnitLabel()}</span>
+                    </div>
                 </div>
-                <div className="grid gap-2 max-h-48 overflow-auto">
+                 <div className="grid gap-2 max-h-48 overflow-auto">
+                    <h5 className="font-medium leading-none text-sm">Orders</h5>
                     {dayData.orders.map(order => (
                         <div key={order.id} className="grid grid-cols-3 items-center gap-4 text-xs">
+                            <span className="col-span-1 truncate">{order.userName || 'Unknown User'}</span>
                             <span className="col-span-1">{order.amount} {order.unit}</span>
-                            <span className="col-span-1">{format(new Date(order.startDate), 'h:mm a')} - {format(new Date(order.endDate), 'h:mm a')}</span>
                              <Badge variant={order.status === 'approved' ? 'default' : order.status === 'pending' ? 'outline' : 'secondary'} className="capitalize justify-self-end">{order.status}</Badge>
                         </div>
                     ))}
