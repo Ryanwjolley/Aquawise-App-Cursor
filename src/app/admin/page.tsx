@@ -19,6 +19,8 @@ import { DailyUsageChart } from "@/components/dashboard/DailyUsageChart";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { UserDashboard } from "@/components/dashboard/UserDashboard";
 import { useUnit } from "@/contexts/UnitContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 
 // A component to render the aggregate company or group view
@@ -34,6 +36,11 @@ function AggregateDashboard({ title, users, allCompanyUsers, allUsageData, allAl
     const totalAllocation = users.reduce((acc, user) => {
         return acc + calculateUserAllocation(user, allCompanyUsers, allAllocations, queryRange);
     }, 0);
+
+    const allocationUsagePercent = totalAllocation > 0 ? (totalUsage / totalAllocation) * 100 : 0;
+
+    const convertedTotalUsage = convertUsage(totalUsage);
+    const convertedTotalAllocation = convertUsage(totalAllocation);
 
     const donutChartData = users.map(user => {
         const userUsage = allUsageData[user.id]?.reduce((sum, entry) => sum + entry.usage, 0) || 0;
@@ -71,22 +78,38 @@ function AggregateDashboard({ title, users, allCompanyUsers, allUsageData, allAl
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricCard 
                     title="Total Usage" 
-                    metric={`${convertUsage(totalUsage).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`}
+                    metric={`${convertedTotalUsage.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`}
                     icon={Droplets} 
                     description="Total water used across all users in this view" 
                 />
                 <MetricCard 
                     title="Total Allocation" 
-                    metric={`${convertUsage(totalAllocation).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`} 
+                    metric={`${convertedTotalAllocation.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`} 
                     icon={Target} 
                     description="Total allocation for this view in the period" 
                 />
-                <MetricCard 
-                    title="Average User Usage" 
-                    metric={`${convertUsage(avgUserUsage).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`} 
-                    icon={TrendingUp} 
-                    description="Average usage per user in this view" 
-                />
+                 {totalAllocation > 0 ? (
+                     <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Allocation Used</CardTitle>
+                            <Target className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{Math.round(allocationUsagePercent)}%</div>
+                            <p className="text-xs text-muted-foreground">
+                                {convertedTotalUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} of {convertedTotalAllocation.toLocaleString(undefined, { maximumFractionDigits: 2 })} {getUnitLabel()}
+                            </p>
+                            <Progress value={allocationUsagePercent} className="mt-2 h-2" />
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <MetricCard 
+                        title="Allocation Used" 
+                        metric="N/A"
+                        icon={Target}
+                        description="No allocation set for this period"
+                    />
+                )}
                 <MetricCard 
                     title="Active Users" 
                     metric={totalUsers.toString()}
