@@ -61,3 +61,4 @@ export const sendAllocationNotificationEmail = async (allocation: Allocation, re
         throw new Error('Failed to send notification email.');
     }
 };
+

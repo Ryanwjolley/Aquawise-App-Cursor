@@ -57,7 +57,7 @@ type NotificationsFormValues = z.infer<typeof notificationsSchema>;
 const MOCK_EXISTING_SETTINGS = {
     allocationChangeAlerts: {
         enabled: true,
-        message: "Hello {{userName}}, your water allocation has been {{updateType}}. The new period is from {{startDate}} to {{endDate}} with an amount of {{gallons}} {{unit}}."
+        message: "Hello {{userName}}, your water allocation has been {{updateType}}. The new period is from {{startDate}} to {{endDate}} with an amount of {{amount}} {{unit}}."
     },
     thresholdAlerts: {
         enabled: true,
@@ -159,7 +159,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                                 <Textarea id="allocation-message" placeholder="Enter your notification message..." {...field} disabled={!watchedAllocationEnabled} />
                             )}
                         />
-                        <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{updateType}}'}`, `{'{{startDate}}'}`, `{'{{endDate}}'}`, `{'{{gallons}}'}`, `{'{{unit}}'}`</p>
+                        <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{updateType}}'}`, `{'{{startDate}}'}`, `{'{{endDate}}'}`, `{'{{amount}}'}`, `{'{{unit}}'}`</p>
                     </div>
                 </div>
             </div>
