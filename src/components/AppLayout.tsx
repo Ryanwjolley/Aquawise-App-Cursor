@@ -71,10 +71,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {isAdminView && !isImpersonating && (
                 <>
                     <SidebarMenuItem>
-                        <Link href="/admin/users">
-                            <SidebarMenuButton tooltip="Users" isActive={pathname.startsWith('/admin/users')}>
-                            <Users />
-                            <span>Users</span>
+                        <Link href="/admin/usage-data">
+                            <SidebarMenuButton tooltip="Usage Data" isActive={pathname.startsWith('/admin/usage-data')}>
+                            <Upload />
+                            <span>Usage Data</span>
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
@@ -87,25 +87,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         </Link>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                        <Link href="/admin/usage-data">
-                            <SidebarMenuButton tooltip="Usage Data" isActive={pathname.startsWith('/admin/usage-data')}>
-                            <Upload />
-                            <span>Usage Data</span>
+                        <Link href="/admin/users">
+                            <SidebarMenuButton tooltip="Users" isActive={pathname.startsWith('/admin/users')}>
+                            <Users />
+                            <span>Users</span>
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
                 </>
               )}
               
-                <SidebarMenuItem>
-                    <Link href="/admin/settings">
-                        <SidebarMenuButton tooltip="Settings" isActive={pathname.startsWith('/admin/settings')}>
-                            <Settings />
-                            <span>Settings</span>
-                        </SidebarMenuButton>
-                    </Link>
-                </SidebarMenuItem>
-
                {/* Show link only for Super Admins. For now, we simulate this with Alice. */}
                {currentUser?.email.includes('alice') && !isImpersonating && (
                  <SidebarMenuItem>
@@ -117,6 +108,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </Link>
                  </SidebarMenuItem>
                )}
+
+              <SidebarMenuItem>
+                  <Link href="/admin/settings">
+                      <SidebarMenuButton tooltip="Settings" isActive={pathname.startsWith('/admin/settings')}>
+                          <Settings />
+                          <span>Settings</span>
+                      </SidebarMenuButton>
+                  </Link>
+              </SidebarMenuItem>
+
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>
