@@ -43,13 +43,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const isAdminView = currentUser?.role?.includes('Admin');
   
   let dashboardPath = '/';
-  if (isSuperAdminView) {
-    dashboardPath = '/super-admin';
-  } else if (isAdminView) {
+  if (isAdminView) {
     dashboardPath = '/admin';
   }
   
-  const isDashboardActive = pathname === dashboardPath;
+  const isDashboardActive = pathname === dashboardPath || (isAdminView && pathname === '/');
 
 
   return (
@@ -73,6 +71,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                 <SidebarMenuButton tooltip="Companies" isActive={pathname === '/super-admin'}>
                                     <Building2 />
                                     <span>Companies</span>
+                                </SidebarMenuButton>
+                            </Link>
+                        </SidebarMenuItem>
+                         <SidebarMenuItem>
+                            <Link href="/admin/settings">
+                                <SidebarMenuButton tooltip="Settings" isActive={pathname.startsWith('/admin/settings')}>
+                                    <Settings />
+                                    <span>Settings</span>
                                 </SidebarMenuButton>
                             </Link>
                         </SidebarMenuItem>
@@ -116,17 +122,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                 </SidebarMenuItem>
                             </>
                         )}
+                        <SidebarMenuItem>
+                            <Link href="/admin/settings">
+                                <SidebarMenuButton tooltip="Settings" isActive={pathname.startsWith('/admin/settings')}>
+                                    <Settings />
+                                    <span>Settings</span>
+                                </SidebarMenuButton>
+                            </Link>
+                        </SidebarMenuItem>
                     </>
                  )}
-
-              <SidebarMenuItem>
-                  <Link href="/admin/settings">
-                      <SidebarMenuButton tooltip="Settings" isActive={pathname.startsWith('/admin/settings')}>
-                          <Settings />
-                          <span>Settings</span>
-                      </SidebarMenuButton>
-                  </Link>
-              </SidebarMenuItem>
 
             </SidebarMenu>
           </SidebarContent>
