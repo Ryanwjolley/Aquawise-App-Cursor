@@ -22,6 +22,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useEffect } from "react";
 import { PlusCircle, Trash2 } from "lucide-react";
+import type { NotificationSettings } from "@/lib/data";
 
 const notificationsSchema = z.object({
   allocationChangeAlerts: z.object({
@@ -54,7 +55,7 @@ const notificationsSchema = z.object({
 type NotificationsFormValues = z.infer<typeof notificationsSchema>;
 
 // Mock existing settings - in a real app, this would be fetched from a database
-const MOCK_EXISTING_SETTINGS = {
+const MOCK_EXISTING_SETTINGS: NotificationSettings = {
     allocationChangeAlerts: {
         enabled: true,
         message: "Hello {{userName}}, your water allocation has been {{updateType}}. The new period is from {{startDate}} to {{endDate}} with an amount of {{amount}} {{unit}}."
@@ -70,7 +71,7 @@ const MOCK_EXISTING_SETTINGS = {
         message: "Hi {{userName}}, you have reached {{percentage}}% of your water allocation for the period. Current usage: {{usage}} of {{allocation}} {{unit}}."
     },
     spikeAlerts: {
-        enabled: false,
+        enabled: true,
         percentage: 50,
         email: 'ops@gva.com',
         message: "Hi {{userName}}, we've detected a usage spike. Your usage yesterday was {{usage}} {{unit}}, which is {{spikePercentage}}% higher than your weekly average."

@@ -3,7 +3,7 @@
 
 import sgMail from '@sendgrid/mail';
 import { format } from 'date-fns';
-import type { Allocation, User, Unit, WaterOrder } from './data';
+import type { Allocation, User, Unit, WaterOrder, Company } from './data';
 import { getUnitLabel } from './data';
 import "dotenv/config";
 
@@ -19,18 +19,24 @@ const CONVERSION_FACTORS_FROM_GALLONS: Record<Exclude<Unit, 'cfs' | 'gpm' | 'acr
     'cubic-feet': 1/ 7.48052,
 };
 
-export const sendAllocationNotificationEmail = async (allocation: Allocation, recipients: User[], updateType: 'created' | 'updated', unit: Unit) => {
-    if (!process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY === "YOUR_SENDGRID_API_KEY_HERE" || !process.env.SENDGRID_FROM_EMAIL) {
+const sendEmail = async (msg: sgMail.MailDataRequired) => {
+     if (!process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY === "YOUR_SENDGRID_API_KEY_HERE" || !process.env.SENDGRID_FROM_EMAIL) {
         console.log("SENDGRID_API_KEY or SENDGRID_FROM_EMAIL not set. Skipping email send. Email content:");
-        console.log({
-            to: recipients.map(r => r.email),
-            from: process.env.SENDGRID_FROM_EMAIL || 'test@example.com',
-            subject: `Water Allocation ${updateType === 'updated' ? 'Updated' : 'Created'}`,
-            text: `Details: ${JSON.stringify(allocation)}`
-        });
+        console.log(msg);
         return;
     }
+     try {
+        await sgMail.send(msg);
+        console.log(`Email sent to ${Array.isArray(msg.to) ? msg.to.join(', ') : msg.to}`);
+    } catch (error) {
+        console.error('Error sending SendGrid email', error);
+        throw new Error('Failed to send notification email.');
+    }
+}
 
+
+export const sendAllocationNotificationEmail = async (allocation: Allocation, recipients: User[], updateType: 'created' | 'updated', unit: Unit) => {
+    
     const formattedStart = format(new Date(allocation.startDate), 'P p');
     const formattedEnd = format(new Date(allocation.endDate), 'P p');
 
@@ -53,27 +59,10 @@ export const sendAllocationNotificationEmail = async (allocation: Allocation, re
         `,
     };
 
-    try {
-        await sgMail.send(msg);
-        console.log(`Allocation notification email sent to ${recipients.map(r => r.email).join(', ')}`);
-    } catch (error) {
-        console.error('Error sending SendGrid email', error);
-        // In a real app, you might want to re-throw or handle this more gracefully
-        throw new Error('Failed to send notification email.');
-    }
+    await sendEmail(msg);
 };
 
 export const sendWaterOrderSubmissionEmail = async (order: WaterOrder, user: User, recipients: User[]) => {
-     if (!process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY === "YOUR_SENDGRID_API_KEY_HERE" || !process.env.SENDGRID_FROM_EMAIL) {
-        console.log("SENDGRID_API_KEY or SENDGRID_FROM_EMAIL not set. Skipping email send. Email content for water order submission:");
-        console.log({
-            to: recipients.map(r => r.email),
-            from: process.env.SENDGRID_FROM_EMAIL || 'test@example.com',
-            subject: 'New Water Order Submitted',
-            text: `Order from ${user.name}: ${JSON.stringify(order)}`
-        });
-        return;
-    }
 
     const formattedStart = format(new Date(order.startDate), 'P p');
     const formattedEnd = format(new Date(order.endDate), 'P p');
@@ -94,10 +83,81 @@ export const sendWaterOrderSubmissionEmail = async (order: WaterOrder, user: Use
         `,
     };
 
-    try {
-        await sgMail.send(msg);
-    } catch (error) {
-        console.error('Error sending water order submission email', error);
-        throw new Error('Failed to send water order submission email.');
-    }
+    await sendEmail(msg);
 }
+
+export const sendThresholdAlertEmail = async (user: User, company: Company, usage: number, allocation: number, percentage: number) => {
+    const unit = company.defaultUnit;
+    const unitLabel = getUnitLabel(unit);
+    const convertedUsage = usage * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
+    const convertedAllocation = allocation * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
+
+    const message = `
+        <p>Hello,</p>
+        <p>This is an automated alert to inform you that ${user.name} has reached ${percentage}% of their water allocation for the current period.</p>
+        <ul>
+            <li><strong>User:</strong> ${user.name}</li>
+            <li><strong>Current Usage:</strong> ${convertedUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}</li>
+            <li><strong>Total Allocation:</strong> ${convertedAllocation.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}</li>
+        </ul>
+        <p>You can view more details on the AquaWise dashboard.</p>
+    `;
+
+    const userMsg = {
+        to: user.email,
+        from: process.env.SENDGRID_FROM_EMAIL!,
+        subject: `Alert: You've reached ${percentage}% of your water allocation`,
+        html: message,
+    };
+    
+    // In a real app, you would get the admin email from the notification settings in the DB
+    const adminEmail = 'admin@example.com'; 
+
+    const adminMsg = {
+        to: adminEmail,
+        from: process.env.SENDGRID_FROM_EMAIL!,
+        subject: `ALERT: ${user.name} has reached ${percentage}% of their allocation`,
+        html: message,
+    };
+
+    await Promise.all([sendEmail(userMsg), sendEmail(adminMsg)]);
+}
+
+export const sendSpikeAlertEmail = async (user: User, company: Company, dailyUsage: number, weeklyAverage: number) => {
+    const unit = company.defaultUnit;
+    const unitLabel = getUnitLabel(unit);
+    const convertedDailyUsage = dailyUsage * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
+    const convertedWeeklyAverage = weeklyAverage * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
+    const spikePercentage = weeklyAverage > 0 ? Math.round(((dailyUsage - weeklyAverage) / weeklyAverage) * 100) : 100;
+
+     const message = `
+        <p>Hello,</p>
+        <p>This is an automated alert to inform you of a significant spike in water usage for ${user.name}.</p>
+        <ul>
+            <li><strong>User:</strong> ${user.name}</li>
+            <li><strong>Yesterday's Usage:</strong> ${convertedDailyUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}</li>
+            <li><strong>Weekly Average Usage:</strong> ${convertedWeeklyAverage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}/day</li>
+            <li><strong>Spike:</strong> ${spikePercentage}% above average</li>
+        </ul>
+        <p>This could indicate a leak or other issue. Please review the usage data on the AquaWise dashboard.</p>
+    `;
+
+    const userMsg = {
+        to: user.email,
+        from: process.env.SENDGRID_FROM_EMAIL!,
+        subject: `Alert: High Usage Spike Detected`,
+        html: message,
+    };
+
+    // In a real app, you would get the admin email from the notification settings in the DB
+    const adminEmail = 'admin@example.com';
+    
+    const adminMsg = {
+        to: adminEmail,
+        from: process.env.SENDGRID_FROM_EMAIL!,
+        subject: `ALERT: High Usage Spike for ${user.name}`,
+        html: message,
+    };
+
+    await Promise.all([sendEmail(userMsg), sendEmail(adminMsg)]);
+};

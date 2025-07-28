@@ -2,8 +2,9 @@
 
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
-import { differenceInDays, max, min, parseISO, format, startOfDay } from "date-fns";
+import { differenceInDays, max, min, parseISO, format, startOfDay, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { sendThresholdAlertEmail, sendSpikeAlertEmail } from './actions';
 
 export type Unit = 'gallons' | 'kgal' | 'acre-feet' | 'cubic-feet' | 'cfs' | 'gpm' | 'acre-feet-day';
 export type UnitLabel = 'Gallons' | 'kGal' | 'Acre-Feet' | 'Cubic Feet' | 'CFS' | 'GPM' | 'Ac-Ft/Day';
@@ -38,6 +39,7 @@ export type Company = {
   defaultUnit: Unit;
   userGroupsEnabled: boolean;
   waterOrdersEnabled: boolean;
+  notificationSettings?: NotificationSettings;
 };
 
 export type User = {
@@ -101,12 +103,41 @@ export type Notification = {
     link?: string;
 }
 
+export type NotificationSettings = {
+  allocationChangeAlerts: { enabled: boolean; message?: string; };
+  thresholdAlerts: { enabled: boolean; thresholds: { percentage: number }[]; email: string; message?: string; };
+  spikeAlerts: { enabled: boolean; percentage: number; email: string; message?: string; };
+}
+
+let MOCK_NOTIFICATION_SETTINGS: NotificationSettings = {
+    allocationChangeAlerts: {
+        enabled: true,
+        message: "Hello {{userName}}, your water allocation has been {{updateType}}. The new period is from {{startDate}} to {{endDate}} with an amount of {{amount}} {{unit}}."
+    },
+    thresholdAlerts: {
+        enabled: true,
+        thresholds: [
+            { percentage: 75 },
+            { percentage: 90 },
+            { percentage: 100 },
+        ],
+        email: 'billing@gva.com',
+        message: "Hi {{userName}}, you have reached {{percentage}}% of your water allocation for the period. Current usage: {{usage}} of {{allocation}} {{unit}}."
+    },
+    spikeAlerts: {
+        enabled: true,
+        percentage: 50,
+        email: 'ops@gva.com',
+        message: "Hi {{userName}}, we've detected a usage spike. Your usage yesterday was {{usage}} {{unit}}, which is {{spikePercentage}}% higher than your weekly average."
+    }
+}
+
 
 let companies: Company[] = [
-  { id: '0', name: 'AquaWise HQ', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true },
-  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: false },
-  { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true },
-  { id: '3', name: 'Pleasant View Orchards', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: true },
+  { id: '0', name: 'AquaWise HQ', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true, notificationSettings: MOCK_NOTIFICATION_SETTINGS },
+  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: false, notificationSettings: MOCK_NOTIFICATION_SETTINGS },
+  { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true, notificationSettings: MOCK_NOTIFICATION_SETTINGS },
+  { id: '3', name: 'Pleasant View Orchards', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: true, notificationSettings: MOCK_NOTIFICATION_SETTINGS },
 ];
 
 let userGroups: UserGroup[] = [
@@ -551,7 +582,7 @@ export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mod
 
   const conversionToGallons = CONVERSION_FACTORS_TO_GALLONS.volume[inputUnit as keyof typeof CONVERSION_FACTORS_TO_GALLONS.volume] || 1;
 
-  entries.forEach(newEntry => {
+  for (const newEntry of entries) {
     const gallonsUsage = newEntry.usage * conversionToGallons;
 
     const existingIndex = usageData.findIndex(d => d.userId === newEntry.userId && d.date === newEntry.date);
@@ -570,7 +601,9 @@ export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mod
       usageData.push({ ...newEntry, usage: gallonsUsage, id: `u${Date.now()}${Math.random()}` });
       added++;
     }
-  });
+     // After any change, check for alerts
+    await checkAndTriggerAlerts(newEntry.userId, newEntry.date);
+  }
   
   return Promise.resolve({ added, updated });
 };
@@ -810,4 +843,65 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<void> 
         window.dispatchEvent(new CustomEvent('notifications-updated'));
     }
     return Promise.resolve();
-}
+};
+
+// --- Alerting Logic ---
+
+// Store which threshold alerts have been sent to avoid spamming
+// Key: `${userId}-${allocationId}-${percentage}`
+const sentThresholdAlerts = new Set<string>();
+
+const checkAndTriggerAlerts = async (userId: string, date: string) => {
+    const user = await getUserById(userId);
+    if (!user) return;
+    const company = await getCompanyById(user.companyId);
+    if (!company?.notificationSettings) return;
+
+    const { thresholdAlerts, spikeAlerts } = company.notificationSettings;
+
+    // 1. Check Threshold Alerts
+    if (thresholdAlerts.enabled) {
+        const userAllocations = await getAllocationsForUser(userId);
+        const allCompanyUsers = await getUsersByCompany(user.companyId);
+        
+        const relevantAllocation = userAllocations.find(a => 
+            date >= a.startDate && date <= a.endDate
+        );
+
+        if (relevantAllocation) {
+            const allocationForPeriod = calculateUserAllocation(user, allCompanyUsers, [relevantAllocation], { from: parseISO(relevantAllocation.startDate), to: parseISO(relevantAllocation.endDate) });
+            const usageInPeriod = (await getUsageForUser(userId, relevantAllocation.startDate, relevantAllocation.endDate)).reduce((sum, entry) => sum + entry.usage, 0);
+            
+            const currentPercentage = allocationForPeriod > 0 ? (usageInPeriod / allocationForPeriod) * 100 : 0;
+            
+            for (const threshold of thresholdAlerts.thresholds) {
+                const alertKey = `${userId}-${relevantAllocation.id}-${threshold.percentage}`;
+                if (currentPercentage >= threshold.percentage && !sentThresholdAlerts.has(alertKey)) {
+                    await sendThresholdAlertEmail(user, company, usageInPeriod, allocationForPeriod, threshold.percentage);
+                    addNotification({ userId, message: `You have reached ${threshold.percentage}% of your water allocation.` });
+                    sentThresholdAlerts.add(alertKey);
+                }
+            }
+        }
+    }
+
+    // 2. Check Spike Alerts
+    if (spikeAlerts.enabled) {
+        const today = parseISO(date);
+        const sevenDaysAgo = format(subDays(today, 7), 'yyyy-MM-dd');
+        const yesterday = format(subDays(today, 1), 'yyyy-MM-dd');
+        
+        const last7DaysUsage = await getUsageForUser(userId, sevenDaysAgo, yesterday);
+        if (last7DaysUsage.length > 1) { // Need at least 2 days of data to compare
+            const total = last7DaysUsage.reduce((sum, u) => sum + u.usage, 0);
+            const average = total / last7DaysUsage.length;
+            const todaysUsage = (await getUsageForUser(userId, date, date))[0]?.usage || 0;
+
+            const spikePercentage = average > 0 ? ((todaysUsage - average) / average) * 100 : 0;
+            if (spikePercentage > spikeAlerts.percentage) {
+                await sendSpikeAlertEmail(user, company, todaysUsage, average);
+                 addNotification({ userId, message: `High usage spike of ${Math.round(spikePercentage)}% detected.` });
+            }
+        }
+    }
+};
