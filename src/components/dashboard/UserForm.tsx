@@ -24,9 +24,15 @@ import * as z from "zod";
 import type { User } from "@/lib/data";
 import { useEffect } from "react";
 
+const phoneRegex = new RegExp(
+  /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
+);
+
+
 const userFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email address." }),
+  mobileNumber: z.string().regex(phoneRegex, 'Invalid phone number').optional().or(z.literal('')),
   role: z.enum(["Admin", "Customer", "Admin & Customer"], {
     required_error: "Please select a role.",
   }),
@@ -58,6 +64,7 @@ export function UserForm({
     defaultValues: {
       name: "",
       email: "",
+      mobileNumber: "",
       role: "Customer",
       shares: 0,
     },
@@ -68,12 +75,13 @@ export function UserForm({
         const valuesToReset = {
             name: defaultValues?.name || "",
             email: defaultValues?.email || "",
+            mobileNumber: defaultValues?.mobileNumber || "",
             role: defaultValues?.role || "Customer",
             shares: defaultValues?.shares || 0,
         };
         reset(valuesToReset);
     } else {
-      reset({ name: "", email: "", role: "Customer", shares: 0 });
+      reset({ name: "", email: "", role: "Customer", shares: 0, mobileNumber: "" });
     }
   }, [isOpen, defaultValues, reset]);
 
@@ -106,16 +114,29 @@ export function UserForm({
                 <p className="text-sm text-destructive">{errors.name.message}</p>
               )}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Controller
-                name="email"
-                control={control}
-                render={({ field }) => <Input id="email" type="email" {...field} />}
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Controller
+                  name="email"
+                  control={control}
+                  render={({ field }) => <Input id="email" type="email" {...field} />}
+                />
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email.message}</p>
+                )}
+              </div>
+               <div className="grid gap-2">
+                <Label htmlFor="mobileNumber">Mobile Number</Label>
+                <Controller
+                  name="mobileNumber"
+                  control={control}
+                  render={({ field }) => <Input id="mobileNumber" type="tel" {...field} />}
+                />
+                {errors.mobileNumber && (
+                  <p className="text-sm text-destructive">{errors.mobileNumber.message}</p>
+                )}
+              </div>
             </div>
              <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">

@@ -11,6 +11,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
+  mobileNumber?: string;
   role: 'Admin' | 'Customer' | 'Admin & Customer';
   companyId: string;
   shares?: number;
@@ -40,18 +41,18 @@ const companies: Company[] = [
 
 let users: User[] = [
   // Golden Valley Agriculture
-  { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', role: 'Admin & Customer', companyId: '1', shares: 50 },
-  { id: '102', name: 'Bob Williams', email: 'bob@gva.com', role: 'Customer', companyId: '1', shares: 10 },
-  { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', role: 'Customer', companyId: '1', shares: 15 },
-  { id: '104', name: 'David Garcia', email: 'david@gva.com', role: 'Customer', companyId: '1', shares: 11 },
+  { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', mobileNumber: '555-0101', role: 'Admin & Customer', companyId: '1', shares: 50 },
+  { id: '102', name: 'Bob Williams', email: 'bob@gva.com', mobileNumber: '555-0102', role: 'Customer', companyId: '1', shares: 10 },
+  { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', mobileNumber: '555-0103', role: 'Customer', companyId: '1', shares: 15 },
+  { id: '104', name: 'David Garcia', email: 'david@gva.com', mobileNumber: '555-0104', role: 'Customer', companyId: '1', shares: 11 },
   { id: '105', name: 'Emily Clark', email: 'emily@gva.com', role: 'Customer', companyId: '1', shares: 20 },
   { id: '106', name: 'Frank Miller', email: 'frank@gva.com', role: 'Customer', companyId: '1', shares: 5 },
   { id: '107', name: 'Grace Hall', email: 'grace@gva.com', role: 'Customer', companyId: '1', shares: 8 },
 
   // Sunrise Farms
-  { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', role: 'Admin', companyId: '2' },
+  { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', mobileNumber: '555-0201', role: 'Admin', companyId: '2' },
   { id: '202', name: 'Evan Davis', email: 'evan@sunrise.com', role: 'Customer', companyId: '2', shares: 12 },
-  { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', role: 'Customer', companyId: '2', shares: 18 },
+  { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', mobileNumber: '555-0203', role: 'Customer', companyId: '2', shares: 18 },
 ];
 
 let allocations: Allocation[] = [
