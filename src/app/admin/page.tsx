@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,7 +8,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Droplets, TrendingUp, Users, Target } from "lucide-react";
 import type { UsageEntry, Allocation, User as UserType, UserGroup } from "@/lib/data";
-import { getUsageForUser, getAllocationsForUser, getUsersByCompany, getUserById, getGroupsByCompany, calculateProportionalAllocation } from "@/lib/data";
+import { getUsageForUser, getAllocationsForUser, getUsersByCompany, getUserById, getGroupsByCompany, calculateUserAllocation, getAllocationsByCompany } from "@/lib/data";
 import { format, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +22,7 @@ import { useUnit } from "@/contexts/UnitContext";
 
 
 // A component to render the aggregate company or group view
-function AggregateDashboard({ title, users, allUsageData, allAllocations, queryRange }) {
+function AggregateDashboard({ title, users, allCompanyUsers, allUsageData, allAllocations, queryRange }) {
     const { convertUsage, getUnitLabel } = useUnit();
     const allUsageEntries = users.map(u => allUsageData[u.id] || []).flat();
 
@@ -31,8 +32,7 @@ function AggregateDashboard({ title, users, allUsageData, allAllocations, queryR
     const totalShares = users.reduce((acc, user) => acc + (user.shares || 0), 0);
     
     const totalAllocation = users.reduce((acc, user) => {
-        const userAllocations = allAllocations[user.id] || [];
-        return acc + calculateProportionalAllocation(queryRange, userAllocations);
+        return acc + calculateUserAllocation(user, allCompanyUsers, allAllocations, queryRange);
     }, 0);
 
     const donutChartData = users.map(user => {
@@ -116,7 +116,7 @@ export default function AdminDashboardPage() {
   const [selectedView, setSelectedView] = useState<string>('all');
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [allUsageData, setAllUsageData] = useState<Record<string, UsageEntry[]>>({});
-  const [allAllocations, setAllAllocations] = useState<Record<string, Allocation[]>>({});
+  const [allCompanyAllocations, setAllCompanyAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [initialRangeSet, setInitialRangeSet] = useState(false);
   
@@ -156,26 +156,23 @@ export default function AdminDashboardPage() {
         }
 
         const usagePromises = users.map(user => getUsageForUser(user.id, fromDate, toDate));
-        const allocationPromises = users.map(user => getAllocationsForUser(user.id));
-
         const allUsageResults = await Promise.all(usagePromises);
-        const allAllocationResults = await Promise.all(allocationPromises);
 
         const usageDataByUser: Record<string, UsageEntry[]> = {};
-        const allocationsByUser: Record<string, Allocation[]> = {};
         users.forEach((user, index) => {
           usageDataByUser[user.id] = allUsageResults[index];
-          allocationsByUser[user.id] = allAllocationResults[index];
         });
-        
         setAllUsageData(usageDataByUser);
-        setAllAllocations(allocationsByUser);
+
+        // Fetch allocations once and pass them down
+        const companyAllocations = await getAllocationsByCompany(currentUser.companyId);
+        setAllCompanyAllocations(companyAllocations);
+        
 
         // Set default date range to most recent allocation if not already set
         if (!initialRangeSet) {
-          const allCompanyAllocations = Object.values(allocationsByUser).flat();
-          if (allCompanyAllocations.length > 0) {
-            const mostRecentAllocation = allCompanyAllocations.sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
+          if (companyAllocations.length > 0) {
+            const mostRecentAllocation = companyAllocations.sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
             setQueryRange({ from: parseISO(mostRecentAllocation.startDate), to: parseISO(mostRecentAllocation.endDate) });
           } else {
             // Fallback if no allocations
@@ -188,7 +185,7 @@ export default function AdminDashboardPage() {
       } catch (error) {
         console.error("Failed to fetch admin dashboard data:", error);
         setAllUsageData({});
-        setAllAllocations({});
+        setAllCompanyAllocations([]);
       } finally {
         setLoading(false);
       }
@@ -237,24 +234,23 @@ export default function AdminDashboardPage() {
     }
     
     if (selectedView === 'all') {
-        return <AggregateDashboard title={`${company?.name} Dashboard`} users={companyUsers} allUsageData={allUsageData} allAllocations={allAllocations} queryRange={queryRange} />;
+        return <AggregateDashboard title={`${company?.name} Dashboard`} users={companyUsers} allCompanyUsers={companyUsers} allUsageData={allUsageData} allAllocations={allCompanyAllocations} queryRange={queryRange} />;
     }
 
     if (selectedView.startsWith('group_')) {
         const groupId = selectedView.replace('group_', '');
         const group = userGroups.find(g => g.id === groupId);
         const groupUsers = companyUsers.filter(u => u.userGroupId === groupId);
-        return <AggregateDashboard title={`${group?.name} Group Dashboard`} users={groupUsers} allUsageData={allUsageData} allAllocations={allAllocations} queryRange={queryRange} />;
+        return <AggregateDashboard title={`${group?.name} Group Dashboard`} users={groupUsers} allCompanyUsers={companyUsers} allUsageData={allUsageData} allAllocations={allCompanyAllocations} queryRange={queryRange} />;
     }
     
     if (selectedUser) {
         const userUsage = allUsageData[selectedView] || [];
-        const userAllocations = allAllocations[selectedView] || [];
         return (
             <UserDashboard 
                 user={selectedUser} 
                 usageData={userUsage} 
-                allocations={userAllocations} 
+                allocations={allCompanyAllocations} 
                 queryRange={queryRange} 
             />
         );
@@ -263,9 +259,6 @@ export default function AdminDashboardPage() {
     return <div>Select a user or group to begin.</div>;
   }
   
-  const companyWideAllocations = Object.values(allAllocations).flat();
-  const currentAllocations = selectedUser ? allAllocations[selectedView] || [] : companyWideAllocations;
-
   return (
     <AppLayout>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -283,7 +276,7 @@ export default function AdminDashboardPage() {
                  <DateRangeSelector 
                     onUpdate={(range) => setQueryRange(range)} 
                     selectedRange={queryRange} 
-                    allocations={currentAllocations}
+                    allocations={allCompanyAllocations}
                  />
             </div>
         </div>

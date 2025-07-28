@@ -1,4 +1,5 @@
 
+
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 import { differenceInDays, max, min, parseISO } from "date-fns";
@@ -341,33 +342,72 @@ usageData.push(
 
 // --- API Functions ---
 
-// Function to calculate proportional allocation
-export const calculateProportionalAllocation = (range: DateRange, allocations: Allocation[]): number => {
+/**
+ * Calculates the portion of an allocation that falls within a given date range.
+ */
+const getProportionalGallons = (allocation: Allocation, range: DateRange): number => {
     if (!range.from || !range.to) return 0;
 
-    let totalProportionalGallons = 0;
+    const allocStart = parseISO(allocation.startDate);
+    const allocEnd = parseISO(allocation.endDate);
 
-    for (const alloc of allocations) {
-        const allocStart = parseISO(alloc.startDate);
-        const allocEnd = parseISO(alloc.endDate);
+    const overlapStart = max([range.from, allocStart]);
+    const overlapEnd = min([range.to, allocEnd]);
 
-        // Find the overlapping interval
-        const overlapStart = max([range.from, allocStart]);
-        const overlapEnd = min([range.to, allocEnd]);
-        
-        if (overlapStart < overlapEnd) {
-            const overlapDays = differenceInDays(overlapEnd, overlapStart) + 1;
-            const totalAllocDays = differenceInDays(allocEnd, allocStart) + 1;
+    if (overlapStart >= overlapEnd) {
+        return 0;
+    }
+
+    const overlapDays = differenceInDays(overlapEnd, overlapStart) + 1;
+    const totalAllocDays = differenceInDays(allocEnd, allocStart) + 1;
+
+    if (totalAllocDays <= 0) return 0;
+
+    return (allocation.gallons / totalAllocDays) * overlapDays;
+};
+
+
+/**
+ * Calculates a user's total allocation for a given period, accounting for their
+ * proportional share of company-wide and group-wide allocations.
+ */
+export const calculateUserAllocation = (user: User, allCompanyUsers: User[], allAllocations: Allocation[], range: DateRange): number => {
+    let totalGallons = 0;
+
+    for (const alloc of allAllocations) {
+        const proportionalGallons = getProportionalGallons(alloc, range);
+        if (proportionalGallons === 0) continue;
+
+        // 1. Allocation is specifically for the user
+        if (alloc.userId === user.id) {
+            totalGallons += proportionalGallons;
+            continue;
+        }
+
+        // 2. Allocation is for the user's group
+        if (alloc.userGroupId && alloc.userGroupId === user.userGroupId) {
+            const groupUsers = allCompanyUsers.filter(u => u.userGroupId === alloc.userGroupId);
+            const totalSharesInGroup = groupUsers.reduce((sum, u) => sum + (u.shares || 0), 0);
             
-            if (totalAllocDays > 0) {
-                const dailyAllocation = alloc.gallons / totalAllocDays;
-                totalProportionalGallons += dailyAllocation * overlapDays;
+            if (totalSharesInGroup > 0) {
+                const userShareRatio = (user.shares || 0) / totalSharesInGroup;
+                totalGallons += proportionalGallons * userShareRatio;
+            }
+            continue;
+        }
+
+        // 3. Allocation is company-wide (and not for a specific user or group)
+        if (!alloc.userId && !alloc.userGroupId) {
+            const totalSharesInCompany = allCompanyUsers.reduce((sum, u) => sum + (u.shares || 0), 0);
+
+            if (totalSharesInCompany > 0) {
+                const userShareRatio = (user.shares || 0) / totalSharesInCompany;
+                totalGallons += proportionalGallons * userShareRatio;
             }
         }
     }
-
-    return totalProportionalGallons;
-}
+    return totalGallons;
+};
 
 
 // Simulate async calls with Promise.resolve()
@@ -539,7 +579,7 @@ export const getAllocationsForUser = async (userId: string): Promise<Allocation[
     
     // Return allocations that are company-wide (no userId) or specific to this user or their group
     return Promise.resolve(
-        allocations.filter(a => a.companyId === user.companyId && (!a.userId || a.userId === userId || (user.userGroupId && a.userGroupId === user.userGroupId)))
+        allocations.filter(a => a.companyId === user.companyId)
     );
 };
 

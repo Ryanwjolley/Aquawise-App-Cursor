@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,9 @@ import type { Allocation, UsageEntry, User } from "@/lib/data";
 import { Target, Droplets, TrendingUp, CalendarDays } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { useUnit } from "@/contexts/UnitContext";
-import { calculateProportionalAllocation } from "@/lib/data";
+import { calculateUserAllocation } from "@/lib/data";
+import { useState, useEffect } from "react";
+import { getUsersByCompany } from "@/lib/data";
 
 
 interface UserDashboardProps {
@@ -22,8 +25,15 @@ interface UserDashboardProps {
 
 export function UserDashboard({ user, usageData, allocations, queryRange }: UserDashboardProps) {
     const { unit, convertUsage, getUnitLabel } = useUnit();
+    const [allCompanyUsers, setAllCompanyUsers] = useState<User[]>([]);
 
-    if (!user) return null;
+    useEffect(() => {
+        if(user?.companyId) {
+            getUsersByCompany(user.companyId).then(setAllCompanyUsers);
+        }
+    }, [user]);
+
+    if (!user || allCompanyUsers.length === 0) return null;
     
     const totalUsage = usageData.reduce((acc, entry) => acc + entry.usage, 0);
 
@@ -32,7 +42,7 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
         usage: convertUsage(entry.usage)
     })).sort((a,b) => a.date.localeCompare(b.date));
 
-    const allocationForPeriod = calculateProportionalAllocation(queryRange, allocations);
+    const allocationForPeriod = calculateUserAllocation(user, allCompanyUsers, allocations, queryRange);
     const allocationUsagePercent = allocationForPeriod > 0 ? (totalUsage / allocationForPeriod) * 100 : 0;
     
     const convertedTotalUsage = convertUsage(totalUsage);
