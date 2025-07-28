@@ -54,7 +54,6 @@ export default function UsageDataPage() {
     if (currentUser?.companyId) {
       fetchAndSetData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const handleDataUpload = async (data: any[], mode: 'overwrite' | 'new_only') => {

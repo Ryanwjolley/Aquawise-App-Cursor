@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Sheet,
   SheetContent,
@@ -59,6 +59,7 @@ interface AllocationFormProps {
   onOpenChange: (isOpen: boolean) => void;
   onSubmit: (data: Omit<Allocation, "id" | "companyId">) => void;
   companyUsers: User[];
+  userGroups: UserGroup[];
   existingAllocations: Allocation[];
   defaultValues?: Allocation;
 }
@@ -74,16 +75,15 @@ export function AllocationForm({
   onOpenChange,
   onSubmit,
   companyUsers,
+  userGroups,
   existingAllocations,
   defaultValues
 }: AllocationFormProps) {
   const { company } = useAuth();
-  const { unit, getUnitLabel: getDisplayUnitLabel } = useUnit();
   const [overlapWarning, setOverlapWarning] = useState<string | null>(null);
   const [gapWarning, setGapWarning] = useState<string | null>(null);
-  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
-  
-  const getInitialValues = () => {
+
+  const formDefaultValues = useMemo(() => {
     const defaultUnit = company?.defaultUnit || 'gallons';
     if (defaultValues) {
       const displayAmount = defaultValues.gallons * (CONVERSION_FACTORS_FROM_GALLONS[defaultUnit] || 1);
@@ -116,7 +116,8 @@ export function AllocationForm({
       startTime: "00:00",
       endTime: "23:59",
     };
-  };
+  }, [defaultValues, company]);
+
 
   const {
     handleSubmit,
@@ -126,27 +127,19 @@ export function AllocationForm({
     formState: { errors },
   } = useForm<AllocationFormValues>({
     resolver: zodResolver(allocationFormSchema),
-    defaultValues: getInitialValues()
+    defaultValues: formDefaultValues
   });
 
   const watchedValues = watch();
-  
-  useEffect(() => {
-    if (isOpen && company?.userGroupsEnabled && company.id) {
-        getGroupsByCompany(company.id).then(setUserGroups);
-    } else {
-        setUserGroups([]);
-    }
-  }, [isOpen, company]);
 
-
+  // When form opens, reset to the correct default values
   useEffect(() => {
     if (isOpen) {
-      reset(getInitialValues());
+      reset(formDefaultValues);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, defaultValues, company]);
-  
+  }, [isOpen, formDefaultValues, reset]);
+
+
   useEffect(() => {
     if (isOpen && watchedValues.startDate && watchedValues.endDate && watchedValues.startTime && watchedValues.endTime) {
       const newStart = combineDateTime(watchedValues.startDate, watchedValues.startTime);
@@ -187,14 +180,14 @@ export function AllocationForm({
       
       // Check for gaps
       const allocationsBefore = relevantAllocations
-        .filter(alloc => new Date(alloc.endDate) < newStart)
+        .filter(alloc => new Date(alloc.endDate) <= newStart)
         .sort((a,b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
       
       if (allocationsBefore.length > 0) {
         const lastAllocation = allocationsBefore[0];
         const gap = differenceInMinutes(newStart, new Date(lastAllocation.endDate));
-        if (gap > 0) { // Any positive gap
-          setGapWarning(`There is a gap of ${gap} minutes since the last allocation, which ended on ${format(new Date(lastAllocation.endDate), 'P p')}.`);
+        if (gap > 1) { // A gap of more than a minute
+          setGapWarning(`There is a gap since the last allocation, which ended on ${format(new Date(lastAllocation.endDate), 'P p')}.`);
         } else {
             setGapWarning(null);
         }
@@ -209,14 +202,6 @@ export function AllocationForm({
 
   }, [watchedValues, existingAllocations, isOpen, defaultValues]);
 
-
-  useEffect(() => {
-    if (!isOpen) {
-      reset();
-      setOverlapWarning(null);
-      setGapWarning(null);
-    }
-  }, [isOpen, reset]);
   
   const handleFormSubmit = (data: AllocationFormValues) => {
     const startDate = combineDateTime(data.startDate, data.startTime);

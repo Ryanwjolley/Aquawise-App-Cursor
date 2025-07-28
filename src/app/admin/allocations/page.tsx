@@ -70,7 +70,6 @@ export default function AllocationPage() {
     if (currentUser?.companyId) {
         fetchAndSetData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, company]);
 
   const handleNewAllocation = () => {
@@ -241,6 +240,7 @@ export default function AllocationPage() {
         onOpenChange={setIsFormOpen}
         onSubmit={handleFormSubmit}
         companyUsers={companyUsers}
+        userGroups={userGroups}
         existingAllocations={allocations}
         defaultValues={editingAllocation}
       />

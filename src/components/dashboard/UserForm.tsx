@@ -52,6 +52,7 @@ interface UserFormProps {
   onOpenChange: (isOpen: boolean) => void;
   onSubmit: (data: Omit<User, 'id' | 'companyId' | 'role'> & { role: 'Admin' | 'Customer' | 'Admin & Customer' }) => void;
   defaultValues?: Partial<User>;
+  userGroups: UserGroup[];
 }
 
 export function UserForm({
@@ -59,10 +60,10 @@ export function UserForm({
   onOpenChange,
   onSubmit,
   defaultValues,
+  userGroups
 }: UserFormProps) {
   const { company } = useAuth();
-  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
-
+  
   const {
     handleSubmit,
     control,
@@ -70,24 +71,7 @@ export function UserForm({
     formState: { errors },
   } = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      mobileNumber: "",
-      role: "Customer",
-      shares: 0,
-      notificationPreference: "email",
-      userGroupId: undefined,
-    },
   });
-
-  useEffect(() => {
-    if (company?.userGroupsEnabled && company.id) {
-        getGroupsByCompany(company.id).then(setUserGroups);
-    } else {
-        setUserGroups([]);
-    }
-  }, [company])
 
   useEffect(() => {
     if (isOpen) {
