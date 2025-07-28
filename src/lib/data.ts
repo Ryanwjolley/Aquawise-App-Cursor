@@ -197,17 +197,30 @@ let waterOrders: WaterOrder[] = [
         reviewedBy: '201',
         reviewedAt: new Date().toISOString(),
     },
-    // Completed Water Orders for Pleasant View Orchards
-    // George Harris (301)
-    { id: 'wo_pvo_301_1', userId: '301', companyId: '3', startDate: '2025-05-15T06:00:00.000Z', endDate: '2025-05-16T06:00:00.000Z', amount: 1, unit: 'acre-feet', totalGallons: 325851, status: 'completed', createdAt: '2025-05-14T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-05-14T11:00:00.000Z' },
-    { id: 'wo_pvo_301_2', userId: '301', companyId: '3', startDate: '2025-06-20T06:00:00.000Z', endDate: '2025-06-21T18:00:00.000Z', amount: 1.5, unit: 'cfs', totalGallons: 3878144.4, status: 'completed', createdAt: '2025-06-19T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-06-19T11:00:00.000Z' },
-    // Hannah Martin (302)
-    { id: 'wo_pvo_302_1', userId: '302', companyId: '3', startDate: '2025-06-01T08:00:00.000Z', endDate: '2025-06-01T16:00:00.000Z', amount: 2, unit: 'cfs', totalGallons: 5745036.8, status: 'completed', createdAt: '2025-05-31T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-05-31T11:00:00.000Z' },
-    // Ian Thompson (303)
-    { id: 'wo_pvo_303_1', userId: '303', companyId: '3', startDate: '2025-07-01T00:00:00.000Z', endDate: '2025-07-03T00:00:00.000Z', amount: 2, unit: 'acre-feet', totalGallons: 651702, status: 'completed', createdAt: '2025-06-30T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-06-30T11:00:00.000Z' },
-    // Jane King (304)
-    { id: 'wo_pvo_304_1', userId: '304', companyId: '3', startDate: '2025-07-05T09:00:00.000Z', endDate: '2025-07-06T09:00:00.000Z', amount: 1.2, unit: 'acre-feet', totalGallons: 391021.2, status: 'completed', createdAt: '2025-07-04T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-07-04T11:00:00.000Z' },
-    { id: 'wo_pvo_304_2', userId: '304', companyId: '3', startDate: '2025-07-20T09:00:00.000Z', endDate: '2025-07-21T09:00:00.000Z', amount: 1.2, unit: 'acre-feet', totalGallons: 391021.2, status: 'completed', createdAt: '2025-07-19T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-07-19T11:00:00.000Z' },
+    // --- Pleasant View Orchards - Completed Water Orders for Full Year ---
+    // George Harris (301) - 4 orders
+    { id: 'wo_pvo_301_1', userId: '301', companyId: '3', startDate: '2025-03-10T06:00:00.000Z', endDate: '2025-03-12T06:00:00.000Z', amount: 5, unit: 'acre-feet', totalGallons: 5 * 325851, status: 'completed', createdAt: '2025-03-09T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-03-09T11:00:00.000Z' },
+    { id: 'wo_pvo_301_2', userId: '301', companyId: '3', startDate: '2025-05-15T06:00:00.000Z', endDate: '2025-05-18T06:00:00.000Z', amount: 8, unit: 'acre-feet', totalGallons: 8 * 325851, status: 'completed', createdAt: '2025-05-14T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-05-14T11:00:00.000Z' },
+    { id: 'wo_pvo_301_3', userId: '301', companyId: '3', startDate: '2025-07-20T06:00:00.000Z', endDate: '2025-07-25T18:00:00.000Z', amount: 8, unit: 'acre-feet', totalGallons: 8 * 325851, status: 'completed', createdAt: '2025-07-19T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-07-19T11:00:00.000Z' },
+    { id: 'wo_pvo_301_4', userId: '301', companyId: '3', startDate: '2025-09-01T06:00:00.000Z', endDate: '2025-09-05T06:00:00.000Z', amount: 4, unit: 'acre-feet', totalGallons: 4 * 325851, status: 'completed', createdAt: '2025-08-31T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-08-31T11:00:00.000Z' },
+    
+    // Hannah Martin (302) - 3 orders
+    { id: 'wo_pvo_302_1', userId: '302', companyId: '3', startDate: '2025-04-05T08:00:00.000Z', endDate: '2025-04-10T08:00:00.000Z', amount: 10, unit: 'acre-feet', totalGallons: 10 * 325851, status: 'completed', createdAt: '2025-04-04T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-04-04T11:00:00.000Z' },
+    { id: 'wo_pvo_302_2', userId: '302', companyId: '3', startDate: '2025-06-10T08:00:00.000Z', endDate: '2025-06-15T08:00:00.000Z', amount: 7, unit: 'acre-feet', totalGallons: 7 * 325851, status: 'completed', createdAt: '2025-06-09T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-06-09T11:00:00.000Z' },
+    { id: 'wo_pvo_302_3', userId: '302', companyId: '3', startDate: '2025-08-15T08:00:00.000Z', endDate: '2025-08-18T08:00:00.000Z', amount: 5, unit: 'acre-feet', totalGallons: 5 * 325851, status: 'completed', createdAt: '2025-08-14T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-08-14T11:00:00.000Z' },
+    
+    // Ian Thompson (303) - 5 orders
+    { id: 'wo_pvo_303_1', userId: '303', companyId: '3', startDate: '2025-02-20T09:00:00.000Z', endDate: '2025-02-23T09:00:00.000Z', amount: 4, unit: 'acre-feet', totalGallons: 4 * 325851, status: 'completed', createdAt: '2025-02-19T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-02-19T11:00:00.000Z' },
+    { id: 'wo_pvo_303_2', userId: '303', companyId: '3', startDate: '2025-04-20T09:00:00.000Z', endDate: '2025-04-25T09:00:00.000Z', amount: 6, unit: 'acre-feet', totalGallons: 6 * 325851, status: 'completed', createdAt: '2025-04-19T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-04-19T11:00:00.000Z' },
+    { id: 'wo_pvo_303_3', userId: '303', companyId: '3', startDate: '2025-06-25T09:00:00.000Z', endDate: '2025-06-30T09:00:00.000Z', amount: 8, unit: 'acre-feet', totalGallons: 8 * 325851, status: 'completed', createdAt: '2025-06-24T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-06-24T11:00:00.000Z' },
+    { id: 'wo_pvo_303_4', userId: '303', companyId: '3', startDate: '2025-08-28T09:00:00.000Z', endDate: '2025-09-02T09:00:00.000Z', amount: 7, unit: 'acre-feet', totalGallons: 7 * 325851, status: 'completed', createdAt: '2025-08-27T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-08-27T11:00:00.000Z' },
+    { id: 'wo_pvo_303_5', userId: '303', companyId: '3', startDate: '2025-10-10T09:00:00.000Z', endDate: '2025-10-12T09:00:00.000Z', amount: 3, unit: 'acre-feet', totalGallons: 3 * 325851, status: 'completed', createdAt: '2025-10-09T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-10-09T11:00:00.000Z' },
+
+    // Jane King (304) - 4 orders
+    { id: 'wo_pvo_304_1', userId: '304', companyId: '3', startDate: '2025-03-15T07:00:00.000Z', endDate: '2025-03-20T07:00:00.000Z', amount: 9, unit: 'acre-feet', totalGallons: 9 * 325851, status: 'completed', createdAt: '2025-03-14T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-03-14T11:00:00.000Z' },
+    { id: 'wo_pvo_304_2', userId: '304', companyId: '3', startDate: '2025-05-20T07:00:00.000Z', endDate: '2025-05-25T07:00:00.000Z', amount: 9, unit: 'acre-feet', totalGallons: 9 * 325851, status: 'completed', createdAt: '2025-05-19T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-05-19T11:00:00.000Z' },
+    { id: 'wo_pvo_304_3', userId: '304', companyId: '3', startDate: '2025-07-25T07:00:00.000Z', endDate: '2025-07-30T07:00:00.000Z', amount: 8, unit: 'acre-feet', totalGallons: 8 * 325851, status: 'completed', createdAt: '2025-07-24T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-07-24T11:00:00.000Z' },
+    { id: 'wo_pvo_304_4', userId: '304', companyId: '3', startDate: '2025-09-15T07:00:00.000Z', endDate: '2025-09-18T07:00:00.000Z', amount: 4, unit: 'acre-feet', totalGallons: 4 * 325851, status: 'completed', createdAt: '2025-09-14T10:00:00.000Z', reviewedBy: '301', reviewedAt: '2025-09-14T11:00:00.000Z' },
 ];
 
 
@@ -264,7 +277,8 @@ const generateMockUsage = () => {
         
         const startDate = parseISO(order.startDate);
         const endDate = parseISO(order.endDate);
-        const totalDays = differenceInDays(endDate, startDate) || 1;
+        // Add 1 to include the end day fully in the calculation
+        const totalDays = (differenceInDays(endDate, startDate) || 0) + 1;
         const dailyGallons = order.totalGallons / totalDays;
         
         let currentDate = new Date(startDate);
