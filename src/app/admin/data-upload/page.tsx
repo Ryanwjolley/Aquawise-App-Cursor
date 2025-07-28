@@ -9,10 +9,12 @@ import Link from "next/link";
 import { bulkAddUsageEntries, getUsersByCompany, User, getUnitLabel } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useUnit } from "@/contexts/UnitContext";
 
 export default function DataUploadPage() {
   const { currentUser, company } = useAuth();
   const { toast } = useToast();
+  const { getUnitLabel } = useUnit();
   const [companyUsers, setCompanyUsers] = useState<User[]>([]);
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function DataUploadPage() {
     });
   }
   
-  const unitLabel = getUnitLabel(company?.defaultUnit || 'gallons');
+  const unitLabel = getUnitLabel();
 
   return (
     <AppLayout>
@@ -54,7 +56,7 @@ export default function DataUploadPage() {
             <CardHeader>
                 <CardTitle>Upload Usage Data</CardTitle>
                 <CardDescription>
-                    Upload a CSV file with user water usage. The file should have columns: `userEmail`, `date` (in YYYY-MM-DD format), and `usage` (in {unitLabel}). 
+                    Upload a CSV file with user water usage. The file should have columns: `userEmail`, `date` (in YYYY-MM-DD format), and `usage` (in your company's default unit: {unitLabel}). 
                     You can <Link href="/test-data.csv" className="underline text-primary" download>download a sample file</Link> to see the required format.
                 </CardDescription>
             </CardHeader>

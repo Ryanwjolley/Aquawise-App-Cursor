@@ -24,10 +24,10 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { Allocation, User } from "@/lib/data";
-import { getUnitLabel, CONVERSION_FACTORS } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, differenceInMinutes, addMinutes, subMinutes, parseISO } from "date-fns";
 import { AlertTriangle } from "lucide-react";
+import { useUnit } from "@/contexts/UnitContext";
 
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -78,13 +78,12 @@ export function AllocationForm({
   defaultValues
 }: AllocationFormProps) {
   const { company } = useAuth();
+  const { unit, convertUsage, getUnitLabel } = useUnit();
   const [overlapWarning, setOverlapWarning] = useState<string | null>(null);
   const [gapWarning, setGapWarning] = useState<string | null>(null);
 
-  const defaultUnit = company?.defaultUnit || 'gallons';
-  const unitLabel = getUnitLabel(defaultUnit);
-  const conversionFactorFromGallons = CONVERSION_FACTORS[defaultUnit];
-
+  const unitLabel = getUnitLabel();
+  
   const {
     handleSubmit,
     control,
@@ -93,45 +92,40 @@ export function AllocationForm({
     formState: { errors },
   } = useForm<AllocationFormValues>({
     resolver: zodResolver(allocationFormSchema),
-    defaultValues: {
-      amount: 0,
-      userId: "all",
-      startDate: format(new Date(), "yyyy-MM-dd"),
-      endDate: format(new Date(), "yyyy-MM-dd"),
-      startTime: "00:00",
-      endTime: "23:59",
-    },
   });
 
   const watchedValues = watch();
-
-  useEffect(() => {
-    if (isOpen) {
+  
+  const getInitialValues = () => {
       if (defaultValues) {
         // Convert the stored gallon value to the company's default unit for display
-        const displayAmount = defaultValues.gallons * conversionFactorFromGallons;
+        const displayAmount = convertUsage(defaultValues.gallons);
         const start = new Date(defaultValues.startDate);
         const end = new Date(defaultValues.endDate);
-        reset({
+        return {
           amount: displayAmount,
           userId: defaultValues.userId || "all",
           startDate: format(start, "yyyy-MM-dd"),
           startTime: format(start, "HH:mm"),
           endDate: format(end, "yyyy-MM-dd"),
           endTime: format(end, "HH:mm"),
-        });
-      } else {
-         reset({
-          amount: 0,
-          userId: "all",
-          startDate: format(new Date(), "yyyy-MM-dd"),
-          endDate: format(new Date(), "yyyy-MM-dd"),
-          startTime: "00:00",
-          endTime: "23:59",
-        });
+        };
       }
+      return {
+        amount: 0,
+        userId: "all",
+        startDate: format(new Date(), "yyyy-MM-dd"),
+        endDate: format(new Date(), "yyyy-MM-dd"),
+        startTime: "00:00",
+        endTime: "23:59",
+      };
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+        reset(getInitialValues());
     }
-  }, [isOpen, defaultValues, reset, conversionFactorFromGallons]);
+  }, [isOpen, defaultValues, reset, unit]);
   
   useEffect(() => {
     if (isOpen && watchedValues.startDate && watchedValues.endDate && watchedValues.startTime && watchedValues.endTime) {
@@ -204,8 +198,12 @@ export function AllocationForm({
         return;
     }
 
-    // Convert the input amount (which is in the company's default unit) back to gallons for storage
-    const totalGallons = data.amount / conversionFactorFromGallons;
+    const conversionFactors: Record<string, number> = {
+        'gallons': 1,
+        'kgal': 1000,
+        'acre-feet': 325851,
+    };
+    const totalGallons = data.amount * (conversionFactors[unit] || 1);
 
     onSubmit({
         startDate: startDate.toISOString(),
@@ -225,7 +223,7 @@ export function AllocationForm({
           <SheetHeader>
             <SheetTitle>{defaultValues ? 'Edit Allocation' : 'New Allocation'}</SheetTitle>
             <SheetDescription>
-              Set a water usage budget for a specific period for all or one of your users. Values are in the company's default unit ({unitLabel}).
+              Set a water usage budget for a specific period for all or one of your users. Values are in your company's default unit ({unitLabel}).
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-6 overflow-y-auto py-6 pr-6 pl-1">
@@ -304,7 +302,7 @@ export function AllocationForm({
                <Controller
                   name="amount"
                   control={control}
-                  render={({ field }) => <Input id="amount" type="number" {...field} />}
+                  render={({ field }) => <Input id="amount" type="number" step="any" {...field} />}
               />
                {errors.amount && (
                   <p className="text-sm text-destructive">{errors.amount.message}</p>

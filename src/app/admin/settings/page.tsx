@@ -65,11 +65,11 @@ export default function SettingsPage() {
     
     try {
         await updateCompany({ ...company, defaultUnit: data.defaultUnit as Unit });
-        await reloadCompany();
         toast({
             title: "Settings Saved",
             description: "Default display unit has been updated.",
         });
+        await reloadCompany();
     } catch (e) {
         console.error("Failed to save display settings:", e);
         toast({
