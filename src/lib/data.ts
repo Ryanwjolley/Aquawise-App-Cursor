@@ -163,8 +163,8 @@ const GALLONS_PER_ACRE_FOOT_DAY = CONVERSION_FACTORS_TO_GALLONS.rate['acre-feet-
 let waterAvailabilities: WaterAvailability[] = [
     { id: 'avail_gva_1', companyId: '1', startDate: '2025-04-15T00:00:00.000Z', endDate: '2025-09-30T23:59:59.000Z', gallons: (differenceInDays(new Date('2025-09-30'), new Date('2025-04-15')) + 1) * 6 * GALLONS_PER_ACRE_FOOT_DAY },
     { id: 'avail_sf_1', companyId: '2', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 1000000 },
-    // 184 days (April 1 to Oct 1) * 6 ac-ft/day
-    { id: 'avail_pvo_1', companyId: '3', startDate: '2025-04-01T00:00:00.000Z', endDate: '2025-10-01T23:59:59.000Z', gallons: (differenceInDays(new Date('2025-10-01'), new Date('2025-04-01'))+1) * 6 * GALLONS_PER_ACRE_FOOT_DAY },
+    // 184 days (April 1 to Oct 1) * 2 ac-ft/day
+    { id: 'avail_pvo_1', companyId: '3', startDate: '2025-04-01T00:00:00.000Z', endDate: '2025-10-01T23:59:59.000Z', gallons: (differenceInDays(new Date('2025-10-01'), new Date('2025-04-01'))+1) * 2 * GALLONS_PER_ACRE_FOOT_DAY },
 ];
 
 let waterOrders: WaterOrder[] = [
