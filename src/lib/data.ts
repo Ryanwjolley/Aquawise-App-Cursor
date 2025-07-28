@@ -73,6 +73,21 @@ export type UsageEntry = {
     usage: number; // Always in gallons
 }
 
+export type WaterOrder = {
+    id: string;
+    userId: string;
+    companyId: string;
+    startDate: string; // ISO 8601 format
+    endDate: string; // ISO 8601 format
+    flowRate: number; // The rate value
+    flowUnit: 'cfs' | 'gpm'; // The unit of the rate
+    totalGallons: number; // Pre-calculated total volume
+    status: 'pending' | 'approved' | 'rejected' | 'completed';
+    createdAt: string; // ISO 8601 format
+    reviewedBy?: string; // userId of admin
+    reviewedAt?: string; // ISO 8601 format
+};
+
 
 let companies: Company[] = [
   { id: '0', name: 'AquaWise HQ', defaultUnit: 'gallons', userGroupsEnabled: false },
@@ -127,6 +142,50 @@ let allocations: Allocation[] = [
 ];
 
 let usageData: UsageEntry[] = [];
+
+let waterOrders: WaterOrder[] = [
+    { 
+        id: 'wo_1', 
+        userId: '102', 
+        companyId: '1', 
+        startDate: '2025-07-10T08:00:00.000Z', 
+        endDate: '2025-07-10T16:00:00.000Z', 
+        flowRate: 3, 
+        flowUnit: 'cfs', 
+        totalGallons: 8617555.2,
+        status: 'pending', 
+        createdAt: new Date().toISOString() 
+    },
+    { 
+        id: 'wo_2', 
+        userId: '103', 
+        companyId: '1', 
+        startDate: '2025-07-11T10:00:00.000Z', 
+        endDate: '2025-07-11T14:00:00.000Z', 
+        flowRate: 500, 
+        flowUnit: 'gpm', 
+        totalGallons: 120000,
+        status: 'approved', 
+        createdAt: new Date().toISOString(),
+        reviewedBy: '101',
+        reviewedAt: new Date().toISOString(),
+    },
+     { 
+        id: 'wo_3', 
+        userId: '202', 
+        companyId: '2', 
+        startDate: '2025-07-12T09:00:00.000Z', 
+        endDate: '2025-07-12T17:00:00.000Z', 
+        flowRate: 2, 
+        flowUnit: 'cfs', 
+        totalGallons: 5745036.8,
+        status: 'completed', 
+        createdAt: new Date().toISOString(),
+        reviewedBy: '201',
+        reviewedAt: new Date().toISOString(),
+    }
+];
+
 
 // --- Generate extensive mock data for June and July 2025 ---
 const generateMockUsage = () => {
@@ -403,3 +462,58 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
     allocations = allocations.filter(a => a.id !== allocationId);
     return Promise.resolve();
 };
+
+// --- Water Order Functions ---
+export const getWaterOrdersByCompany = async (companyId: string): Promise<WaterOrder[]> => {
+    return Promise.resolve(waterOrders.filter(wo => wo.companyId === companyId));
+}
+
+export const getWaterOrdersForUser = async (userId: string): Promise<WaterOrder[]> => {
+    return Promise.resolve(waterOrders.filter(wo => wo.userId === userId));
+}
+
+export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' | 'createdAt' | 'totalGallons'> & {totalGallons: number}): Promise<WaterOrder> => {
+    const newOrder: WaterOrder = {
+        ...orderData,
+        id: `wo_${Date.now()}`,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+    };
+    waterOrders.push(newOrder);
+    return Promise.resolve(newOrder);
+}
+
+export const updateWaterOrderStatus = async (orderId: string, status: 'approved' | 'rejected' | 'completed', adminUserId: string): Promise<WaterOrder> => {
+    const index = waterOrders.findIndex(wo => wo.id === orderId);
+    if (index === -1) throw new Error("Water order not found");
+    
+    waterOrders[index] = {
+        ...waterOrders[index],
+        status,
+        reviewedBy: adminUserId,
+        reviewedAt: new Date().toISOString(),
+    };
+    
+    // If completed, record the usage
+    if (status === 'completed') {
+        const order = waterOrders[index];
+        const entries = [];
+        const startDate = parseISO(order.startDate);
+        const endDate = parseISO(order.endDate);
+        const totalDays = (differenceInDays(endDate, startDate) || 0) + 1;
+        const dailyGallons = order.totalGallons / totalDays;
+        
+        let currentDate = new Date(startDate);
+        while(currentDate <= endDate) {
+            entries.push({
+                userId: order.userId,
+                date: currentDate.toISOString().split('T')[0],
+                usage: dailyGallons
+            });
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        await bulkAddUsageEntries(entries, 'add');
+    }
+
+    return Promise.resolve(waterOrders[index]);
+}

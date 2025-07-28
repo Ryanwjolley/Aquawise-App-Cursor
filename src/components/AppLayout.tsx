@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UnitSwitcher } from "@/components/dashboard/UnitSwitcher";
 
@@ -41,14 +41,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isSuperAdminView = currentUser?.role === 'Super Admin' && !isImpersonating;
   const isAdminView = currentUser?.role?.includes('Admin');
+  const isCustomerView = currentUser?.role?.includes('Customer');
   
-  let dashboardPath = '/';
-  if (isAdminView) {
-    dashboardPath = '/admin';
-  }
-  
+  const dashboardPath = isAdminView ? '/admin' : '/';
   const isDashboardActive = pathname === dashboardPath || (isAdminView && pathname === '/');
-
+  const waterOrdersPath = isAdminView ? '/admin/water-orders' : '/water-orders';
 
   return (
     <SidebarProvider>
@@ -93,6 +90,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                 </SidebarMenuButton>
                             </Link>
                         </SidebarMenuItem>
+
+                        {isCustomerView && (
+                             <SidebarMenuItem>
+                                <Link href={waterOrdersPath}>
+                                    <SidebarMenuButton tooltip="Water Orders" isActive={pathname.startsWith(waterOrdersPath)}>
+                                    <ClipboardList />
+                                    <span>Water Orders</span>
+                                    </SidebarMenuButton>
+                                </Link>
+                            </SidebarMenuItem>
+                        )}
                     
                         {isAdminView && (
                             <>
@@ -109,6 +117,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                         <SidebarMenuButton tooltip="Allocations" isActive={pathname.startsWith('/admin/allocations')}>
                                         <Target />
                                         <span>Allocations</span>
+                                        </SidebarMenuButton>
+                                    </Link>
+                                </SidebarMenuItem>
+                                 <SidebarMenuItem>
+                                    <Link href="/admin/water-orders">
+                                        <SidebarMenuButton tooltip="Water Orders" isActive={pathname.startsWith('/admin/water-orders')}>
+                                        <ClipboardList />
+                                        <span>Water Orders</span>
                                         </SidebarMenuButton>
                                     </Link>
                                 </SidebarMenuItem>
