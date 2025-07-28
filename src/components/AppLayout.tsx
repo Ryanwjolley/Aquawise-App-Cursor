@@ -55,6 +55,18 @@ function NotificationsPopover() {
             fetchNotifications();
         }
     }, [isOpen, currentUser]);
+    
+     useEffect(() => {
+        const handleNotificationUpdate = () => {
+             fetchNotifications();
+        };
+
+        window.addEventListener('notifications-updated', handleNotificationUpdate);
+        return () => {
+            window.removeEventListener('notifications-updated', handleNotificationUpdate);
+        };
+    }, [currentUser]);
+
 
     const handleMarkAsRead = async (id: string) => {
         await markNotificationAsRead(id);
@@ -85,7 +97,7 @@ function NotificationsPopover() {
                         {notifications.length > 0 ? (
                             notifications.map(n => (
                                 <div key={n.id} className={`grid grid-cols-[25px_1fr] items-start pb-4 last:pb-0 ${!n.isRead ? 'font-bold' : ''}`}>
-                                    <span className="flex h-2 w-2 translate-y-1 rounded-full bg-sky-500" />
+                                    <span className={`flex h-2 w-2 translate-y-1 rounded-full ${!n.isRead ? 'bg-sky-500' : 'bg-muted-foreground'}`} />
                                     <div className="grid gap-1">
                                         <p className="text-sm">
                                             {n.message}
@@ -106,6 +118,9 @@ function NotificationsPopover() {
                             <p className="text-sm text-center text-muted-foreground py-4">No new notifications.</p>
                         )}
                     </div>
+                     <Button asChild variant="outline" size="sm" className="w-full">
+                        <Link href="/notifications">View All Notifications</Link>
+                    </Button>
                 </div>
             </PopoverContent>
         </Popover>
@@ -115,7 +130,30 @@ function NotificationsPopover() {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, company, isImpersonating, stopImpersonating, logout } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
   const pathname = usePathname();
+
+  useEffect(() => {
+    const fetchCount = async () => {
+        if(currentUser) {
+            const userNotifications = await getNotificationsForUser(currentUser.id);
+            setUnreadCount(userNotifications.filter(n => !n.isRead).length);
+        }
+    }
+    
+    const handleNotificationUpdate = () => {
+        fetchCount();
+    };
+
+    fetchCount();
+    window.addEventListener('notifications-updated', handleNotificationUpdate);
+    
+    return () => {
+        window.removeEventListener('notifications-updated', handleNotificationUpdate);
+    };
+
+  }, [currentUser]);
+
 
   const isSuperAdminView = currentUser?.role === 'Super Admin' && !isImpersonating;
   const isAdminView = currentUser?.role?.includes('Admin');
@@ -227,6 +265,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                 </SidebarMenuItem>
                             </>
                         )}
+
+                        <SidebarMenuItem>
+                            <Link href="/notifications">
+                                <SidebarMenuButton tooltip="Notifications" isActive={pathname.startsWith('/notifications')}>
+                                    <Bell />
+                                    <span>Notifications</span>
+                                     {unreadCount > 0 && <SidebarMenuBadge>{unreadCount}</SidebarMenuBadge>}
+                                </SidebarMenuButton>
+                            </Link>
+                        </SidebarMenuItem>
 
                         <SidebarMenuItem>
                             <Link href="/admin/settings">

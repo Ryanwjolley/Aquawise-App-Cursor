@@ -775,11 +775,17 @@ export const getNotificationsForUser = async (userId: string): Promise<Notificat
 export const addNotification = (data: Omit<Notification, 'id' | 'createdAt' | 'isRead'>): Notification => {
     const newNotification: Notification = {
         ...data,
-        id: `n${Date.now()}`,
+        id: `n_${Date.now()}_${Math.random()}`,
         createdAt: new Date().toISOString(),
         isRead: false,
     };
-    notifications.push(newNotification);
+    notifications.unshift(newNotification);
+
+    // Dispatch event to notify UI components
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('notifications-updated'));
+    }
+
     return newNotification;
 }
 
@@ -787,6 +793,21 @@ export const markNotificationAsRead = async (notificationId: string): Promise<vo
     const index = notifications.findIndex(n => n.id === notificationId);
     if(index > -1) {
         notifications[index].isRead = true;
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('notifications-updated'));
+        }
+    }
+    return Promise.resolve();
+}
+
+export const markAllNotificationsAsRead = async (userId: string): Promise<void> => {
+    notifications.forEach(n => {
+        if (n.userId === userId) {
+            n.isRead = true;
+        }
+    });
+     if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('notifications-updated'));
     }
     return Promise.resolve();
 }
