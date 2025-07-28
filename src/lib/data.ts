@@ -4,7 +4,7 @@
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 import { differenceInDays, max, min, parseISO, format, startOfDay, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { sendThresholdAlertEmail, sendSpikeAlertEmail } from './actions';
+import { sendThresholdAlertEmail, sendSpikeAlertEmail, sendWaterOrderStatusUpdateEmail, sendWaterOrderSubmissionEmail } from './actions';
 
 export type Unit = 'gallons' | 'kgal' | 'acre-feet' | 'cubic-feet' | 'cfs' | 'gpm' | 'acre-feet-day';
 export type UnitLabel = 'Gallons' | 'kGal' | 'Acre-Feet' | 'Cubic Feet' | 'CFS' | 'GPM' | 'Ac-Ft/Day';
@@ -697,12 +697,15 @@ export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' 
     const admins = companyAdmins.filter(u => u.role.includes('Admin'));
     const user = await getUserById(orderData.userId);
 
-    for (const admin of admins) {
-        addNotification({
-            userId: admin.id,
-            message: `New water order submitted by ${user?.name}.`,
-            link: '/admin/water-orders'
-        });
+    if (user) {
+        await sendWaterOrderSubmissionEmail(newOrder, user, admins);
+        for (const admin of admins) {
+            addNotification({
+                userId: admin.id,
+                message: `New water order submitted by ${user.name}.`,
+                link: '/admin/water-orders'
+            });
+        }
     }
 
     return Promise.resolve(newOrder);
@@ -721,14 +724,21 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
         adminNotes: notes,
     };
     
-    // Create notification for user if status changed
+    const order = waterOrders[index];
+    
+    // Create notification and email for user if status changed
     if (originalStatus !== status) {
+        const user = await getUserById(order.userId);
+        if (user) {
+            await sendWaterOrderStatusUpdateEmail(order, user);
+        }
+        
         let message = `Your water order has been ${status}.`;
         if (status === 'rejected' && notes) {
             message = `Your water order was rejected: ${notes}`;
         }
         addNotification({
-            userId: waterOrders[index].userId,
+            userId: order.userId,
             message: message,
             link: '/water-orders'
         });
@@ -736,7 +746,6 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
 
     // If completed, record the usage
     if (status === 'completed') {
-        const order = waterOrders[index];
         const entries = [];
         const startDate = parseISO(order.startDate);
         const endDate = parseISO(order.endDate);

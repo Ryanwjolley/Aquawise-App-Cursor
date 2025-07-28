@@ -4,7 +4,7 @@
 import sgMail from '@sendgrid/mail';
 import { format } from 'date-fns';
 import type { Allocation, User, Unit, WaterOrder, Company } from './data';
-import { getUnitLabel } from './data';
+import { getUnitLabel, getUserById } from './data';
 import "dotenv/config";
 
 
@@ -22,7 +22,7 @@ const CONVERSION_FACTORS_FROM_GALLONS: Record<Exclude<Unit, 'cfs' | 'gpm' | 'acr
 const sendEmail = async (msg: sgMail.MailDataRequired) => {
      if (!process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY === "YOUR_SENDGRID_API_KEY_HERE" || !process.env.SENDGRID_FROM_EMAIL) {
         console.log("SENDGRID_API_KEY or SENDGRID_FROM_EMAIL not set. Skipping email send. Email content:");
-        console.log(msg);
+        console.log(JSON.stringify(msg, null, 2));
         return;
     }
      try {
@@ -85,6 +85,39 @@ export const sendWaterOrderSubmissionEmail = async (order: WaterOrder, user: Use
 
     await sendEmail(msg);
 }
+
+export const sendWaterOrderStatusUpdateEmail = async (order: WaterOrder, user: User) => {
+    const formattedStart = format(new Date(order.startDate), 'P p');
+    const formattedEnd = format(new Date(order.endDate), 'P p');
+    const unitLabel = getUnitLabel(order.unit);
+
+    const subject = `Your Water Order has been ${order.status}`;
+    let body = `
+        <p>Hello ${user.name},</p>
+        <p>An update has been made to your recent water order.</p>
+        <ul>
+            <li><strong>Order Period:</strong> ${formattedStart} to ${formattedEnd}</li>
+            <li><strong>Request:</strong> ${order.amount.toLocaleString()} ${unitLabel}</li>
+            <li><strong>New Status:</strong> ${order.status.toUpperCase()}</li>
+        </ul>
+    `;
+
+    if (order.status === 'rejected' && order.adminNotes) {
+        body += `<p><strong>Administrator's Note:</strong> ${order.adminNotes}</p>`;
+    }
+
+    body += `<p>You can view the details by logging into your AquaWise dashboard.</p>`;
+
+    const msg = {
+        to: user.email,
+        from: process.env.SENDGRID_FROM_EMAIL!,
+        subject: subject,
+        html: body,
+    };
+
+    await sendEmail(msg);
+};
+
 
 export const sendThresholdAlertEmail = async (user: User, company: Company, usage: number, allocation: number, percentage: number) => {
     const unit = company.defaultUnit;
