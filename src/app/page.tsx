@@ -8,7 +8,7 @@ import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { useState, useEffect } from "react";
 import type { UsageEntry, Allocation } from "@/lib/data";
 import { getUsageForUser, getAllocationsForUser } from "@/lib/data";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -18,10 +18,11 @@ export default function CustomerDashboardPage() {
   const [usageData, setUsageData] = useState<UsageEntry[]>([]);
   const [allAllocations, setAllAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialRangeSet, setInitialRangeSet] = useState(false);
   
   const [queryRange, setQueryRange] = useState<DateRange>({
-    from: new Date(new Date().setDate(new Date().getDate() - 30)),
-    to: new Date(),
+    from: undefined,
+    to: undefined,
   });
 
   useEffect(() => {
@@ -40,6 +41,19 @@ export default function CustomerDashboardPage() {
 
         setUsageData(data);
         setAllAllocations(allocs);
+        
+        // Set default date range to most recent allocation if not already set
+        if (!initialRangeSet) {
+          if (allocs.length > 0) {
+            const mostRecentAllocation = allocs.sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
+            setQueryRange({ from: parseISO(mostRecentAllocation.startDate), to: parseISO(mostRecentAllocation.endDate) });
+          } else {
+             // Fallback if no allocations
+            setQueryRange({ from: new Date(new Date().setDate(new Date().getDate() - 30)), to: new Date() });
+          }
+          setInitialRangeSet(true);
+        }
+
 
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
@@ -49,9 +63,12 @@ export default function CustomerDashboardPage() {
         setLoading(false);
       }
     };
-
-    fetchData();
-  }, [currentUser, queryRange]);
+    
+    // Only run fetch if we have a date range, or if the initial range hasn't been set yet.
+    if (!initialRangeSet || (queryRange.from && queryRange.to)) {
+        fetchData();
+    }
+  }, [currentUser, queryRange, initialRangeSet]);
 
 
   return (
@@ -69,10 +86,9 @@ export default function CustomerDashboardPage() {
                 />
             </div>
         </div>
-        {loading ? (
+        {loading || !initialRangeSet ? (
           <div className="space-y-4">
-             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Skeleton className="h-28" />
+             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Skeleton className="h-28" />
                 <Skeleton className="h-28" />
                 <Skeleton className="h-28" />
@@ -91,5 +107,3 @@ export default function CustomerDashboardPage() {
     </AppLayout>
   );
 }
-
-    

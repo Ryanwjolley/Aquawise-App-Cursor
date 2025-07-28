@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Droplets, TrendingUp, Users, Target } from "lucide-react";
 import type { UsageEntry, Allocation, User as UserType, UserGroup } from "@/lib/data";
 import { getUsageForUser, getAllocationsForUser, getUsersByCompany, getUserById, getGroupsByCompany, calculateProportionalAllocation } from "@/lib/data";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserSelector } from "@/components/dashboard/UserSelector";
@@ -118,10 +118,11 @@ export default function AdminDashboardPage() {
   const [allUsageData, setAllUsageData] = useState<Record<string, UsageEntry[]>>({});
   const [allAllocations, setAllAllocations] = useState<Record<string, Allocation[]>>({});
   const [loading, setLoading] = useState(true);
+  const [initialRangeSet, setInitialRangeSet] = useState(false);
   
   const [queryRange, setQueryRange] = useState<DateRange>({
-    from: new Date(new Date().setDate(new Date().getDate() - 30)),
-    to: new Date(),
+    from: undefined,
+    to: undefined,
   });
 
   // Set initial user from search params
@@ -169,6 +170,20 @@ export default function AdminDashboardPage() {
         setAllUsageData(usageDataByUser);
         setAllAllocations(allocationsByUser);
 
+        // Set default date range to most recent allocation if not already set
+        if (!initialRangeSet) {
+          const allCompanyAllocations = Object.values(allocationsByUser).flat();
+          if (allCompanyAllocations.length > 0) {
+            const mostRecentAllocation = allCompanyAllocations.sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
+            setQueryRange({ from: parseISO(mostRecentAllocation.startDate), to: parseISO(mostRecentAllocation.endDate) });
+          } else {
+            // Fallback if no allocations
+            setQueryRange({ from: new Date(new Date().setDate(new Date().getDate() - 30)), to: new Date() });
+          }
+          setInitialRangeSet(true);
+        }
+
+
       } catch (error) {
         console.error("Failed to fetch admin dashboard data:", error);
         setAllUsageData({});
@@ -178,8 +193,11 @@ export default function AdminDashboardPage() {
       }
     };
 
-    fetchData();
-  }, [currentUser, company, queryRange]);
+    // Only run fetch if we have a date range, or if the initial range hasn't been set yet.
+    if (!initialRangeSet || (queryRange.from && queryRange.to)) {
+      fetchData();
+    }
+  }, [currentUser, company, queryRange, initialRangeSet]);
 
   // Update selected user object when ID changes
   useEffect(() => {
@@ -196,7 +214,7 @@ export default function AdminDashboardPage() {
   }
 
   const renderContent = () => {
-    if (loading) {
+    if (loading || !initialRangeSet) {
        return (
           <div className="space-y-4">
              <div className="flex items-center justify-between">
@@ -243,7 +261,7 @@ export default function AdminDashboardPage() {
     return <div>Select a user or group to begin.</div>;
   }
   
-  const companyWideAllocations = allAllocations[Object.keys(allAllocations)[0]] || [];
+  const companyWideAllocations = Object.values(allAllocations).flat();
   const currentAllocations = selectedUser ? allAllocations[selectedView] || [] : companyWideAllocations;
 
   return (
