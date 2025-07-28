@@ -1,0 +1,128 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "databaseSchema": {
+    "companies": {
+      "docId": "{companyId}",
+      "description": "Each document represents a single company in the system.",
+      "fields": {
+        "name": "string",
+        "defaultUnit": "string (e.g., 'gallons', 'acre-feet')",
+        "userGroupsEnabled": "boolean",
+        "waterOrdersEnabled": "boolean",
+        "notificationSettings": {
+          "type": "map",
+          "description": "Configuration for automated notifications.",
+          "fields": {
+            "allocationChangeAlerts": {
+              "type": "map",
+              "fields": { "enabled": "boolean", "message": "string" }
+            },
+            "thresholdAlerts": {
+              "type": "map",
+              "fields": {
+                "enabled": "boolean",
+                "thresholds": {
+                  "type": "array",
+                  "items": { "type": "map", "fields": { "percentage": "number" } }
+                },
+                "email": "string",
+                "message": "string"
+              }
+            },
+            "spikeAlerts": {
+              "type": "map",
+              "fields": {
+                "enabled": "boolean",
+                "percentage": "number",
+                "email": "string",
+                "message": "string"
+              }
+            }
+          }
+        }
+      },
+      "subcollections": {
+        "users": {
+          "docId": "{userId}",
+          "description": "Stores user profiles for a company. The docId should be the Firebase Auth UID.",
+          "fields": {
+            "name": "string",
+            "email": "string (unique)",
+            "mobileNumber": "string (optional)",
+            "role": "string (e.g., 'Admin', 'Customer', 'Super Admin')",
+            "shares": "number (optional, for proportional allocation)",
+            "notificationPreference": "string ('email' or 'mobile')",
+            "userGroupId": "string (optional, foreign key to userGroups)"
+          }
+        },
+        "userGroups": {
+          "docId": "{groupId}",
+          "description": "Groups to organize users for reporting and allocations.",
+          "fields": {
+            "name": "string"
+          }
+        },
+        "allocations": {
+          "docId": "{allocationId}",
+          "description": "Water allocations for the company, a group, or a specific user.",
+          "fields": {
+            "startDate": "timestamp",
+            "endDate": "timestamp",
+            "gallons": "number",
+            "userId": "string (optional, foreign key to users)",
+            "userGroupId": "string (optional, foreign key to userGroups)"
+          }
+        },
+        "waterAvailabilities": {
+          "docId": "{availabilityId}",
+          "description": "Defines total water available in the system for ordering.",
+          "fields": {
+            "startDate": "timestamp",
+            "endDate": "timestamp",
+            "gallons": "number"
+          }
+        },
+        "waterOrders": {
+          "docId": "{orderId}",
+          "description": "Requests for water submitted by users.",
+          "fields": {
+            "userId": "string (foreign key to users)",
+            "startDate": "timestamp",
+            "endDate": "timestamp",
+            "amount": "number (user-entered value)",
+            "unit": "string (user-selected unit)",
+            "totalGallons": "number (pre-calculated)",
+            "status": "string ('pending', 'approved', 'rejected', 'completed')",
+            "createdAt": "timestamp",
+            "reviewedBy": "string (optional, foreign key to users)",
+            "reviewedAt": "timestamp (optional)",
+            "adminNotes": "string (optional)"
+          }
+        },
+        "usageEntries": {
+          "docId": "{usageEntryId}",
+          "description": "Daily water usage records for each user.",
+          "fields": {
+            "userId": "string (foreign key to users)",
+            "date": "timestamp (represents the start of the day)",
+            "usage": "number (in gallons)"
+          }
+        },
+        "notifications": {
+          "docId": "{notificationId}",
+          "description": "In-app notifications for users.",
+          "fields": {
+            "userId": "string (foreign key to users)",
+            "message": "string",
+            "createdAt": "timestamp",
+            "isRead": "boolean",
+            "link": "string (optional, for deep linking)"
+          }
+        }
+      }
+    }
+  }
+}
