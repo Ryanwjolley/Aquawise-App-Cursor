@@ -123,7 +123,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   
   const dashboardPath = isAdminView ? '/admin' : '/';
   const isDashboardActive = pathname === dashboardPath || (isAdminView && pathname === '/admin' && pathname.length <= 7);
-  const waterOrdersPath = isAdminView ? '/admin/water-orders' : '/water-orders';
 
   return (
     <SidebarProvider>
@@ -169,21 +168,29 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             </Link>
                         </SidebarMenuItem>
 
-                        {(isCustomerView || isAdminView) && company?.waterOrdersEnabled && (
-                             <>
-                                <SidebarMenuItem>
-                                    <Link href={waterOrdersPath}>
-                                        <SidebarMenuButton tooltip="Water Orders" isActive={pathname.startsWith(waterOrdersPath) || pathname.startsWith('/water-calendar')}>
-                                        <ClipboardList />
-                                        <span>Water Orders</span>
-                                        </SidebarMenuButton>
-                                    </Link>
-                                </SidebarMenuItem>
-                             </>
+                        {isCustomerView && company?.waterOrdersEnabled && (
+                            <SidebarMenuItem>
+                                <Link href="/water-orders">
+                                    <SidebarMenuButton tooltip="My Water Orders" isActive={pathname.startsWith('/water-orders') || pathname.startsWith('/water-calendar')}>
+                                    <ClipboardList />
+                                    <span>My Water Orders</span>
+                                    </SidebarMenuButton>
+                                </Link>
+                            </SidebarMenuItem>
                         )}
                     
                         {isAdminView && (
                             <>
+                                {company?.waterOrdersEnabled && (
+                                    <SidebarMenuItem>
+                                        <Link href="/admin/water-orders">
+                                            <SidebarMenuButton tooltip="Manage Orders" isActive={pathname.startsWith('/admin/water-orders') || pathname.startsWith('/admin/water-calendar') || pathname.startsWith('/admin/availability')}>
+                                            <ClipboardList />
+                                            <span>Manage Orders</span>
+                                            </SidebarMenuButton>
+                                        </Link>
+                                    </SidebarMenuItem>
+                                )}
                                 <SidebarMenuItem>
                                     <Link href="/admin/usage-data">
                                         <SidebarMenuButton tooltip="Usage Data" isActive={pathname.startsWith('/admin/usage-data')}>

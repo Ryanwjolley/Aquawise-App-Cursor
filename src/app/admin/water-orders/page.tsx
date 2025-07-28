@@ -111,11 +111,11 @@ export default function AdminWaterOrdersPage() {
     <AppLayout>
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">Water Orders</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Manage Water Orders</h2>
                 {company?.waterOrdersEnabled && (
                     <div className="flex items-center space-x-2">
                         <Button variant="outline" asChild>
-                            <Link href="/water-calendar">
+                            <Link href="/admin/water-calendar">
                                 <Calendar className="mr-2 h-4 w-4" />
                                 View Calendar
                             </Link>
