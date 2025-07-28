@@ -3,6 +3,7 @@
 
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { WaterCalendar } from "@/components/dashboard/WaterCalendar";
 
 export default function WaterCalendarPage() {
 
@@ -16,11 +17,11 @@ export default function WaterCalendarPage() {
           <CardHeader>
             <CardTitle>System Capacity Calendar</CardTitle>
             <CardDescription>
-              View scheduled water orders and daily system capacity.
+              View daily water availability against approved and pending orders. All values are shown in your company's default unit.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p>Calendar view coming soon...</p>
+            <WaterCalendar />
           </CardContent>
         </Card>
       </div>
