@@ -1,6 +1,8 @@
 
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
+import { differenceInDays, max, min, parseISO } from "date-fns";
+import type { DateRange } from "react-day-picker";
 
 export type Unit = 'gallons' | 'kgal' | 'acre-feet' | 'cubic-feet' | 'cfs' | 'gpm' | 'acre-feet-day';
 export type UnitLabel = 'Gallons' | 'kGal' | 'Acre-Feet' | 'Cubic Feet' | 'CFS' | 'GPM' | 'Ac-Ft/Day';
@@ -190,6 +192,35 @@ usageData.push(
 
 // --- API Functions ---
 
+// Function to calculate proportional allocation
+export const calculateProportionalAllocation = (range: DateRange, allocations: Allocation[]): number => {
+    if (!range.from || !range.to) return 0;
+
+    let totalProportionalGallons = 0;
+
+    for (const alloc of allocations) {
+        const allocStart = parseISO(alloc.startDate);
+        const allocEnd = parseISO(alloc.endDate);
+
+        // Find the overlapping interval
+        const overlapStart = max([range.from, allocStart]);
+        const overlapEnd = min([range.to, allocEnd]);
+        
+        if (overlapStart < overlapEnd) {
+            const overlapDays = differenceInDays(overlapEnd, overlapStart) + 1;
+            const totalAllocDays = differenceInDays(allocEnd, allocStart) + 1;
+            
+            if (totalAllocDays > 0) {
+                const dailyAllocation = alloc.gallons / totalAllocDays;
+                totalProportionalGallons += dailyAllocation * overlapDays;
+            }
+        }
+    }
+
+    return totalProportionalGallons;
+}
+
+
 // Simulate async calls with Promise.resolve()
 export const getUnitLabel = (unit: Unit): UnitLabel => {
     const UNIT_LABELS: Record<Unit, UnitLabel> = {
@@ -301,7 +332,7 @@ export const getUsageForUser = async (userId: string, startDate?: string, endDat
 };
 
 // Function to simulate bulk adding/overwriting usage data
-export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only', inputUnit: Unit = 'gallons'): Promise<{ added: number, updated: number }> => {
+export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only' = 'overwrite', inputUnit: Unit = 'gallons'): Promise<{ added: number, updated: number }> => {
   let added = 0;
   let updated = 0;
 

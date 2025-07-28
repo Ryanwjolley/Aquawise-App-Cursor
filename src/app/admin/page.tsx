@@ -7,7 +7,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Droplets, TrendingUp, Users, Target } from "lucide-react";
 import type { UsageEntry, Allocation, User as UserType, UserGroup } from "@/lib/data";
-import { getUsageForUser, getAllocationsForUser, getUsersByCompany, getUserById, getGroupsByCompany } from "@/lib/data";
+import { getUsageForUser, getAllocationsForUser, getUsersByCompany, getUserById, getGroupsByCompany, calculateProportionalAllocation } from "@/lib/data";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +21,7 @@ import { useUnit } from "@/contexts/UnitContext";
 
 
 // A component to render the aggregate company or group view
-function AggregateDashboard({ title, users, allUsageData, queryRange }) {
+function AggregateDashboard({ title, users, allUsageData, allAllocations, queryRange }) {
     const { convertUsage, getUnitLabel } = useUnit();
     const allUsageEntries = users.map(u => allUsageData[u.id] || []).flat();
 
@@ -30,6 +30,11 @@ function AggregateDashboard({ title, users, allUsageData, queryRange }) {
     const avgUserUsage = totalUsers > 0 ? totalUsage / totalUsers : 0;
     const totalShares = users.reduce((acc, user) => acc + (user.shares || 0), 0);
     
+    const totalAllocation = users.reduce((acc, user) => {
+        const userAllocations = allAllocations[user.id] || [];
+        return acc + calculateProportionalAllocation(queryRange, userAllocations);
+    }, 0);
+
     const donutChartData = users.map(user => {
         const userUsage = allUsageData[user.id]?.reduce((sum, entry) => sum + entry.usage, 0) || 0;
         const userColor = `hsl(var(--chart-${(parseInt(user.id, 16) % 5) + 1}))`;
@@ -63,12 +68,18 @@ function AggregateDashboard({ title, users, allUsageData, queryRange }) {
                     </div>
                 )}
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricCard 
                     title="Total Usage" 
                     metric={`${convertUsage(totalUsage).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`}
                     icon={Droplets} 
                     description="Total water used across all users in this view" 
+                />
+                <MetricCard 
+                    title="Total Allocation" 
+                    metric={`${convertUsage(totalAllocation).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`} 
+                    icon={Target} 
+                    description="Total allocation for this view in the period" 
                 />
                 <MetricCard 
                     title="Average User Usage" 
@@ -206,14 +217,14 @@ export default function AdminDashboardPage() {
     }
     
     if (selectedView === 'all') {
-        return <AggregateDashboard title={`${company?.name} Dashboard`} users={companyUsers} allUsageData={allUsageData} queryRange={queryRange} />;
+        return <AggregateDashboard title={`${company?.name} Dashboard`} users={companyUsers} allUsageData={allUsageData} allAllocations={allAllocations} queryRange={queryRange} />;
     }
 
     if (selectedView.startsWith('group_')) {
         const groupId = selectedView.replace('group_', '');
         const group = userGroups.find(g => g.id === groupId);
         const groupUsers = companyUsers.filter(u => u.userGroupId === groupId);
-        return <AggregateDashboard title={`${group?.name} Group Dashboard`} users={groupUsers} allUsageData={allUsageData} queryRange={queryRange} />;
+        return <AggregateDashboard title={`${group?.name} Group Dashboard`} users={groupUsers} allUsageData={allUsageData} allAllocations={allAllocations} queryRange={queryRange} />;
     }
     
     if (selectedUser) {
