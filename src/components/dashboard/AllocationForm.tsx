@@ -25,10 +25,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { Allocation, User, UserGroup, Unit } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, differenceInMinutes, addMinutes, subMinutes, parseISO } from "date-fns";
+import { format, differenceInMinutes, addMinutes, subMinutes, parseISO, differenceInSeconds, differenceInDays } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import { useUnit } from "@/contexts/UnitContext";
-import { getGroupsByCompany, CONVERSION_FACTORS, getUnitLabel, CONVERSION_FACTORS_FROM_GALLONS } from "@/lib/data";
+import { getGroupsByCompany, CONVERSION_FACTORS_TO_GALLONS, CONVERSION_FACTORS_FROM_GALLONS } from "@/lib/data";
 
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -40,7 +40,7 @@ const allocationFormSchema = z.object({
   startTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   endTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }),
-  unit: z.enum(['gallons', 'kgal', 'acre-feet', 'cubic-feet']),
+  unit: z.enum(['gallons', 'kgal', 'acre-feet', 'cubic-feet', 'cfs', 'gpm', 'acre-feet-day']),
   appliesTo: z.string().min(1, { message: "Please select who this applies to." }),
 }).refine(data => {
     const start = combineDateTime(data.startDate, data.startTime);
@@ -228,8 +228,32 @@ export function AllocationForm({
         return;
     }
 
-    // Convert the entered amount to gallons for consistent storage
-    const totalGallons = data.amount * (CONVERSION_FACTORS[data.unit] || 1);
+    let totalGallons = 0;
+    const { amount, unit } = data;
+    
+    // Check if it's a simple volume conversion
+    if (unit in CONVERSION_FACTORS_TO_GALLONS.volume) {
+      totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.volume[unit as keyof typeof CONVERSION_FACTORS_TO_GALLONS.volume]!;
+    } 
+    // Check if it's a rate conversion
+    else if (unit in CONVERSION_FACTORS_TO_GALLONS.rate) {
+        const durationInSeconds = differenceInSeconds(endDate, startDate);
+        switch(unit) {
+            case 'cfs':
+                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.cfs * durationInSeconds;
+                break;
+            case 'gpm':
+                const durationInMinutes = durationInSeconds / 60;
+                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.gpm * durationInMinutes;
+                break;
+            case 'acre-feet-day':
+                // Add 1 to include the end day fully in the calculation.
+                const durationInDays = (differenceInDays(endDate, startDate) || 1);
+                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate['acre-feet-day'] * durationInDays;
+                break;
+        }
+    }
+
 
     const isGroupAllocation = data.appliesTo.startsWith('group_');
     const userId = !isGroupAllocation && data.appliesTo !== 'all' ? data.appliesTo : undefined;
@@ -330,7 +354,7 @@ export function AllocationForm({
             
             <div className="grid grid-cols-3 gap-4 pl-5">
                 <div className="col-span-2 grid gap-2">
-                    <Label htmlFor="amount">Amount</Label>
+                    <Label htmlFor="amount">Amount / Rate</Label>
                     <Controller
                         name="amount"
                         control={control}
@@ -351,10 +375,19 @@ export function AllocationForm({
                                     <SelectValue placeholder="Select unit" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="gallons">Gallons</SelectItem>
-                                    <SelectItem value="kgal">kGal</SelectItem>
-                                    <SelectItem value="acre-feet">Acre-Feet</SelectItem>
-                                    <SelectItem value="cubic-feet">Cubic Feet</SelectItem>
+                                    <SelectGroup>
+                                        <Label className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Volume</Label>
+                                        <SelectItem value="gallons">Gallons</SelectItem>
+                                        <SelectItem value="kgal">kGal (Thousands)</SelectItem>
+                                        <SelectItem value="acre-feet">Acre-Feet</SelectItem>
+                                        <SelectItem value="cubic-feet">Cubic Feet</SelectItem>
+                                    </SelectGroup>
+                                     <SelectGroup>
+                                        <Label className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Flow Rate</Label>
+                                        <SelectItem value="gpm">Gallons/Min (GPM)</SelectItem>
+                                        <SelectItem value="cfs">Cubic Ft/Sec (CFS)</SelectItem>
+                                        <SelectItem value="acre-feet-day">Acre-Feet/Day</SelectItem>
+                                    </SelectGroup>
                                 </SelectContent>
                             </Select>
                         )}
