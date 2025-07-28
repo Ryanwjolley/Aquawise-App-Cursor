@@ -43,15 +43,14 @@ export default function CustomerDashboardPage() {
         setAllAllocations(allocs);
         
         // Set default date range to most recent allocation if not already set
-        if (!initialRangeSet) {
-          if (allocs.length > 0) {
+        if (!initialRangeSet && allocs.length > 0) {
             const mostRecentAllocation = allocs.sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
             setQueryRange({ from: parseISO(mostRecentAllocation.startDate), to: parseISO(mostRecentAllocation.endDate) });
-          } else {
+            setInitialRangeSet(true);
+        } else if (!initialRangeSet) {
              // Fallback if no allocations
             setQueryRange({ from: new Date(new Date().setDate(new Date().getDate() - 30)), to: new Date() });
-          }
-          setInitialRangeSet(true);
+            setInitialRangeSet(true);
         }
 
 
@@ -64,11 +63,12 @@ export default function CustomerDashboardPage() {
       }
     };
     
-    // Only run fetch if we have a date range, or if the initial range hasn't been set yet.
-    if (!initialRangeSet || (queryRange.from && queryRange.to)) {
+    // Only run fetch if we have a user and (a date range or the initial range hasn't been set).
+    if (currentUser && (!initialRangeSet || (queryRange.from && queryRange.to))) {
         fetchData();
     }
-  }, [currentUser, queryRange, initialRangeSet]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, queryRange]);
 
 
   return (

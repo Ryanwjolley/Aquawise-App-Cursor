@@ -12,10 +12,11 @@ if (process.env.SENDGRID_API_KEY) {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-const CONVERSION_FACTORS: Record<Unit, number> = {
+const CONVERSION_FACTORS_FROM_GALLONS: Record<Exclude<Unit, 'cfs' | 'gpm' | 'acre-feet-day'>, number> = {
     'gallons': 1,
     'kgal': 1 / 1000,
     'acre-feet': 1 / 325851,
+    'cubic-feet': 1/ 7.48052,
 };
 
 export const sendAllocationNotificationEmail = async (allocation: Allocation, recipients: User[], updateType: 'created' | 'updated', unit: Unit) => {
@@ -33,7 +34,7 @@ export const sendAllocationNotificationEmail = async (allocation: Allocation, re
     const formattedStart = format(new Date(allocation.startDate), 'P p');
     const formattedEnd = format(new Date(allocation.endDate), 'P p');
 
-    const convertedAmount = allocation.gallons * CONVERSION_FACTORS[unit];
+    const convertedAmount = allocation.gallons * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
     const unitLabel = getUnitLabel(unit);
 
     const msg = {
@@ -61,4 +62,3 @@ export const sendAllocationNotificationEmail = async (allocation: Allocation, re
         throw new Error('Failed to send notification email.');
     }
 };
-

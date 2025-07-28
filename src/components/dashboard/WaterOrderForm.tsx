@@ -36,7 +36,7 @@ const waterOrderFormSchema = z.object({
   startTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   endTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }),
-  unit: z.enum(['gallons', 'kgal', 'acre-feet', 'cubic-feet', 'cfs', 'gpm']),
+  unit: z.enum(['gallons', 'kgal', 'acre-feet', 'cubic-feet', 'cfs', 'gpm', 'acre-feet-day']),
 }).refine(data => {
     const start = combineDateTime(data.startDate, data.startTime);
     const end = combineDateTime(data.endDate, data.endTime);
@@ -228,6 +228,7 @@ export function WaterOrderForm({
                                         <Label className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Flow Rate</Label>
                                         <SelectItem value="gpm">GPM</SelectItem>
                                         <SelectItem value="cfs">CFS</SelectItem>
+                                        <SelectItem value="acre-feet-day">Acre-Feet/Day</SelectItem>
                                     </SelectGroup>
                                 </SelectContent>
                             </Select>

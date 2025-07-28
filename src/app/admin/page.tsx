@@ -133,7 +133,8 @@ export default function AdminDashboardPage() {
         // Clean up URL
         router.replace('/admin');
     }
-  }, [searchParams, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   // Fetch all data on load and when range changes
@@ -194,10 +195,11 @@ export default function AdminDashboardPage() {
     };
 
     // Only run fetch if we have a date range, or if the initial range hasn't been set yet.
-    if (!initialRangeSet || (queryRange.from && queryRange.to)) {
+    if (currentUser?.companyId && (!initialRangeSet || (queryRange.from && queryRange.to))) {
       fetchData();
     }
-  }, [currentUser, company, queryRange, initialRangeSet]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, company, queryRange]);
 
   // Update selected user object when ID changes
   useEffect(() => {

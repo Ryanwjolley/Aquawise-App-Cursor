@@ -47,6 +47,7 @@ export default function AvailabilityPage() {
     if (currentUser?.companyId) {
         fetchAndSetData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const handleNewAvailability = () => {

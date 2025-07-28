@@ -55,6 +55,7 @@ export default function UserManagementPage() {
     if (currentUser?.companyId) {
         fetchUsersAndGroups();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, company]);
 
   const handleAddUser = () => {
