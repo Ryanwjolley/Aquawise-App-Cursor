@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { BellRing, Mail, Droplets, Users, PlusCircle, Trash2, MoreHorizontal, ClipboardList } from "lucide-react";
+import { BellRing, Mail, Droplets, Users, PlusCircle, Trash2, MoreHorizontal, ClipboardList, Link2 } from "lucide-react";
 import { NotificationsSetup } from "@/components/dashboard/NotificationsSetup";
 import { useToast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from "@/components/ui/sheet";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import Link from "next/link";
 
 
 // --- Zod Schemas ---
@@ -493,23 +494,23 @@ export default function SettingsPage() {
                     <CardHeader>
                         <CardTitle>Integrations</CardTitle>
                         <CardDescription>
-                            Connect AquaWise to other services (coming soon).
+                            Connect AquaWise to other services to automate data collection.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="flex items-start gap-4">
                             <div className="flex-shrink-0">
-                                <Mail className="h-8 w-8 text-muted-foreground" />
+                                <Link2 className="h-8 w-8 text-muted-foreground" />
                             </div>
                             <div className="flex-grow">
-                                <h3 className="text-lg font-medium">Email Reports</h3>
+                                <h3 className="text-lg font-medium">Data Sources</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    Configure weekly or monthly summary reports to be sent to stakeholders.
+                                   Connect to external meter reading software to automatically fetch usage data.
                                 </p>
                             </div>
                             <div className="flex-shrink-0">
-                                <Button variant="secondary" disabled>
-                                    Configure
+                                <Button asChild>
+                                    <Link href="/admin/data-sources">Manage</Link>
                                 </Button>
                             </div>
                         </div>

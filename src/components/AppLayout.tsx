@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList, Calendar } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList, Calendar, Link2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UnitSwitcher } from "@/components/dashboard/UnitSwitcher";
 
@@ -127,6 +127,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                         <SidebarMenuButton tooltip="Users" isActive={pathname.startsWith('/admin/users')}>
                                         <Users />
                                         <span>Users</span>
+                                        </SidebarMenuButton>
+                                    </Link>
+                                </SidebarMenuItem>
+                                 <SidebarMenuItem>
+                                    <Link href="/admin/data-sources">
+                                        <SidebarMenuButton tooltip="Data Sources" isActive={pathname.startsWith('/admin/data-sources')}>
+                                        <Link2 />
+                                        <span>Data Sources</span>
                                         </SidebarMenuButton>
                                     </Link>
                                 </SidebarMenuItem>
