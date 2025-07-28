@@ -39,13 +39,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, isImpersonating, stopImpersonating } = useAuth();
   const pathname = usePathname();
 
-  const isSuperAdmin = currentUser?.role === 'Super Admin';
+  const isSuperAdminView = currentUser?.role === 'Super Admin' && !isImpersonating;
   const isAdminView = currentUser?.role?.includes('Admin');
   
   let dashboardPath = '/';
-  if (isSuperAdmin && !isImpersonating) {
+  if (isSuperAdminView) {
     dashboardPath = '/super-admin';
-  } else if (isAdminView && !isImpersonating) {
+  } else if (isAdminView) {
     dashboardPath = '/admin';
   }
   
@@ -66,7 +66,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-                 {isSuperAdmin && !isImpersonating ? (
+                 {isSuperAdminView ? (
                     <>
                         <SidebarMenuItem>
                             <Link href="/super-admin">
@@ -88,7 +88,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             </Link>
                         </SidebarMenuItem>
                     
-                        {isAdminView && !isImpersonating && (
+                        {isAdminView && (
                             <>
                                 <SidebarMenuItem>
                                     <Link href="/admin/usage-data">
