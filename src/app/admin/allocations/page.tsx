@@ -16,7 +16,7 @@ import {
 import { AllocationForm } from "@/components/dashboard/AllocationForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Allocation, User, UserGroup } from "@/lib/data";
-import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById, getGroupsByCompany } from "@/lib/data";
+import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById, getGroupsByCompany, addNotification } from "@/lib/data";
 import { sendAllocationNotificationEmail } from "@/lib/actions";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -103,6 +103,8 @@ export default function AllocationPage() {
     if (!currentUser?.companyId || !company) return;
     
     let savedAllocation;
+    const updateType = editingAllocation ? 'updated' : 'created';
+
     if (editingAllocation) {
       savedAllocation = await updateAllocation({ ...data, id: editingAllocation.id, companyId: currentUser.companyId });
       toast({
@@ -117,7 +119,7 @@ export default function AllocationPage() {
       });
     }
 
-    // Send notification if the setting is enabled
+    // --- Send Notifications ---
     if (notificationSettings.allocationChangeAlerts.enabled) {
         try {
             let recipients: User[] = [];
@@ -132,11 +134,21 @@ export default function AllocationPage() {
             }
             
             if (recipients.length > 0) {
-                await sendAllocationNotificationEmail(savedAllocation, recipients, editingAllocation ? 'updated' : 'created', company.defaultUnit);
+                // Send email
+                await sendAllocationNotificationEmail(savedAllocation, recipients, updateType, company.defaultUnit);
                 toast({
                     title: "Notifications Sent",
                     description: `Sent allocation notifications to ${recipients.length} user(s).`
                 });
+
+                // Add in-app notification
+                for (const recipient of recipients) {
+                    addNotification({
+                        userId: recipient.id,
+                        message: `Your water allocation has been ${updateType}.`,
+                        link: '/'
+                    });
+                }
             }
         } catch (e) {
             console.error("Failed to send notification email:", e);
