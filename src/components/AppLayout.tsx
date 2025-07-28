@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { UnitSwitcher } from "@/components/dashboard/UnitSwitcher";
 
 function ImpersonationBanner() {
     const { stopImpersonating, currentUser } = useAuth();
@@ -122,7 +123,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>
-            <div className="flex items-center gap-3">
+            <div className="p-2">
+                <UnitSwitcher />
+            </div>
+            <div className="flex items-center gap-3 p-2">
               <Avatar className="h-9 w-9">
                 <AvatarImage
                   src={`https://i.pravatar.cc/150?u=${currentUser?.email}`}

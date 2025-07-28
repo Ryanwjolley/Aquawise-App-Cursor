@@ -17,10 +17,12 @@ import { UsageDonutChart } from "@/components/dashboard/UsageDonutChart";
 import { DailyUsageChart } from "@/components/dashboard/DailyUsageChart";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { UserDashboard } from "@/components/dashboard/UserDashboard";
+import { useUnit } from "@/contexts/UnitContext";
 
 
 // A component to render the aggregate company view
 function AggregateDashboard({ company, companyUsers, allUsageData, queryRange }) {
+    const { convertUsage, getUnitLabel } = useUnit();
     const allUsageEntries = Object.values(allUsageData).flat();
     const totalCompanyUsage = allUsageEntries.reduce((acc, entry) => acc + entry.usage, 0);
     const totalUsers = companyUsers.length;
@@ -40,9 +42,9 @@ function AggregateDashboard({ company, companyUsers, allUsageData, queryRange })
     const dailyChartData = allUsageEntries.reduce((acc, entry) => {
         const existing = acc.find(d => d.date === entry.date);
         if(existing) {
-            existing.usage += entry.usage;
+            existing.usage += convertUsage(entry.usage);
         } else {
-            acc.push({ date: entry.date, usage: entry.usage });
+            acc.push({ date: entry.date, usage: convertUsage(entry.usage) });
         }
         return acc;
     }, [] as { date: string, usage: number }[]).sort((a,b) => a.date.localeCompare(b.date));
@@ -63,13 +65,13 @@ function AggregateDashboard({ company, companyUsers, allUsageData, queryRange })
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <MetricCard 
                     title="Total Company Usage" 
-                    metric={`${totalCompanyUsage.toLocaleString()} gal`}
+                    metric={`${convertUsage(totalCompanyUsage).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`}
                     icon={Droplets} 
                     description="Total water used across all users" 
                 />
                 <MetricCard 
                     title="Average User Usage" 
-                    metric={`${Math.round(avgUserUsage).toLocaleString()} gal`} 
+                    metric={`${convertUsage(avgUserUsage).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`} 
                     icon={TrendingUp} 
                     description="Average usage per user in period" 
                 />

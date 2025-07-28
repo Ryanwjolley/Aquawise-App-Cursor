@@ -8,9 +8,10 @@ type MetricCardProps = {
   metric: string;
   icon: LucideIcon;
   description?: string;
+  metricClassName?: string;
 };
 
-export function MetricCard({ title, metric, icon: Icon, description }: MetricCardProps) {
+export function MetricCard({ title, metric, icon: Icon, description, metricClassName }: MetricCardProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -18,7 +19,7 @@ export function MetricCard({ title, metric, icon: Icon, description }: MetricCar
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{metric}</div>
+        <div className={`text-2xl font-bold ${metricClassName}`}>{metric}</div>
         {description && (
             <p className="text-xs text-muted-foreground">{description}</p>
         )}

@@ -14,19 +14,23 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { useUnit } from "@/contexts/UnitContext";
 
 type DailyUsageChartProps = {
   data: { date: string; usage: number }[];
 };
 
-const chartConfig = {
-  usage: {
-    label: "Usage (Gallons)",
-    color: "hsl(var(--primary))",
-  },
-} satisfies ChartConfig;
 
 export function DailyUsageChart({ data }: DailyUsageChartProps) {
+  const { getUnitLabel } = useUnit();
+
+  const chartConfig = {
+    usage: {
+      label: `Usage (${getUnitLabel()})`,
+      color: "hsl(var(--primary))",
+    },
+  } satisfies ChartConfig;
+
   return (
     <Card>
       <CardHeader>

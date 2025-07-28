@@ -2,30 +2,42 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-type Unit = 'gallons' | 'acre-feet';
+type Unit = 'gallons' | 'kgal' | 'acre-feet';
+type UnitLabel = 'Gallons' | 'kGal' | 'Acre-Feet';
 
 interface UnitContextValue {
   unit: Unit;
   setUnit: (unit: Unit) => void;
-  // Conversion factor: 1 acre-foot = 325,851 gallons
   convertUsage: (gallons: number) => number;
+  getUnitLabel: () => UnitLabel;
 }
 
 const UnitContext = createContext<UnitContextValue | undefined>(undefined);
 
-const ACRE_FEET_CONVERSION_FACTOR = 325851;
+const CONVERSION_FACTORS = {
+    'gallons': 1,
+    'kgal': 1 / 1000,
+    'acre-feet': 1 / 325851,
+};
+
+const UNIT_LABELS: Record<Unit, UnitLabel> = {
+    'gallons': 'Gallons',
+    'kgal': 'kGal',
+    'acre-feet': 'Acre-Feet',
+};
 
 export const UnitProvider = ({ children }: { children: ReactNode }) => {
   const [unit, setUnit] = useState<Unit>('gallons');
 
-  const convertUsage = (gallons: number) => {
-    if (unit === 'acre-feet') {
-      return gallons / ACRE_FEET_CONVERSION_FACTOR;
-    }
-    return gallons;
+  const convertUsage = (gallons: number): number => {
+    return gallons * CONVERSION_FACTORS[unit];
   };
+  
+  const getUnitLabel = (): UnitLabel => {
+      return UNIT_LABELS[unit];
+  }
 
-  const value = { unit, setUnit, convertUsage };
+  const value = { unit, setUnit, convertUsage, getUnitLabel };
 
   return (
     <UnitContext.Provider value={value}>

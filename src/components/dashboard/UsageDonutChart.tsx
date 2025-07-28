@@ -17,6 +17,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import type { PieSectorDataItem } from "recharts/types/polar/Pie"
+import { useUnit } from "@/contexts/UnitContext"
 
 type UsageDonutChartProps = {
     data: { name: string; value: number; fill: string }[];
@@ -31,9 +32,15 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export function UsageDonutChart({ data, title, description }: UsageDonutChartProps) {
+  const { convertUsage, getUnitLabel } = useUnit();
   const id = React.useId()
 
-  const aggregate = data.reduce((acc, current) => acc + current.value, 0);
+  const chartData = data.map(item => ({
+    ...item,
+    value: convertUsage(item.value)
+  }));
+  
+  const aggregate = chartData.reduce((acc, current) => acc + current.value, 0);
 
   return (
     <Card className="flex flex-col h-full">
@@ -52,7 +59,7 @@ export function UsageDonutChart({ data, title, description }: UsageDonutChartPro
               content={<ChartTooltipContent hideLabel />}
             />
             <Pie
-              data={data}
+              data={chartData}
               dataKey="value"
               nameKey="name"
               innerRadius={60}
@@ -69,7 +76,7 @@ export function UsageDonutChart({ data, title, description }: UsageDonutChartPro
         </ChartContainer>
       </CardContent>
       <CardContent className="flex flex-col items-center justify-center text-center p-4 gap-2 mt-auto">
-         <p className="text-2xl font-bold">{aggregate.toLocaleString()} gal</p>
+         <p className="text-2xl font-bold">{aggregate.toLocaleString(undefined, {maximumFractionDigits: 1})} {getUnitLabel()}</p>
          <p className="text-sm text-muted-foreground">Total Usage</p>
       </CardContent>
     </Card>

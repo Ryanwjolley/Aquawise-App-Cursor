@@ -9,6 +9,7 @@ import type { Allocation, UsageEntry, User } from "@/lib/data";
 import { Target, Droplets, TrendingUp, CalendarDays } from "lucide-react";
 import { differenceInDays, max, min, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { useUnit } from "@/contexts/UnitContext";
 
 interface UserDashboardProps {
     user: User | null;
@@ -47,6 +48,8 @@ const calculateProportionalAllocation = (range: DateRange, allocations: Allocati
 
 
 export function UserDashboard({ user, usageData, allocations, queryRange }: UserDashboardProps) {
+    const { unit, convertUsage, getUnitLabel } = useUnit();
+
     if (!user) return null;
     
     const totalUsage = usageData.reduce((acc, entry) => acc + entry.usage, 0);
@@ -55,11 +58,16 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
 
     const dailyChartData = usageData.map(entry => ({
         date: entry.date,
-        usage: entry.usage
+        usage: convertUsage(entry.usage)
     })).sort((a,b) => a.date.localeCompare(b.date));
 
     const allocationForPeriod = calculateProportionalAllocation(queryRange, allocations);
     const allocationUsagePercent = allocationForPeriod > 0 ? (totalUsage / allocationForPeriod) * 100 : 0;
+    
+    const convertedTotalUsage = convertUsage(totalUsage);
+    const convertedAvgDailyUsage = convertUsage(avgDailyUsage);
+    const convertedAllocationForPeriod = convertUsage(allocationForPeriod);
+
 
     return (
          <div className="space-y-4">
@@ -76,13 +84,13 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricCard 
                     title="Total Usage" 
-                    metric={`${totalUsage.toLocaleString()} gal`}
+                    metric={`${convertedTotalUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${getUnitLabel()}`}
                     icon={Droplets} 
                     description="Total water used in the selected period" 
                 />
                 <MetricCard 
                     title="Avg. Daily Usage" 
-                    metric={`${Math.round(avgDailyUsage).toLocaleString()} gal`} 
+                    metric={`${convertedAvgDailyUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${getUnitLabel()}`} 
                     icon={TrendingUp} 
                     description="Average daily usage in the selected period" 
                 />
@@ -101,7 +109,7 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
                         <CardContent>
                             <div className="text-2xl font-bold">{Math.round(allocationUsagePercent)}%</div>
                             <p className="text-xs text-muted-foreground">
-                                {totalUsage.toLocaleString()} of {Math.round(allocationForPeriod).toLocaleString()} gal used
+                                {convertedTotalUsage.toLocaleString(undefined, { maximumFractionDigits: 1 })} of {convertedAllocationForPeriod.toLocaleString(undefined, { maximumFractionDigits: 1 })} {getUnitLabel()} used
                             </p>
                             <Progress value={allocationUsagePercent} className="mt-2 h-2" />
                         </CardContent>
