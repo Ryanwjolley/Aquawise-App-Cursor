@@ -39,7 +39,7 @@ export default function UserManagementPage() {
     if (!currentUser?.companyId) return;
     setLoading(true);
     const userList = await getUsersByCompany(currentUser.companyId);
-    setUsers(userList.filter(u => u.id !== currentUser.id)); // Exclude current admin from the list
+    setUsers(userList);
 
     if (company?.userGroupsEnabled) {
       const groupList = await getGroupsByCompany(currentUser.companyId);
@@ -162,7 +162,7 @@ export default function UserManagementPage() {
                       <TableCell className="text-right">
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
+                              <Button variant="ghost" size="icon" disabled={user.id === currentUser?.id}>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>

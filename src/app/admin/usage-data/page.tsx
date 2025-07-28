@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { bulkAddUsageEntries, getUsersByCompany, User, getUnitLabel, getUsageForUser, getAllocationsForUser, Allocation, UsageEntry } from "@/lib/data";
+import { bulkAddUsageEntries, getUsersByCompany, User, getUnitLabel, getUsageForUser, Allocation, UsageEntry } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUnit } from "@/contexts/UnitContext";
