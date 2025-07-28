@@ -1,8 +1,10 @@
+
 'use server';
 
 import sgMail from '@sendgrid/mail';
 import { format } from 'date-fns';
-import type { Allocation, User } from './data';
+import type { Allocation, User, Unit } from './data';
+import { getUnitLabel } from './data';
 import "dotenv/config";
 
 
@@ -10,7 +12,13 @@ if (process.env.SENDGRID_API_KEY) {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-export const sendAllocationNotificationEmail = async (allocation: Allocation, recipients: User[], updateType: 'created' | 'updated') => {
+const CONVERSION_FACTORS: Record<Unit, number> = {
+    'gallons': 1,
+    'kgal': 1 / 1000,
+    'acre-feet': 1 / 325851,
+};
+
+export const sendAllocationNotificationEmail = async (allocation: Allocation, recipients: User[], updateType: 'created' | 'updated', unit: Unit) => {
     if (!process.env.SENDGRID_API_KEY || process.env.SENDGRID_API_KEY === "YOUR_SENDGRID_API_KEY_HERE" || !process.env.SENDGRID_FROM_EMAIL) {
         console.log("SENDGRID_API_KEY or SENDGRID_FROM_EMAIL not set. Skipping email send. Email content:");
         console.log({
@@ -25,6 +33,9 @@ export const sendAllocationNotificationEmail = async (allocation: Allocation, re
     const formattedStart = format(new Date(allocation.startDate), 'P p');
     const formattedEnd = format(new Date(allocation.endDate), 'P p');
 
+    const convertedAmount = allocation.gallons * CONVERSION_FACTORS[unit];
+    const unitLabel = getUnitLabel(unit);
+
     const msg = {
         to: recipients.map(r => r.email),
         from: process.env.SENDGRID_FROM_EMAIL!,
@@ -34,7 +45,7 @@ export const sendAllocationNotificationEmail = async (allocation: Allocation, re
             <p>Your water allocation has been ${updateType}. Here are the details:</p>
             <ul>
                 <li><strong>Period:</strong> ${formattedStart} to ${formattedEnd}</li>
-                <li><strong>Allocated Amount:</strong> ${allocation.gallons.toLocaleString()} gallons</li>
+                <li><strong>Allocated Amount:</strong> ${convertedAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}</li>
             </ul>
             <p>You can view your usage and allocation details by logging into the AquaWise dashboard.</p>
             <p>Thank you,<br/>AquaWise Team</p>

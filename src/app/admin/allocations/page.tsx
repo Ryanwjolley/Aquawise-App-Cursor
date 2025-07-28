@@ -25,7 +25,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function AllocationPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, company } = useAuth();
   const { toast } = useToast();
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [companyUsers, setCompanyUsers] = useState<User[]>([]);
@@ -87,7 +87,7 @@ export default function AllocationPage() {
   };
 
   const handleFormSubmit = async (data: Omit<Allocation, 'id' | 'companyId'>) => {
-    if (!currentUser?.companyId) return;
+    if (!currentUser?.companyId || !company) return;
     
     let savedAllocation;
     if (editingAllocation) {
@@ -117,7 +117,7 @@ export default function AllocationPage() {
             }
             
             if (recipients.length > 0) {
-                await sendAllocationNotificationEmail(savedAllocation, recipients, editingAllocation ? 'updated' : 'created');
+                await sendAllocationNotificationEmail(savedAllocation, recipients, editingAllocation ? 'updated' : 'created', company.defaultUnit);
                 toast({
                     title: "Notifications Sent",
                     description: `Sent allocation notifications to ${recipients.length} user(s).`
