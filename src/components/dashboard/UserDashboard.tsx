@@ -70,7 +70,7 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
                 />
                 <MetricCard 
                     title="Total Allocation"
-                    metric={`${convertedAllocationForPeriod.toLocaleString(undefined, {maximumFractionDigits: 1})} ${getUnitLabel()}`}
+                    metric={`${convertedAllocationForPeriod.toLocaleString(undefined, {maximumFractionDigits: 2})} ${getUnitLabel()}`}
                     icon={Target}
                     description="Total allocation in the selected period"
                 />
@@ -84,7 +84,7 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
                         <CardContent>
                             <div className="text-2xl font-bold">{Math.round(allocationUsagePercent)}%</div>
                             <p className="text-xs text-muted-foreground">
-                                {convertedTotalUsage.toLocaleString(undefined, { maximumFractionDigits: 1 })} of {convertedAllocationForPeriod.toLocaleString(undefined, { maximumFractionDigits: 1 })} {getUnitLabel()}
+                                {convertedTotalUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} of {convertedAllocationForPeriod.toLocaleString(undefined, { maximumFractionDigits: 2 })} {getUnitLabel()}
                             </p>
                             <Progress value={allocationUsagePercent} className="mt-2 h-2" />
                         </CardContent>
