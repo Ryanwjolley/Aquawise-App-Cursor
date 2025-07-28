@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -25,6 +26,7 @@ import { PlusCircle, Trash2 } from "lucide-react";
 const notificationsSchema = z.object({
   allocationChangeAlerts: z.object({
       enabled: z.boolean().default(true),
+      message: z.string().optional(),
   }),
   thresholdAlerts: z.object({
     enabled: z.boolean().default(false),
@@ -32,11 +34,13 @@ const notificationsSchema = z.object({
         percentage: z.number().min(0).max(100)
     })).default([{ percentage: 80 }]),
     email: z.string().email().or(z.literal("")),
+    message: z.string().optional(),
   }),
   spikeAlerts: z.object({
     enabled: z.boolean().default(false),
     percentage: z.coerce.number().min(0).default(50),
     email: z.string().email().or(z.literal("")),
+    message: z.string().optional(),
   }),
 }).refine(data => !data.thresholdAlerts.enabled || (data.thresholdAlerts.enabled && data.thresholdAlerts.email), {
     message: "Email is required for threshold alerts.",
@@ -53,6 +57,7 @@ type NotificationsFormValues = z.infer<typeof notificationsSchema>;
 const MOCK_EXISTING_SETTINGS = {
     allocationChangeAlerts: {
         enabled: true,
+        message: "Hello {{userName}}, your water allocation has been {{updateType}}. The new period is from {{startDate}} to {{endDate}} with an amount of {{gallons}} gallons."
     },
     thresholdAlerts: {
         enabled: true,
@@ -61,12 +66,14 @@ const MOCK_EXISTING_SETTINGS = {
             { percentage: 90 },
             { percentage: 100 },
         ],
-        email: 'billing@gva.com'
+        email: 'billing@gva.com',
+        message: "Hi {{userName}}, you have reached {{percentage}}% of your water allocation for the period. Current usage: {{usage}} of {{allocation}} gallons."
     },
     spikeAlerts: {
         enabled: false,
         percentage: 50,
-        email: 'ops@gva.com'
+        email: 'ops@gva.com',
+        message: "Hi {{userName}}, we've detected a usage spike. Your usage yesterday was {{usage}} gallons, which is {{spikePercentage}}% higher than your weekly average."
     }
 }
 
@@ -102,6 +109,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
     }
   }, [isOpen, reset]);
 
+  const watchedAllocationEnabled = watch("allocationChangeAlerts.enabled");
   const watchedThresholdEnabled = watch("thresholdAlerts.enabled");
   const watchedSpikeEnabled = watch("spikeAlerts.enabled");
   
@@ -139,6 +147,20 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                             <Switch id="allocation-change-enabled" checked={field.value} onCheckedChange={field.onChange} />
                         )}
                     />
+                </div>
+                 <div className={`space-y-4 pt-4 transition-opacity ${watchedAllocationEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+                    <Separator/>
+                     <div>
+                        <Label htmlFor="allocation-message">Notification Message</Label>
+                         <Controller
+                            name="allocationChangeAlerts.message"
+                            control={control}
+                            render={({ field }) => (
+                                <Textarea id="allocation-message" placeholder="Enter your notification message..." {...field} disabled={!watchedAllocationEnabled} />
+                            )}
+                        />
+                        <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{updateType}}'}`, `{'{{startDate}}'}`, `{'{{endDate}}'}`, `{'{{gallons}}'}`</p>
+                    </div>
                 </div>
             </div>
 
@@ -201,6 +223,17 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                         />
                          {errors.thresholdAlerts?.email && <p className="text-sm text-destructive pt-1">{errors.thresholdAlerts.email.message}</p>}
                     </div>
+                     <div>
+                        <Label htmlFor="threshold-message">Notification Message</Label>
+                         <Controller
+                            name="thresholdAlerts.message"
+                            control={control}
+                            render={({ field }) => (
+                                <Textarea id="threshold-message" placeholder="Enter your notification message..." {...field} disabled={!watchedThresholdEnabled} />
+                            )}
+                        />
+                         <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{percentage}}'}`, `{'{{usage}}'}`, `{'{{allocation}}'}`</p>
+                    </div>
                 </div>
             </div>
 
@@ -245,6 +278,17 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                             )}
                         />
                          {errors.spikeAlerts?.email && <p className="text-sm text-destructive pt-1">{errors.spikeAlerts.email.message}</p>}
+                    </div>
+                     <div>
+                        <Label htmlFor="spike-message">Notification Message</Label>
+                         <Controller
+                            name="spikeAlerts.message"
+                            control={control}
+                            render={({ field }) => (
+                                <Textarea id="spike-message" placeholder="Enter your notification message..." {...field} disabled={!watchedSpikeEnabled} />
+                            )}
+                        />
+                         <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{usage}}'}`, `{'{{spikePercentage}}'}`</p>
                     </div>
                 </div>
             </div>
