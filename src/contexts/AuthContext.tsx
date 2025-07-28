@@ -73,10 +73,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCurrentUser(user);
       await loadCompany(user.companyId);
        if (redirect) {
+        // We need to check if we are currently impersonating *before* determining the redirect path.
+        const stillImpersonating = !!sessionStorage.getItem(impersonationStorageKey);
+        
         let targetPath = '/';
-        if (user.role === 'Super Admin' && !isImpersonating) {
+        if (user.role === 'Super Admin' && !stillImpersonating) {
             targetPath = '/super-admin';
-        } else if (user.role?.includes('Admin') && !isImpersonating) {
+        } else if (user.role?.includes('Admin') && !stillImpersonating) {
+            targetPath = '/admin';
+        } else if (user.role?.includes('Admin') && stillImpersonating) {
             targetPath = '/admin';
         }
         router.push(targetPath);
