@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList } from "lucide-react";
+import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList, Calendar } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UnitSwitcher } from "@/components/dashboard/UnitSwitcher";
 
@@ -104,6 +104,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     
                         {isAdminView && (
                             <>
+                                <SidebarMenuItem>
+                                    <Link href="/admin/water-calendar">
+                                        <SidebarMenuButton tooltip="Water Calendar" isActive={pathname.startsWith('/admin/water-calendar')}>
+                                        <Calendar />
+                                        <span>Water Calendar</span>
+                                        </SidebarMenuButton>
+                                    </Link>
+                                </SidebarMenuItem>
                                 <SidebarMenuItem>
                                     <Link href="/admin/usage-data">
                                         <SidebarMenuButton tooltip="Usage Data" isActive={pathname.startsWith('/admin/usage-data')}>
