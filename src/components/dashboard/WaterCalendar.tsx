@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameDay, differenceInDays, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameDay, differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { getWaterAvailabilities, getWaterOrdersByCompany, WaterAvailability, WaterOrder, getUsersByCompany, User } from '@/lib/data';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnit } from '@/contexts/UnitContext';
@@ -47,30 +47,31 @@ export function WaterCalendar() {
       const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
       for (const day of daysInMonth) {
-        const dayKey = format(day, 'yyyy-MM-dd');
+        const dayStart = startOfDay(day);
+        const dayKey = format(dayStart, 'yyyy-MM-dd');
         
-        // Calculate availability for the day
         const dayAvailability = availabilities.reduce((total, avail) => {
-          const availStart = parseISO(avail.startDate);
-          const availEnd = parseISO(avail.endDate);
-          if (day >= availStart && day <= availEnd) {
+          const availStart = startOfDay(parseISO(avail.startDate));
+          const availEnd = startOfDay(parseISO(avail.endDate));
+          if (dayStart >= availStart && dayStart <= availEnd) {
              const durationDays = differenceInDays(availEnd, availStart) + 1;
              return total + (avail.gallons / durationDays);
           }
           return total;
         }, 0);
 
-        // Calculate demand from orders for the day
         let approvedDemand = 0;
         let pendingDemand = 0;
         const dayOrders: (WaterOrder & { userName?: string })[] = [];
 
         for (const order of orders) {
-          const orderStart = parseISO(order.startDate);
-          const orderEnd = parseISO(order.endDate);
-          if (day >= orderStart && day <= orderEnd) {
+          const orderStart = startOfDay(parseISO(order.startDate));
+          const orderEnd = startOfDay(parseISO(order.endDate));
+          
+          if (dayStart >= orderStart && dayStart <= orderEnd) {
             const durationDays = differenceInDays(orderEnd, orderStart) + 1;
             const dailyGallons = order.totalGallons / durationDays;
+
             if (order.status === 'approved' || order.status === 'completed') {
               approvedDemand += dailyGallons;
             } else if (order.status === 'pending') {
@@ -180,13 +181,13 @@ function DayCell({ dayData }: { dayData: DailyData | null }) {
   }
 
   const { date, availability, approved, pending, orders } = dayData;
-  const remainingAvailability = availability - approved;
+  const remainingForPending = availability - approved;
   const totalDemand = approved + pending;
   const isOverCapacity = totalDemand > availability;
   
   const approvedPercent = availability > 0 ? (approved / availability) * 100 : 0;
   // Calculate pending percentage based on the remaining availability
-  const pendingPercent = remainingAvailability > 0 ? (pending / remainingAvailability) * 100 : 0;
+  const pendingPercent = remainingForPending > 0 ? (pending / remainingForPending) * 100 : 0;
   
   const isToday = isSameDay(date, new Date());
 
@@ -230,7 +231,7 @@ function DayCell({ dayData }: { dayData: DailyData | null }) {
                         <span className="font-semibold">Total Available:</span><span>{convertUsage(availability).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
                         <span className="font-semibold">Approved:</span><span>{convertUsage(approved).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
                         <span className="font-semibold">Pending:</span><span>{convertUsage(pending).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
-                        <span className="font-semibold">Remaining:</span><span>{convertUsage(remainingAvailability).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
+                        <span className="font-semibold">Remaining:</span><span>{convertUsage(availability - approved).toLocaleString(undefined, { maximumFractionDigits: 0 })} {getUnitLabel()}</span>
                     </div>
                 </div>
                  <div className="grid gap-2 max-h-48 overflow-auto">
@@ -239,7 +240,7 @@ function DayCell({ dayData }: { dayData: DailyData | null }) {
                         <div key={order.id} className="grid grid-cols-3 items-center gap-4 text-xs">
                             <span className="col-span-1 truncate">{order.userName || 'Unknown User'}</span>
                             <span className="col-span-1">{order.amount} {order.unit}</span>
-                             <Badge variant={order.status === 'approved' || order.status === 'completed' ? 'default' : order.status === 'pending' ? 'outline' : 'secondary'} className="capitalize justify-self-end">{order.status}</Badge>
+                             <Badge variant={order.status === 'approved' || order.status === 'completed' ? 'default' : order.status === 'pending' ? 'outline' : 'destructive'} className="capitalize justify-self-end">{order.status}</Badge>
                         </div>
                     ))}
                 </div>
