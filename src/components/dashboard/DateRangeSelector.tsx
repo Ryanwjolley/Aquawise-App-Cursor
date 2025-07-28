@@ -2,13 +2,12 @@
 "use client";
 
 import * as React from "react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isValid } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import type { Allocation } from "@/lib/data";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
@@ -16,6 +15,8 @@ import {
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 
 interface DateRangeSelectorProps {
@@ -27,10 +28,33 @@ interface DateRangeSelectorProps {
 
 export function DateRangeSelector({ onUpdate, className, selectedRange, allocations = [] }: DateRangeSelectorProps) {
   const [popoverOpen, setPopoverOpen] = React.useState(false);
+  const [startDate, setStartDate] = React.useState<string>("");
+  const [endDate, setEndDate] = React.useState<string>("");
 
-  const handleDateSelect = (range: DateRange | undefined) => {
-    if (range?.from && range.to) {
-        onUpdate(range);
+  React.useEffect(() => {
+    if (selectedRange?.from) {
+      setStartDate(format(selectedRange.from, 'yyyy-MM-dd'));
+    }
+    if (selectedRange?.to) {
+      setEndDate(format(selectedRange.to, 'yyyy-MM-dd'));
+    }
+  }, [selectedRange]);
+
+  const handleUpdateClick = () => {
+    const fromDate = new Date(startDate);
+    const toDate = new Date(endDate);
+    
+    // The dates from the input are UTC midnight. To include the full end day, we adjust it.
+    // e.g. '2025-07-26' becomes '2025-07-26T00:00:00.000Z'. 
+    // We want the range to include this entire day.
+    const toDateInclusive = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(), 23, 59, 59);
+
+    if (isValid(fromDate) && isValid(toDateInclusive) && fromDate <= toDateInclusive) {
+        onUpdate({ from: fromDate, to: toDateInclusive });
+        setPopoverOpen(false);
+    } else {
+        // Optional: handle invalid date range, e.g., show a toast
+        console.warn("Invalid date range selected.");
     }
   }
   
@@ -77,20 +101,25 @@ export function DateRangeSelector({ onUpdate, className, selectedRange, allocati
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
                 <div className="flex">
-                    <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={selectedRange?.from}
-                        selected={selectedRange}
-                        onSelect={handleDateSelect}
-                        numberOfMonths={2}
-                    />
+                    <div className="p-4 space-y-4">
+                        <p className="text-sm font-medium text-muted-foreground">Custom Range</p>
+                        <div className="grid gap-2">
+                            <Label htmlFor="start-date">Start Date</Label>
+                            <Input id="start-date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                        </div>
+                         <div className="grid gap-2">
+                            <Label htmlFor="end-date">End Date</Label>
+                            <Input id="end-date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                        </div>
+                        <Button onClick={handleUpdateClick} className="w-full">Update</Button>
+                    </div>
+
                     {sortedAllocations.length > 0 && (
                         <>
                             <Separator orientation="vertical" className="h-auto mx-0" />
-                            <div className="p-2 space-y-2">
-                                <p className="text-sm font-medium text-center text-muted-foreground">Allocation Periods</p>
-                                <div className="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto pr-1">
+                            <div className="p-4 space-y-4">
+                                <p className="text-sm font-medium text-muted-foreground">Allocation Periods</p>
+                                <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-2">
                                     {sortedAllocations.map(alloc => (
                                         <Button
                                             key={alloc.id}
