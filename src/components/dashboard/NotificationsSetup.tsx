@@ -57,7 +57,7 @@ type NotificationsFormValues = z.infer<typeof notificationsSchema>;
 const MOCK_EXISTING_SETTINGS = {
     allocationChangeAlerts: {
         enabled: true,
-        message: "Hello {{userName}}, your water allocation has been {{updateType}}. The new period is from {{startDate}} to {{endDate}} with an amount of {{gallons}} gallons."
+        message: "Hello {{userName}}, your water allocation has been {{updateType}}. The new period is from {{startDate}} to {{endDate}} with an amount of {{gallons}} {{unit}}."
     },
     thresholdAlerts: {
         enabled: true,
