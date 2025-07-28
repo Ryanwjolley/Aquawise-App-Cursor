@@ -22,7 +22,7 @@ export type User = {
   name: string;
   email: string;
   mobileNumber?: string;
-  role: 'Admin' | 'Customer' | 'Admin & Customer';
+  role: 'Admin' | 'Customer' | 'Admin & Customer' | 'Super Admin';
   companyId: string;
   shares?: number;
   notificationPreference: 'email' | 'mobile';
@@ -35,25 +35,8 @@ export type UserGroup = {
     companyId: string;
 }
 
-export type UsageEntry = {
-  id: string;
-  userId: string;
-  date: string; // YYYY-MM-DD format
-  usage: number; // in gallons
-};
-
-export type Allocation = {
-    id: string;
-    companyId: string;
-    startDate: string; // ISO 8601 format
-    endDate: string; // ISO 8601 format
-    gallons: number;
-    userId?: string; // If undefined, applies to all users in the company
-    userGroupId?: string; 
-};
-
-
 let companies: Company[] = [
+  { id: '0', name: 'AquaWise HQ', defaultUnit: 'gallons', userGroupsEnabled: false },
   { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'gallons', userGroupsEnabled: true },
   { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet', userGroupsEnabled: false },
 ];
@@ -65,6 +48,9 @@ let userGroups: UserGroup[] = [
 ];
 
 let users: User[] = [
+  // Super Admin
+  { id: '100', name: 'Ryan Jolley', email: 'ryan@aquawise.com', role: 'Super Admin', companyId: '0', notificationPreference: 'email' },
+
   // Golden Valley Agriculture
   { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', mobileNumber: '555-0101', role: 'Admin & Customer', companyId: '1', shares: 50, notificationPreference: 'email' },
   { id: '102', name: 'Bob Williams', email: 'bob@gva.com', mobileNumber: '555-0102', role: 'Customer', companyId: '1', shares: 10, notificationPreference: 'mobile', userGroupId: 'group1' },
@@ -179,7 +165,7 @@ export const getUnitLabel = (unit: Unit): UnitLabel => {
 
 
 export const getCompanies = async (): Promise<Company[]> => {
-  return Promise.resolve(companies);
+  return Promise.resolve(companies.filter(c => c.id !== '0')); // Exclude HQ company from management list
 };
 
 export const getCompanyById = async (companyId: string): Promise<Company | undefined> => {
@@ -233,7 +219,7 @@ export const getUserById = async (userId: string): Promise<User | undefined> => 
     return Promise.resolve(users.find(u => u.id === userId));
 };
 
-export const addUser = async (userData: Omit<User, 'id'>): Promise<User> => {
+export const addUser = async (userData: Omit<User, 'id' | 'role'> & { role: 'Admin' | 'Customer' | 'Admin & Customer' }): Promise<User> => {
     const newUser: User = { ...userData, id: `u${Date.now()}` };
     users.push(newUser);
     return Promise.resolve(newUser);

@@ -39,10 +39,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, isImpersonating, stopImpersonating } = useAuth();
   const pathname = usePathname();
 
+  const isSuperAdmin = currentUser?.role === 'Super Admin';
   const isAdminView = currentUser?.role?.includes('Admin');
   
-  const dashboardPath = isAdminView && !isImpersonating ? '/admin' : '/';
-  const isDashboardActive = (isAdminView && !isImpersonating && pathname === '/admin') || (!isAdminView && pathname === '/');
+  let dashboardPath = '/';
+  if (isSuperAdmin && !isImpersonating) {
+    dashboardPath = '/super-admin';
+  } else if (isAdminView && !isImpersonating) {
+    dashboardPath = '/admin';
+  }
+  
+  const isDashboardActive = pathname === dashboardPath;
 
 
   return (
@@ -59,55 +66,58 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-                 <SidebarMenuItem>
-                    <Link href={dashboardPath}>
-                        <SidebarMenuButton tooltip="Dashboard" isActive={isDashboardActive}>
-                        <AreaChart />
-                        <span>Dashboard</span>
-                        </SidebarMenuButton>
-                    </Link>
-                </SidebarMenuItem>
-             
-              {isAdminView && !isImpersonating && (
-                <>
-                    <SidebarMenuItem>
-                        <Link href="/admin/usage-data">
-                            <SidebarMenuButton tooltip="Usage Data" isActive={pathname.startsWith('/admin/usage-data')}>
-                            <Upload />
-                            <span>Usage Data</span>
-                            </SidebarMenuButton>
-                        </Link>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <Link href="/admin/allocations">
-                            <SidebarMenuButton tooltip="Allocations" isActive={pathname.startsWith('/admin/allocations')}>
-                            <Target />
-                            <span>Allocations</span>
-                            </SidebarMenuButton>
-                        </Link>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <Link href="/admin/users">
-                            <SidebarMenuButton tooltip="Users" isActive={pathname.startsWith('/admin/users')}>
-                            <Users />
-                            <span>Users</span>
-                            </SidebarMenuButton>
-                        </Link>
-                    </SidebarMenuItem>
-                </>
-              )}
-              
-               {/* Show link only for Super Admins. For now, we simulate this with Alice. */}
-               {currentUser?.email.includes('alice') && !isImpersonating && (
-                 <SidebarMenuItem>
-                    <Link href="/super-admin">
-                      <SidebarMenuButton tooltip="Companies" isActive={pathname === '/super-admin'}>
-                        <Building2 />
-                        <span>Companies</span>
-                      </SidebarMenuButton>
-                    </Link>
-                 </SidebarMenuItem>
-               )}
+                 {isSuperAdmin && !isImpersonating ? (
+                    <>
+                        <SidebarMenuItem>
+                            <Link href="/super-admin">
+                                <SidebarMenuButton tooltip="Companies" isActive={pathname === '/super-admin'}>
+                                    <Building2 />
+                                    <span>Companies</span>
+                                </SidebarMenuButton>
+                            </Link>
+                        </SidebarMenuItem>
+                    </>
+                 ) : (
+                    <>
+                        <SidebarMenuItem>
+                            <Link href={dashboardPath}>
+                                <SidebarMenuButton tooltip="Dashboard" isActive={isDashboardActive}>
+                                <AreaChart />
+                                <span>Dashboard</span>
+                                </SidebarMenuButton>
+                            </Link>
+                        </SidebarMenuItem>
+                    
+                        {isAdminView && !isImpersonating && (
+                            <>
+                                <SidebarMenuItem>
+                                    <Link href="/admin/usage-data">
+                                        <SidebarMenuButton tooltip="Usage Data" isActive={pathname.startsWith('/admin/usage-data')}>
+                                        <Upload />
+                                        <span>Usage Data</span>
+                                        </SidebarMenuButton>
+                                    </Link>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <Link href="/admin/allocations">
+                                        <SidebarMenuButton tooltip="Allocations" isActive={pathname.startsWith('/admin/allocations')}>
+                                        <Target />
+                                        <span>Allocations</span>
+                                        </SidebarMenuButton>
+                                    </Link>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <Link href="/admin/users">
+                                        <SidebarMenuButton tooltip="Users" isActive={pathname.startsWith('/admin/users')}>
+                                        <Users />
+                                        <span>Users</span>
+                                        </SidebarMenuButton>
+                                    </Link>
+                                </SidebarMenuItem>
+                            </>
+                        )}
+                    </>
+                 )}
 
               <SidebarMenuItem>
                   <Link href="/admin/settings">

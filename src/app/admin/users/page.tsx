@@ -88,13 +88,13 @@ export default function UserManagementPage() {
     setUserToDelete(null);
   };
 
-  const handleFormSubmit = async (data: Omit<User, 'id' | 'companyId'>) => {
+  const handleFormSubmit = async (data: Omit<User, 'id' | 'companyId' | 'role'> & { role: 'Admin' | 'Customer' | 'Admin & Customer' }) => {
     if (!currentUser?.companyId) return;
     
     const userData = { ...data };
 
     if (editingUser) {
-      await updateUser({ ...userData, id: editingUser.id, companyId: editingUser.companyId });
+      await updateUser({ ...userData, id: editingUser.id, companyId: editingUser.companyId, role: editingUser.role });
       toast({
         title: "User Updated",
         description: "The user's details have been successfully saved.",

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { getCompanies, getUsersByCompany } from "@/lib/data";
 import type { Company, User } from "@/lib/data";
-import { PlusCircle, MoreHorizontal, LogIn } from "lucide-react";
+import { PlusCircle, LogIn } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface CompanyWithAdmin extends Company {
@@ -24,18 +24,25 @@ interface CompanyWithAdmin extends Company {
 }
 
 export default function SuperAdminPage() {
-  const { impersonateUser } = useAuth();
+  const { impersonateUser, currentUser } = useAuth();
   const [companies, setCompanies] = useState<CompanyWithAdmin[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Only super admins should see this page
+    if (currentUser?.role !== 'Super Admin') {
+        // Or redirect to their own dashboard
+        return;
+    }
+
     const fetchCompanies = async () => {
       setLoading(true);
       const companyList = await getCompanies();
       const companiesWithDetails = await Promise.all(
         companyList.map(async (company) => {
           const users = await getUsersByCompany(company.id);
-          const adminUser = users.find(u => u.role === 'Admin');
+          // Find any user with Admin privileges
+          const adminUser = users.find(u => u.role.includes('Admin'));
           return { ...company, userCount: users.length, adminUser };
         })
       );
@@ -44,7 +51,7 @@ export default function SuperAdminPage() {
     };
 
     fetchCompanies();
-  }, []);
+  }, [currentUser]);
 
   const handleManageCompany = (adminUser?: User) => {
     if (adminUser) {

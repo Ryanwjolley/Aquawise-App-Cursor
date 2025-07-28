@@ -50,7 +50,7 @@ type UserFormValues = z.infer<typeof userFormSchema>;
 interface UserFormProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onSubmit: (data: UserFormValues) => void;
+  onSubmit: (data: Omit<User, 'id' | 'companyId' | 'role'> & { role: 'Admin' | 'Customer' | 'Admin & Customer' }) => void;
   defaultValues?: Partial<User>;
 }
 
@@ -95,7 +95,7 @@ export function UserForm({
             name: defaultValues?.name || "",
             email: defaultValues?.email || "",
             mobileNumber: defaultValues?.mobileNumber || "",
-            role: defaultValues?.role || "Customer",
+            role: defaultValues?.role as UserFormValues['role'] || "Customer",
             shares: defaultValues?.shares || 0,
             notificationPreference: defaultValues?.notificationPreference || "email",
             userGroupId: defaultValues?.userGroupId || undefined,

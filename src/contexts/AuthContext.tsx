@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isImpersonating, setIsImpersonating] = useState(false);
 
-  const defaultUserId = '101'; // Alice Johnson (Admin & Customer)
+  const defaultUserId = '100'; // Ryan Jolley (Super Admin)
 
   useEffect(() => {
     const handleUserUpdate = (event: Event) => {
@@ -73,7 +73,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCurrentUser(user);
       await loadCompany(user.companyId);
        if (redirect) {
-        const targetPath = user.role === 'Admin' && !isImpersonating ? '/admin' : '/';
+        let targetPath = '/';
+        if (user.role === 'Super Admin' && !isImpersonating) {
+            targetPath = '/super-admin';
+        } else if (user.role?.includes('Admin') && !isImpersonating) {
+            targetPath = '/admin';
+        }
         router.push(targetPath);
       }
     } else {
