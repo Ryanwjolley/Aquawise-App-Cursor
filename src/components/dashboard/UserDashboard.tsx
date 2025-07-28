@@ -27,12 +27,6 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
     
     const totalUsage = usageData.reduce((acc, entry) => acc + entry.usage, 0);
 
-    // Correctly calculate the number of unique days with usage.
-    const uniqueDaysWithUsage = new Set(usageData.map(entry => entry.date));
-    const daysWithUsage = uniqueDaysWithUsage.size;
-    
-    const avgDailyUsage = daysWithUsage > 0 ? totalUsage / daysWithUsage : 0;
-
     const dailyChartData = usageData.map(entry => ({
         date: entry.date,
         usage: convertUsage(entry.usage)
@@ -42,7 +36,6 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
     const allocationUsagePercent = allocationForPeriod > 0 ? (totalUsage / allocationForPeriod) * 100 : 0;
     
     const convertedTotalUsage = convertUsage(totalUsage);
-    const convertedAvgDailyUsage = convertUsage(avgDailyUsage);
     const convertedAllocationForPeriod = convertUsage(allocationForPeriod);
 
 
@@ -58,7 +51,7 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
                     </div>
                 ) : null}
             </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <MetricCard 
                     title="Total Usage" 
                     metric={`${convertedTotalUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${getUnitLabel()}`}
@@ -70,12 +63,6 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
                     metric={`${convertedAllocationForPeriod.toLocaleString(undefined, {maximumFractionDigits: 1})} ${getUnitLabel()}`}
                     icon={Target}
                     description="Total allocation in the selected period"
-                />
-                <MetricCard 
-                    title="Avg. Daily Usage" 
-                    metric={`${convertedAvgDailyUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${getUnitLabel()}`} 
-                    icon={TrendingUp} 
-                    description="Average daily usage in the selected period" 
                 />
                 
                 {allocationForPeriod > 0 ? (
