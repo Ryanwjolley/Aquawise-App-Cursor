@@ -16,10 +16,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useEffect } from "react";
+import { PlusCircle, Trash2 } from "lucide-react";
 
 const notificationsSchema = z.object({
   allocationChangeAlerts: z.object({
@@ -27,7 +28,9 @@ const notificationsSchema = z.object({
   }),
   thresholdAlerts: z.object({
     enabled: z.boolean().default(false),
-    percentage: z.number().min(0).max(100).default(80),
+    thresholds: z.array(z.object({
+        percentage: z.number().min(0).max(100)
+    })).default([{ percentage: 80 }]),
     email: z.string().email().or(z.literal("")),
   }),
   spikeAlerts: z.object({
@@ -53,7 +56,11 @@ const MOCK_EXISTING_SETTINGS = {
     },
     thresholdAlerts: {
         enabled: true,
-        percentage: 85,
+        thresholds: [
+            { percentage: 75 },
+            { percentage: 90 },
+            { percentage: 100 },
+        ],
         email: 'billing@gva.com'
     },
     spikeAlerts: {
@@ -82,6 +89,11 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
     defaultValues: MOCK_EXISTING_SETTINGS
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "thresholdAlerts.thresholds"
+  });
+
   // Reset form when dialog opens/closes
   useEffect(() => {
     if(isOpen) {
@@ -92,6 +104,14 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
 
   const watchedThresholdEnabled = watch("thresholdAlerts.enabled");
   const watchedSpikeEnabled = watch("spikeAlerts.enabled");
+  
+  const handleAddNewThreshold = () => {
+    // Add a new threshold with a default value.
+    // For simplicity, let's just add one at 50, user can change it.
+    if(fields.length < 5) { // Limit to 5 thresholds for UI sanity
+        append({ percentage: 50 });
+    }
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -104,7 +124,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-6">
+          <div className="space-y-6 py-6 max-h-[70vh] overflow-y-auto pr-4">
             {/* Allocation Change Alerts */}
              <div className="space-y-4 rounded-lg border p-4">
                 <div className="flex items-center justify-between">
@@ -127,7 +147,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                 <div className="flex items-center justify-between">
                      <div>
                         <Label htmlFor="threshold-enabled" className="text-base font-medium">Usage Threshold Alerts</Label>
-                        <p className="text-sm text-muted-foreground pt-1">Notify when usage exceeds a set percentage of the total allocation.</p>
+                        <p className="text-sm text-muted-foreground pt-1">Notify when usage exceeds set percentages of the total allocation.</p>
                     </div>
                     <Controller
                         name="thresholdAlerts.enabled"
@@ -139,26 +159,36 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                 </div>
                 <div className={`space-y-4 transition-opacity ${watchedThresholdEnabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
                     <Separator/>
-                    <div>
-                        <Label htmlFor="threshold-percentage">Notify when usage exceeds</Label>
-                        <Controller
-                            name="thresholdAlerts.percentage"
-                            control={control}
-                            render={({ field }) => (
-                                <div className="flex items-center gap-4 pt-2">
-                                    <Slider
-                                        id="threshold-percentage"
-                                        min={0}
-                                        max={100}
-                                        step={5}
-                                        value={[field.value]}
-                                        onValueChange={(value) => field.onChange(value[0])}
-                                        disabled={!watchedThresholdEnabled}
-                                    />
-                                    <span className="text-lg font-semibold w-16 text-center">{field.value}%</span>
-                                </div>
-                            )}
-                        />
+                    <div className="space-y-4">
+                        <Label>Notification Thresholds</Label>
+                        {fields.map((field, index) => (
+                           <div key={field.id} className="flex items-center gap-4">
+                                <Controller
+                                    name={`thresholdAlerts.thresholds.${index}.percentage`}
+                                    control={control}
+                                    render={({ field: controllerField }) => (
+                                        <div className="flex-grow flex items-center gap-4">
+                                            <Slider
+                                                min={0}
+                                                max={100}
+                                                step={5}
+                                                value={[controllerField.value]}
+                                                onValueChange={(value) => controllerField.onChange(value[0])}
+                                                disabled={!watchedThresholdEnabled}
+                                            />
+                                            <span className="text-lg font-semibold w-16 text-center">{controllerField.value}%</span>
+                                        </div>
+                                    )}
+                                />
+                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={!watchedThresholdEnabled || fields.length <= 1}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                           </div>
+                        ))}
+                         <Button type="button" variant="outline" size="sm" onClick={handleAddNewThreshold} disabled={!watchedThresholdEnabled || fields.length >= 5}>
+                            <PlusCircle className="mr-2 h-4 w-4"/>
+                            Add Threshold
+                        </Button>
                     </div>
                      <div>
                         <Label htmlFor="threshold-email">Send alert to email</Label>
@@ -234,3 +264,5 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
     </Dialog>
   );
 }
+
+    
