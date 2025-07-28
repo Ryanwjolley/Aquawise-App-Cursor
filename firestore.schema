@@ -1,128 +1,101 @@
-{
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  },
-  "databaseSchema": {
-    "companies": {
-      "docId": "{companyId}",
-      "description": "Each document represents a single company in the system.",
-      "fields": {
-        "name": "string",
-        "defaultUnit": "string (e.g., 'gallons', 'acre-feet')",
-        "userGroupsEnabled": "boolean",
-        "waterOrdersEnabled": "boolean",
-        "notificationSettings": {
-          "type": "map",
-          "description": "Configuration for automated notifications.",
-          "fields": {
-            "allocationChangeAlerts": {
-              "type": "map",
-              "fields": { "enabled": "boolean", "message": "string" }
-            },
-            "thresholdAlerts": {
-              "type": "map",
-              "fields": {
-                "enabled": "boolean",
-                "thresholds": {
-                  "type": "array",
-                  "items": { "type": "map", "fields": { "percentage": "number" } }
-                },
-                "email": "string",
-                "message": "string"
-              }
-            },
-            "spikeAlerts": {
-              "type": "map",
-              "fields": {
-                "enabled": "boolean",
-                "percentage": "number",
-                "email": "string",
-                "message": "string"
-              }
-            }
-          }
-        }
-      },
-      "subcollections": {
-        "users": {
-          "docId": "{userId}",
-          "description": "Stores user profiles for a company. The docId should be the Firebase Auth UID.",
-          "fields": {
-            "name": "string",
-            "email": "string (unique)",
-            "mobileNumber": "string (optional)",
-            "role": "string (e.g., 'Admin', 'Customer', 'Super Admin')",
-            "shares": "number (optional, for proportional allocation)",
-            "notificationPreference": "string ('email' or 'mobile')",
-            "userGroupId": "string (optional, foreign key to userGroups)"
-          }
-        },
-        "userGroups": {
-          "docId": "{groupId}",
-          "description": "Groups to organize users for reporting and allocations.",
-          "fields": {
-            "name": "string"
-          }
-        },
-        "allocations": {
-          "docId": "{allocationId}",
-          "description": "Water allocations for the company, a group, or a specific user.",
-          "fields": {
-            "startDate": "timestamp",
-            "endDate": "timestamp",
-            "gallons": "number",
-            "userId": "string (optional, foreign key to users)",
-            "userGroupId": "string (optional, foreign key to userGroups)"
-          }
-        },
-        "waterAvailabilities": {
-          "docId": "{availabilityId}",
-          "description": "Defines total water available in the system for ordering.",
-          "fields": {
-            "startDate": "timestamp",
-            "endDate": "timestamp",
-            "gallons": "number"
-          }
-        },
-        "waterOrders": {
-          "docId": "{orderId}",
-          "description": "Requests for water submitted by users.",
-          "fields": {
-            "userId": "string (foreign key to users)",
-            "startDate": "timestamp",
-            "endDate": "timestamp",
-            "amount": "number (user-entered value)",
-            "unit": "string (user-selected unit)",
-            "totalGallons": "number (pre-calculated)",
-            "status": "string ('pending', 'approved', 'rejected', 'completed')",
-            "createdAt": "timestamp",
-            "reviewedBy": "string (optional, foreign key to users)",
-            "reviewedAt": "timestamp (optional)",
-            "adminNotes": "string (optional)"
-          }
-        },
-        "usageEntries": {
-          "docId": "{usageEntryId}",
-          "description": "Daily water usage records for each user.",
-          "fields": {
-            "userId": "string (foreign key to users)",
-            "date": "timestamp (represents the start of the day)",
-            "usage": "number (in gallons)"
-          }
-        },
-        "notifications": {
-          "docId": "{notificationId}",
-          "description": "In-app notifications for users.",
-          "fields": {
-            "userId": "string (foreign key to users)",
-            "message": "string",
-            "createdAt": "timestamp",
-            "isRead": "boolean",
-            "link": "string (optional, for deep linking)"
-          }
-        }
-      }
-    }
-  }
-}
+
+# Firestore Schema for AquaWise
+
+This document outlines the Firestore collection and data structure for the AquaWise application.
+
+## Root Collections
+
+### companies
+Stores information about each company using the service.
+
+- **Document ID**: Unique company ID (e.g., "gva", "sunrise-farms")
+- **Fields**:
+  - `name`: (string) The full name of the company (e.g., "Golden Valley Agriculture").
+  - `defaultUnit`: (string) The default unit of measurement for the company (e.g., "acre-feet", "gallons").
+  - `userGroupsEnabled`: (boolean) Flag to enable or disable the user groups feature.
+  - `waterOrdersEnabled`: (boolean) Flag to enable or disable the water ordering system.
+  - `notificationSettings`: (map) Configuration for automated notifications.
+    - `allocationChangeAlerts`: (map)
+      - `enabled`: (boolean)
+      - `message`: (string)
+    - `thresholdAlerts`: (map)
+      - `enabled`: (boolean)
+      - `thresholds`: (array of maps)
+        - `percentage`: (number)
+      - `email`: (string)
+      - `message`: (string)
+    - `spikeAlerts`: (map)
+      - `enabled`: (boolean)
+      - `percentage`: (number)
+      - `email`: (string)
+      - `message`: (string)
+
+---
+
+## Subcollections
+
+The following collections are nested within each `companies` document. For example: `/companies/{companyId}/users/{userId}`.
+
+### users
+- **Document ID**: Unique user ID (e.g., "user_alice_j").
+- **Fields**:
+  - `name`: (string) The user's full name.
+  - `email`: (string) The user's email address (used for login).
+  - `mobileNumber`: (string, optional) The user's mobile phone number.
+  - `role`: (string) The user's role (e.g., "Admin", "Customer", "Admin & Customer", "Super Admin").
+  - `shares`: (number, optional) The number of shares the user holds for allocation calculations.
+  - `notificationPreference`: (string) The user's preferred notification channel ("email" or "mobile").
+  - `userGroupId`: (string, optional) The ID of the user group they belong to.
+
+### userGroups
+- **Document ID**: Unique group ID (e.g., "group_northern_fields").
+- **Fields**:
+  - `name`: (string) The name of the user group.
+
+### allocations
+- **Document ID**: Unique allocation ID.
+- **Fields**:
+  - `startDate`: (timestamp) The start date and time of the allocation period.
+  - `endDate`: (timestamp) The end date and time of the allocation period.
+  - `gallons`: (number) The total allocated water in gallons.
+  - `userId`: (string, optional) The ID of a specific user this allocation applies to.
+  - `userGroupId`: (string, optional) The ID of a user group this allocation applies to. If `userId` and `userGroupId` are absent, it applies to the whole company.
+
+### waterAvailabilities
+- **Document ID**: Unique availability ID.
+- **Fields**:
+  - `startDate`: (timestamp) The start date and time of the availability period.
+  - `endDate`: (timestamp) The end date and time of the availability period.
+  - `gallons`: (number) The total water available in the system in gallons.
+
+### waterOrders
+- **Document ID**: Unique water order ID.
+- **Fields**:
+  - `userId`: (string) The ID of the user who submitted the order.
+  - `startDate`: (timestamp) The requested start date and time.
+  - `endDate`: (timestamp) The requested end date and time.
+  - `amount`: (number) The value entered by the user (e.g., 2).
+  - `unit`: (string) The unit selected by the user (e.g., "cfs").
+  - `totalGallons`: (number) The pre-calculated total volume in gallons for the request.
+  - `status`: (string) The current status of the order ("pending", "approved", "rejected", "completed").
+  - `createdAt`: (timestamp) When the order was submitted.
+  - `reviewedBy`: (string, optional) The ID of the admin who reviewed the order.
+  - `reviewedAt`: (timestamp, optional) When the order was reviewed.
+  - `adminNotes`: (string, optional) Notes from the admin, especially for rejected orders.
+
+### usageEntries
+This collection could be a root-level collection for scalability, but for organizational purposes in this schema, it's shown as a subcollection. Consider security rules carefully.
+- **Document ID**: Unique usage entry ID.
+- **Fields**:
+  - `userId`: (string) The ID of the user the usage belongs to.
+  - `date`: (string, YYYY-MM-DD) The date of the usage.
+  - `usage`: (number) The total water used on that day, in gallons.
+
+### notifications
+- **Document ID**: Unique notification ID.
+- **Fields**:
+  - `userId`: (string) The ID of the user who should see this notification.
+  - `message`: (string) The content of the notification.
+  - `createdAt`: (timestamp) When the notification was created.
+  - `isRead`: (boolean) Whether the user has marked the notification as read.
+  - `link`: (string, optional) A URL path for the user to view more details.
