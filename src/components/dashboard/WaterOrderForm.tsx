@@ -23,8 +23,8 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format, parseISO, differenceInSeconds } from "date-fns";
-import { CONVERSION_FACTORS_TO_GALLONS } from "@/lib/data";
+import { format, parseISO, differenceInSeconds, differenceInDays } from "date-fns";
+import { CONVERSION_FACTORS_TO_GALLONS, Unit } from "@/lib/data";
 
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -35,8 +35,8 @@ const waterOrderFormSchema = z.object({
   endDate: z.string().regex(dateRegex, "Invalid date format. Use YYYY-MM-DD."),
   startTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   endTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
-  flowRate: z.coerce.number().positive({ message: "Flow rate must be positive." }),
-  flowUnit: z.enum(['cfs', 'gpm']),
+  amount: z.coerce.number().positive({ message: "Amount must be positive." }),
+  unit: z.enum(['gallons', 'kgal', 'acre-feet', 'cubic-feet', 'cfs', 'gpm']),
 }).refine(data => {
     const start = combineDateTime(data.startDate, data.startTime);
     const end = combineDateTime(data.endDate, data.endTime);
@@ -78,8 +78,8 @@ export function WaterOrderForm({
         startTime: "08:00",
         endDate: format(new Date(), "yyyy-MM-dd"),
         endTime: "16:00",
-        flowRate: 1,
-        flowUnit: 'cfs',
+        amount: 1,
+        unit: 'cfs',
     }
   });
 
@@ -100,24 +100,31 @@ export function WaterOrderForm({
     }
 
     let totalGallons = 0;
-    const { flowRate, flowUnit } = data;
+    const { amount, unit } = data;
     
-    const durationInSeconds = differenceInSeconds(endDate, startDate);
-    switch(flowUnit) {
-        case 'cfs':
-            totalGallons = flowRate * CONVERSION_FACTORS_TO_GALLONS.rate.cfs * durationInSeconds;
-            break;
-        case 'gpm':
-            const durationInMinutes = durationInSeconds / 60;
-            totalGallons = flowRate * CONVERSION_FACTORS_TO_GALLONS.rate.gpm * durationInMinutes;
-            break;
+    // Check if it's a simple volume conversion
+    if (unit in CONVERSION_FACTORS_TO_GALLONS.volume) {
+      totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.volume[unit as keyof typeof CONVERSION_FACTORS_TO_GALLONS.volume]!;
+    } 
+    // Check if it's a rate conversion
+    else if (unit in CONVERSION_FACTORS_TO_GALLONS.rate) {
+        const durationInSeconds = differenceInSeconds(endDate, startDate);
+        switch(unit) {
+            case 'cfs':
+                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.cfs * durationInSeconds;
+                break;
+            case 'gpm':
+                const durationInMinutes = durationInSeconds / 60;
+                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.gpm * durationInMinutes;
+                break;
+        }
     }
     
     onSubmit({
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        flowRate: data.flowRate,
-        flowUnit: data.flowUnit,
+        amount: data.amount,
+        unit: data.unit,
         totalGallons,
     });
   }
@@ -132,7 +139,7 @@ export function WaterOrderForm({
           <SheetHeader>
             <SheetTitle>Request Water Order</SheetTitle>
             <SheetDescription>
-              Submit a request to run water for a specific time period at a specified flow rate.
+              Submit a request to run water for a specific time period at a specified amount or flow rate.
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-6 overflow-y-auto py-6 pr-6 pl-1">
@@ -189,29 +196,39 @@ export function WaterOrderForm({
             
             <div className="grid grid-cols-3 gap-4 pl-5">
                 <div className="col-span-2 grid gap-2">
-                    <Label htmlFor="flowRate">Flow Rate</Label>
+                    <Label htmlFor="amount">Amount / Rate</Label>
                     <Controller
-                        name="flowRate"
+                        name="amount"
                         control={control}
-                        render={({ field }) => <Input id="flowRate" type="number" step="any" {...field} />}
+                        render={({ field }) => <Input id="amount" type="number" step="any" {...field} />}
                     />
-                    {errors.flowRate && (
-                        <p className="text-sm text-destructive">{errors.flowRate.message}</p>
+                    {errors.amount && (
+                        <p className="text-sm text-destructive">{errors.amount.message}</p>
                     )}
                 </div>
                  <div className="grid gap-2">
-                    <Label htmlFor="flowUnit">Unit</Label>
+                    <Label htmlFor="unit">Unit</Label>
                     <Controller
-                        name="flowUnit"
+                        name="unit"
                         control={control}
                         render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value}>
-                                <SelectTrigger id="flowUnit">
+                                <SelectTrigger id="unit">
                                     <SelectValue placeholder="Select unit" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="cfs">CFS</SelectItem>
-                                    <SelectItem value="gpm">GPM</SelectItem>
+                                     <SelectGroup>
+                                        <Label className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Volume</Label>
+                                        <SelectItem value="gallons">Gallons</SelectItem>
+                                        <SelectItem value="kgal">kGal (Thousands)</SelectItem>
+                                        <SelectItem value="acre-feet">Acre-Feet</SelectItem>
+                                        <SelectItem value="cubic-feet">Cubic Feet</SelectItem>
+                                    </SelectGroup>
+                                     <SelectGroup>
+                                        <Label className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Flow Rate</Label>
+                                        <SelectItem value="gpm">GPM</SelectItem>
+                                        <SelectItem value="cfs">CFS</SelectItem>
+                                    </SelectGroup>
                                 </SelectContent>
                             </Select>
                         )}

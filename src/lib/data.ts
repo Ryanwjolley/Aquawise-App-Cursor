@@ -79,8 +79,8 @@ export type WaterOrder = {
     companyId: string;
     startDate: string; // ISO 8601 format
     endDate: string; // ISO 8601 format
-    flowRate: number; // The rate value
-    flowUnit: 'cfs' | 'gpm'; // The unit of the rate
+    amount: number; // The value entered by the user
+    unit: Unit; // The unit selected by the user
     totalGallons: number; // Pre-calculated total volume
     status: 'pending' | 'approved' | 'rejected' | 'completed';
     createdAt: string; // ISO 8601 format
@@ -150,8 +150,8 @@ let waterOrders: WaterOrder[] = [
         companyId: '1', 
         startDate: '2025-07-10T08:00:00.000Z', 
         endDate: '2025-07-10T16:00:00.000Z', 
-        flowRate: 3, 
-        flowUnit: 'cfs', 
+        amount: 3, 
+        unit: 'cfs', 
         totalGallons: 8617555.2,
         status: 'pending', 
         createdAt: new Date().toISOString() 
@@ -162,8 +162,8 @@ let waterOrders: WaterOrder[] = [
         companyId: '1', 
         startDate: '2025-07-11T10:00:00.000Z', 
         endDate: '2025-07-11T14:00:00.000Z', 
-        flowRate: 500, 
-        flowUnit: 'gpm', 
+        amount: 500, 
+        unit: 'gpm', 
         totalGallons: 120000,
         status: 'approved', 
         createdAt: new Date().toISOString(),
@@ -176,8 +176,8 @@ let waterOrders: WaterOrder[] = [
         companyId: '2', 
         startDate: '2025-07-12T09:00:00.000Z', 
         endDate: '2025-07-12T17:00:00.000Z', 
-        flowRate: 2, 
-        flowUnit: 'cfs', 
+        amount: 2, 
+        unit: 'cfs', 
         totalGallons: 5745036.8,
         status: 'completed', 
         createdAt: new Date().toISOString(),
@@ -391,7 +391,7 @@ export const getUsageForUser = async (userId: string, startDate?: string, endDat
 };
 
 // Function to simulate bulk adding/overwriting usage data
-export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only' = 'overwrite', inputUnit: Unit = 'gallons'): Promise<{ added: number, updated: number }> => {
+export const bulkAddUsageEntries = async (entries: Omit<UsageEntry, 'id'>[], mode: 'overwrite' | 'new_only' | 'add' = 'overwrite', inputUnit: Unit = 'gallons'): Promise<{ added: number, updated: number }> => {
   let added = 0;
   let updated = 0;
 
@@ -472,7 +472,7 @@ export const getWaterOrdersForUser = async (userId: string): Promise<WaterOrder[
     return Promise.resolve(waterOrders.filter(wo => wo.userId === userId));
 }
 
-export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' | 'createdAt' | 'totalGallons'> & {totalGallons: number}): Promise<WaterOrder> => {
+export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' | 'createdAt'>): Promise<WaterOrder> => {
     const newOrder: WaterOrder = {
         ...orderData,
         id: `wo_${Date.now()}`,

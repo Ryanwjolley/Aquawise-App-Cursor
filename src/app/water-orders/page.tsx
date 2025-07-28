@@ -16,8 +16,8 @@ import {
 import { PlusCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import type { WaterOrder, User } from "@/lib/data";
-import { getWaterOrdersForUser, addWaterOrder } from "@/lib/data";
+import type { WaterOrder, User, Unit } from "@/lib/data";
+import { getWaterOrdersForUser, addWaterOrder, getUnitLabel } from "@/lib/data";
 import { WaterOrderForm } from "@/components/dashboard/WaterOrderForm";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +44,7 @@ export default function CustomerWaterOrdersPage() {
         }
     }, [currentUser]);
 
-    const handleFormSubmit = async (data: Omit<WaterOrder, 'id' | 'companyId' | 'userId' | 'status' | 'createdAt'> & { totalGallons: number }) => {
+    const handleFormSubmit = async (data: Omit<WaterOrder, 'id' | 'companyId' | 'userId' | 'status' | 'createdAt'>) => {
         if (!currentUser) return;
 
         await addWaterOrder({
@@ -96,7 +96,7 @@ export default function CustomerWaterOrdersPage() {
                             <TableHeader>
                                 <TableRow>
                                 <TableHead>Date Range</TableHead>
-                                <TableHead>Flow Rate</TableHead>
+                                <TableHead>Request</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Submitted On</TableHead>
                                 </TableRow>
@@ -114,7 +114,7 @@ export default function CustomerWaterOrdersPage() {
                                             <TableCell className="font-medium">
                                                 {format(new Date(order.startDate), 'P p')} - {format(new Date(order.endDate), 'P p')}
                                             </TableCell>
-                                            <TableCell>{order.flowRate} {order.flowUnit.toUpperCase()}</TableCell>
+                                            <TableCell>{order.amount} {getUnitLabel(order.unit)}</TableCell>
                                             <TableCell>
                                                 <Badge variant={getBadgeVariant(order.status)} className="capitalize">{order.status}</Badge>
                                             </TableCell>
