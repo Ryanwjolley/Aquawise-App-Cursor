@@ -1,9 +1,11 @@
+
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import type { Unit, UnitLabel } from '@/lib/data';
+import { getUnitLabel as getLabel } from '@/lib/data';
+import { useAuth } from './AuthContext';
 
-type Unit = 'gallons' | 'kgal' | 'acre-feet';
-type UnitLabel = 'Gallons' | 'kGal' | 'Acre-Feet';
 
 interface UnitContextValue {
   unit: Unit;
@@ -20,21 +22,25 @@ const CONVERSION_FACTORS = {
     'acre-feet': 1 / 325851,
 };
 
-const UNIT_LABELS: Record<Unit, UnitLabel> = {
-    'gallons': 'Gallons',
-    'kgal': 'kGal',
-    'acre-feet': 'Acre-Feet',
-};
 
 export const UnitProvider = ({ children }: { children: ReactNode }) => {
+  const { company } = useAuth();
   const [unit, setUnit] = useState<Unit>('gallons');
+
+  useEffect(() => {
+    // Set the initial unit based on company settings when available
+    if (company?.defaultUnit) {
+      setUnit(company.defaultUnit);
+    }
+  }, [company]);
+
 
   const convertUsage = (gallons: number): number => {
     return gallons * CONVERSION_FACTORS[unit];
   };
   
   const getUnitLabel = (): UnitLabel => {
-      return UNIT_LABELS[unit];
+      return getLabel(unit);
   }
 
   const value = { unit, setUnit, convertUsage, getUnitLabel };

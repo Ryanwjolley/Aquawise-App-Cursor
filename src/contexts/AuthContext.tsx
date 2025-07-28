@@ -13,6 +13,7 @@ interface AuthContextValue {
   stopImpersonating: () => Promise<void>;
   isImpersonating: boolean;
   loading: boolean;
+  reloadCompany: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -36,12 +37,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setCurrentUser(updatedUser);
         }
     };
+    
+     const handleCompanyUpdate = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        const updatedCompany = customEvent.detail as Company;
+        if (company && updatedCompany.id === company.id) {
+            setCompany(updatedCompany);
+        }
+    };
+
 
     window.addEventListener('user-updated', handleUserUpdate);
+    window.addEventListener('company-updated', handleCompanyUpdate);
     return () => {
         window.removeEventListener('user-updated', handleUserUpdate);
+        window.removeEventListener('company-updated', handleCompanyUpdate);
     };
-  }, [currentUser]);
+  }, [currentUser, company]);
 
   useEffect(() => {
     // Check if we are currently impersonating on page load
@@ -58,8 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const user = await getUserById(userId);
     if (user) {
       setCurrentUser(user);
-      const userCompany = await getCompanyById(user.companyId);
-      setCompany(userCompany || null);
+      await loadCompany(user.companyId);
        if (redirect) {
         // If the user is only an admin, redirect to admin page, otherwise to customer page.
         if (user.role === 'Admin') {
@@ -73,6 +84,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCompany(null);
     }
     setLoading(false);
+  }
+  
+  const loadCompany = async (companyId: string) => {
+      const userCompany = await getCompanyById(companyId);
+      setCompany(userCompany || null);
+  }
+  
+  const reloadCompany = async () => {
+    if(currentUser?.companyId) {
+        await loadCompany(currentUser.companyId);
+    }
   }
 
   const impersonateUser = async (userId: string) => {
@@ -92,7 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
-  const value = { currentUser, company, impersonateUser, loading, isImpersonating, stopImpersonating };
+  const value = { currentUser, company, impersonateUser, loading, isImpersonating, stopImpersonating, reloadCompany };
 
   return (
     <AuthContext.Provider value={value}>

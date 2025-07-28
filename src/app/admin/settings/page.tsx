@@ -1,17 +1,54 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BellRing, Mail } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { BellRing, Mail, Droplets } from "lucide-react";
 import { NotificationsSetup } from "@/components/dashboard/NotificationsSetup";
 import { useToast } from "@/hooks/use-toast";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useAuth } from "@/contexts/AuthContext";
+import { updateCompany } from "@/lib/data";
+import type { Unit } from "@/lib/data";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+
+const displaySettingsSchema = z.object({
+  defaultUnit: z.enum(["gallons", "kgal", "acre-feet"]),
+});
+
+type DisplaySettingsFormValues = z.infer<typeof displaySettingsSchema>;
 
 export default function SettingsPage() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { toast } = useToast();
+  const { company, reloadCompany } = useAuth();
+  
+  const { 
+    control, 
+    handleSubmit, 
+    reset,
+    formState: { isSubmitting, isDirty }
+  } = useForm<DisplaySettingsFormValues>({
+    resolver: zodResolver(displaySettingsSchema),
+  });
+
+  useEffect(() => {
+    if (company) {
+      reset({ defaultUnit: company.defaultUnit || 'gallons' });
+    }
+  }, [company, reset]);
+
 
   const handleNotificationsSave = (data: any) => {
     console.log("Saving notification settings:", data);
@@ -22,6 +59,26 @@ export default function SettingsPage() {
     });
     setIsNotificationsOpen(false);
   };
+  
+  const onDisplaySettingsSubmit = async (data: DisplaySettingsFormValues) => {
+    if (!company) return;
+    
+    try {
+        await updateCompany({ ...company, defaultUnit: data.defaultUnit as Unit });
+        await reloadCompany();
+        toast({
+            title: "Settings Saved",
+            description: "Default display unit has been updated.",
+        });
+    } catch (e) {
+        console.error("Failed to save display settings:", e);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to save display settings."
+        })
+    }
+  }
 
   return (
     <AppLayout>
@@ -30,6 +87,40 @@ export default function SettingsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
         </div>
         <div className="grid gap-6">
+            <form onSubmit={handleSubmit(onDisplaySettingsSubmit)}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Display Settings</CardTitle>
+                        <CardDescription>
+                            Set the default unit for displaying water usage across the system. Individual users can override this in their own view.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-2 max-w-sm">
+                            <Label htmlFor="defaultUnit">Default Reporting Unit</Label>
+                             <Controller
+                                name="defaultUnit"
+                                control={control}
+                                render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger id="defaultUnit">
+                                        <SelectValue placeholder="Select a unit" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="gallons">Gallons</SelectItem>
+                                        <SelectItem value="kgal">kGal (Thousands)</SelectItem>
+                                        <SelectItem value="acre-feet">Acre-Feet</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                )}
+                            />
+                        </div>
+                    </CardContent>
+                    <CardFooter className="border-t px-6 py-4">
+                        <Button type="submit" disabled={isSubmitting || !isDirty}>Save</Button>
+                    </CardFooter>
+                </Card>
+            </form>
             <Card>
                 <CardHeader>
                     <CardTitle>Notifications</CardTitle>

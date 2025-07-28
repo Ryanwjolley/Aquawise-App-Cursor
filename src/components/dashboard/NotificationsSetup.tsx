@@ -67,13 +67,13 @@ const MOCK_EXISTING_SETTINGS = {
             { percentage: 100 },
         ],
         email: 'billing@gva.com',
-        message: "Hi {{userName}}, you have reached {{percentage}}% of your water allocation for the period. Current usage: {{usage}} of {{allocation}} gallons."
+        message: "Hi {{userName}}, you have reached {{percentage}}% of your water allocation for the period. Current usage: {{usage}} of {{allocation}} {{unit}}."
     },
     spikeAlerts: {
         enabled: false,
         percentage: 50,
         email: 'ops@gva.com',
-        message: "Hi {{userName}}, we've detected a usage spike. Your usage yesterday was {{usage}} gallons, which is {{spikePercentage}}% higher than your weekly average."
+        message: "Hi {{userName}}, we've detected a usage spike. Your usage yesterday was {{usage}} {{unit}}, which is {{spikePercentage}}% higher than your weekly average."
     }
 }
 
@@ -159,7 +159,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                                 <Textarea id="allocation-message" placeholder="Enter your notification message..." {...field} disabled={!watchedAllocationEnabled} />
                             )}
                         />
-                        <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{updateType}}'}`, `{'{{startDate}}'}`, `{'{{endDate}}'}`, `{'{{gallons}}'}`</p>
+                        <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{updateType}}'}`, `{'{{startDate}}'}`, `{'{{endDate}}'}`, `{'{{gallons}}'}`, `{'{{unit}}'}`</p>
                     </div>
                 </div>
             </div>
@@ -232,7 +232,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                                 <Textarea id="threshold-message" placeholder="Enter your notification message..." {...field} disabled={!watchedThresholdEnabled} />
                             )}
                         />
-                         <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{percentage}}'}`, `{'{{usage}}'}`, `{'{{allocation}}'}`</p>
+                         <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{percentage}}'}`, `{'{{usage}}'}`, `{'{{allocation}}'}`, `{'{{unit}}'}`</p>
                     </div>
                 </div>
             </div>
@@ -288,7 +288,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                                 <Textarea id="spike-message" placeholder="Enter your notification message..." {...field} disabled={!watchedSpikeEnabled} />
                             )}
                         />
-                         <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{usage}}'}`, `{'{{spikePercentage}}'}`</p>
+                         <p className="text-xs text-muted-foreground pt-1">Variables: `{'{{userName}}'}`, `{'{{usage}}'}`, `{'{{spikePercentage}}'}`, `{'{{unit}}'}`</p>
                     </div>
                 </div>
             </div>

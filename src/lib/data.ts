@@ -2,9 +2,13 @@
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 
+export type Unit = 'gallons' | 'kgal' | 'acre-feet';
+export type UnitLabel = 'Gallons' | 'kGal' | 'Acre-Feet';
+
 export type Company = {
   id: string;
   name: string;
+  defaultUnit: Unit;
 };
 
 export type User = {
@@ -35,9 +39,9 @@ export type Allocation = {
 };
 
 
-const companies: Company[] = [
-  { id: '1', name: 'Golden Valley Agriculture' },
-  { id: '2', name: 'Sunrise Farms' },
+let companies: Company[] = [
+  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'gallons' },
+  { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet' },
 ];
 
 let users: User[] = [
@@ -136,6 +140,15 @@ usageData.push(
 // --- API Functions ---
 
 // Simulate async calls with Promise.resolve()
+export const getUnitLabel = (unit: Unit): UnitLabel => {
+    const UNIT_LABELS: Record<Unit, UnitLabel> = {
+        'gallons': 'Gallons',
+        'kgal': 'kGal',
+        'acre-feet': 'Acre-Feet',
+    };
+    return UNIT_LABELS[unit];
+}
+
 
 export const getCompanies = async (): Promise<Company[]> => {
   return Promise.resolve(companies);
@@ -144,6 +157,17 @@ export const getCompanies = async (): Promise<Company[]> => {
 export const getCompanyById = async (companyId: string): Promise<Company | undefined> => {
   return Promise.resolve(companies.find(c => c.id === companyId));
 };
+
+export const updateCompany = async (updatedCompany: Company): Promise<Company> => {
+    const index = companies.findIndex(c => c.id === updatedCompany.id);
+    if (index === -1) throw new Error("Company not found");
+    companies[index] = updatedCompany;
+    // In a real app, you might want to dispatch an event to update contexts
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('company-updated', { detail: updatedCompany }));
+    }
+    return Promise.resolve(updatedCompany);
+}
 
 export const getUsersByCompany = async (companyId: string): Promise<User[]> => {
   return Promise.resolve(users.filter(u => u.companyId === companyId));
