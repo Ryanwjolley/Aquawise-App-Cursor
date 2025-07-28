@@ -19,7 +19,10 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const impersonationStorageKey = 'impersonation_admin_id';
+const impersonationAdminIdKey = 'impersonation_admin_id';
+const impersonationAdminRoleKey = 'impersonation_admin_role';
+const impersonationUserIdKey = 'impersonation_user_id';
+
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
@@ -57,8 +60,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [currentUser, company]);
 
   useEffect(() => {
-    const adminId = sessionStorage.getItem(impersonationStorageKey);
-    const userIdToLoad = sessionStorage.getItem('impersonation_user_id') || defaultUserId;
+    const adminId = sessionStorage.getItem(impersonationAdminIdKey);
+    const userIdToLoad = sessionStorage.getItem(impersonationUserIdKey) || defaultUserId;
     
     if (adminId) {
         setIsImpersonating(true);
@@ -75,7 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await loadCompany(user.companyId);
        if (redirect) {
         // We need to check if we are currently impersonating *before* determining the redirect path.
-        const stillImpersonating = !!sessionStorage.getItem(impersonationStorageKey);
+        const stillImpersonating = !!sessionStorage.getItem(impersonationAdminIdKey);
         
         let targetPath = '/';
         if (user.role === 'Super Admin' && !stillImpersonating) {
@@ -106,19 +109,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const impersonateUser = async (userId: string) => {
-    if (currentUser && !sessionStorage.getItem(impersonationStorageKey)) {
-        sessionStorage.setItem(impersonationStorageKey, currentUser.id);
-        sessionStorage.setItem('impersonation_user_id', userId);
+    if (currentUser && !sessionStorage.getItem(impersonationAdminIdKey)) {
+        sessionStorage.setItem(impersonationAdminIdKey, currentUser.id);
+        sessionStorage.setItem(impersonationAdminRoleKey, currentUser.role);
+        sessionStorage.setItem(impersonationUserIdKey, userId);
     }
     setIsImpersonating(true);
     await loadUser(userId, true);
   };
 
   const stopImpersonating = async () => {
-    const adminId = sessionStorage.getItem(impersonationStorageKey);
+    const adminId = sessionStorage.getItem(impersonationAdminIdKey);
     if (adminId) {
-        sessionStorage.removeItem(impersonationStorageKey);
-        sessionStorage.removeItem('impersonation_user_id');
+        sessionStorage.removeItem(impersonationAdminIdKey);
+        sessionStorage.removeItem(impersonationAdminRoleKey);
+        sessionStorage.removeItem(impersonationUserIdKey);
         setIsImpersonating(false);
         await loadUser(adminId, true);
     }
