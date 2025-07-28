@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { format, parseISO, isValid } from "date-fns";
+import { format, parseISO, isValid, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import type { Allocation } from "@/lib/data";
 
@@ -67,6 +67,33 @@ export function DateRangeSelector({ onUpdate, className, selectedRange, allocati
     setPopoverOpen(false);
   }
 
+  const handlePresetSelect = (preset: 'today' | 'this_week' | 'this_month' | 'this_year') => {
+    const now = new Date();
+    let fromDate: Date;
+    let toDate: Date;
+
+    switch (preset) {
+        case 'today':
+            fromDate = startOfDay(now);
+            toDate = endOfDay(now);
+            break;
+        case 'this_week':
+            fromDate = startOfWeek(now);
+            toDate = endOfWeek(now);
+            break;
+        case 'this_month':
+            fromDate = startOfMonth(now);
+            toDate = endOfMonth(now);
+            break;
+        case 'this_year':
+            fromDate = startOfYear(now);
+            toDate = endOfYear(now);
+            break;
+    }
+    onUpdate({ from: fromDate, to: toDate });
+    setPopoverOpen(false);
+  }
+
   const sortedAllocations = React.useMemo(() => {
     return [...allocations].sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
   }, [allocations]);
@@ -102,6 +129,14 @@ export function DateRangeSelector({ onUpdate, className, selectedRange, allocati
             <PopoverContent className="w-auto p-0" align="end">
                 <div className="flex">
                     <div className="p-4 space-y-4">
+                        <p className="text-sm font-medium text-muted-foreground">Quick Selections</p>
+                         <div className="grid grid-cols-2 gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handlePresetSelect('today')}>Today</Button>
+                            <Button size="sm" variant="outline" onClick={() => handlePresetSelect('this_week')}>This Week</Button>
+                            <Button size="sm" variant="outline" onClick={() => handlePresetSelect('this_month')}>This Month</Button>
+                            <Button size="sm" variant="outline" onClick={() => handlePresetSelect('this_year')}>This Year</Button>
+                         </div>
+                         <Separator />
                         <p className="text-sm font-medium text-muted-foreground">Custom Range</p>
                         <div className="grid gap-2">
                             <Label htmlFor="start-date">Start Date</Label>
@@ -140,4 +175,3 @@ export function DateRangeSelector({ onUpdate, className, selectedRange, allocati
     </div>
   );
 }
-
