@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PlusCircle, Info } from "lucide-react";
+import { PlusCircle, Info, Calendar } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { WaterOrder, User, Unit } from "@/lib/data";
@@ -27,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import Link from "next/link";
 
 
 export default function CustomerWaterOrdersPage() {
@@ -88,10 +89,18 @@ export default function CustomerWaterOrdersPage() {
                 <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
                     <div className="flex items-center justify-between space-y-2">
                         <h2 className="text-3xl font-bold tracking-tight">My Water Orders</h2>
-                        <Button onClick={() => setIsFormOpen(true)}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Request Water Order
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                             <Button variant="outline" asChild>
+                                <Link href="/water-calendar">
+                                    <Calendar className="mr-2 h-4 w-4" />
+                                    View Calendar
+                                </Link>
+                            </Button>
+                            <Button onClick={() => setIsFormOpen(true)}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Request Water Order
+                            </Button>
+                        </div>
                     </div>
                     <Card>
                         <CardHeader>

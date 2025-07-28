@@ -1,3 +1,4 @@
+
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 import { differenceInDays, max, min, parseISO } from "date-fns";
@@ -72,13 +73,6 @@ export type WaterAvailability = {
   gallons: number;
   companyId: string;
 };
-
-export type UsageEntry = {
-    id: string;
-    userId: string;
-    date: string; // YYYY-MM-DD
-    usage: number; // Always in gallons
-}
 
 export type WaterOrder = {
     id: string;
@@ -162,8 +156,10 @@ let allocations: Allocation[] = [
     { id: 'alloc_pvo_304', companyId: '3', userId: '304', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 30 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] },
 ];
 
+const GALLONS_PER_ACRE_FOOT_DAY = 325851;
+
 let waterAvailabilities: WaterAvailability[] = [
-    { id: 'avail_gva_1', companyId: '1', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 20000000 },
+    { id: 'avail_gva_1', companyId: '1', startDate: '2025-04-15T00:00:00.000Z', endDate: '2025-09-30T23:59:59.000Z', gallons: 169 * 6 * GALLONS_PER_ACRE_FOOT_DAY },
     { id: 'avail_sf_1', companyId: '2', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 1000000 },
     { id: 'avail_pvo_1', companyId: '3', startDate: '2025-01-01T00:00:00.000Z', endDate: '2025-12-31T23:59:59.000Z', gallons: 150 * CONVERSION_FACTORS_TO_GALLONS.volume['acre-feet'] },
 ];

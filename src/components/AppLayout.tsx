@@ -46,7 +46,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const dashboardPath = isAdminView ? '/admin' : '/';
   const isDashboardActive = pathname === dashboardPath || (isAdminView && pathname === '/admin' && pathname.length <= 7);
   const waterOrdersPath = isAdminView ? '/admin/water-orders' : '/water-orders';
-  const waterCalendarPath = "/water-calendar";
 
   return (
     <SidebarProvider>
@@ -96,17 +95,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                              <>
                                 <SidebarMenuItem>
                                     <Link href={waterOrdersPath}>
-                                        <SidebarMenuButton tooltip="Water Orders" isActive={pathname.startsWith(waterOrdersPath)}>
+                                        <SidebarMenuButton tooltip="Water Orders" isActive={pathname.startsWith(waterOrdersPath) || pathname.startsWith('/water-calendar')}>
                                         <ClipboardList />
                                         <span>Water Orders</span>
-                                        </SidebarMenuButton>
-                                    </Link>
-                                </SidebarMenuItem>
-                                <SidebarMenuItem>
-                                    <Link href={waterCalendarPath}>
-                                        <SidebarMenuButton tooltip="Water Calendar" isActive={pathname.startsWith(waterCalendarPath)}>
-                                        <Calendar />
-                                        <span>Water Calendar</span>
                                         </SidebarMenuButton>
                                     </Link>
                                 </SidebarMenuItem>
