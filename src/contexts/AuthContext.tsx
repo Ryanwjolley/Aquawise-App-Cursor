@@ -23,6 +23,7 @@ const impersonationAdminIdKey = 'impersonation_admin_id';
 const impersonationAdminRoleKey = 'impersonation_admin_role';
 const impersonationUserIdKey = 'impersonation_user_id';
 
+
 const AuthHandler = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -68,7 +69,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
         loadUser(userIdToLoad);
     }, []);
 
-    const loadUser = async (userId: string, redirect: boolean = false) => {
+    const loadUser = async (userId: string, redirect: boolean = false, wasImpersonating: boolean = false) => {
         setLoading(true);
         const user = await getUserById(userId);
         if (user) {
@@ -78,7 +79,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
                 const stillImpersonating = !!sessionStorage.getItem(impersonationAdminIdKey);
                 
                 let targetPath = '/';
-                if (user.role === 'Super Admin' && !stillImpersonating) {
+                if (user.role === 'Super Admin' && !stillImpersonating && !wasImpersonating) {
                     targetPath = '/super-admin';
                 } else if (user.role?.includes('Admin') && !stillImpersonating) {
                     targetPath = '/admin';
@@ -122,7 +123,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
             sessionStorage.removeItem(impersonationAdminRoleKey);
             sessionStorage.removeItem(impersonationUserIdKey);
             setIsImpersonating(false);
-            await loadUser(adminId, true);
+            await loadUser(adminId, true, true);
         }
     }
     
