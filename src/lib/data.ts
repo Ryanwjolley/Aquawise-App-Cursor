@@ -159,10 +159,10 @@ let allocations: Allocation[] = [
 const GALLONS_PER_ACRE_FOOT_DAY = CONVERSION_FACTORS_TO_GALLONS.rate['acre-feet-day'];
 
 let waterAvailabilities: WaterAvailability[] = [
-    { id: 'avail_gva_1', companyId: '1', startDate: '2025-04-15T00:00:00.000Z', endDate: '2025-09-30T23:59:59.000Z', gallons: 169 * 6 * GALLONS_PER_ACRE_FOOT_DAY },
+    { id: 'avail_gva_1', companyId: '1', startDate: '2025-04-15T00:00:00.000Z', endDate: '2025-09-30T23:59:59.000Z', gallons: (differenceInDays(new Date('2025-09-30'), new Date('2025-04-15')) + 1) * 6 * GALLONS_PER_ACRE_FOOT_DAY },
     { id: 'avail_sf_1', companyId: '2', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-07-31T23:59:59.000Z', gallons: 1000000 },
     // 184 days (April 1 to Oct 1) * 6 ac-ft/day
-    { id: 'avail_pvo_1', companyId: '3', startDate: '2025-04-01T00:00:00.000Z', endDate: '2025-10-01T23:59:59.000Z', gallons: 184 * 6 * GALLONS_PER_ACRE_FOOT_DAY },
+    { id: 'avail_pvo_1', companyId: '3', startDate: '2025-04-01T00:00:00.000Z', endDate: '2025-10-01T23:59:59.000Z', gallons: (differenceInDays(new Date('2025-10-01'), new Date('2025-04-01'))+1) * 6 * GALLONS_PER_ACRE_FOOT_DAY },
 ];
 
 let waterOrders: WaterOrder[] = [
@@ -303,7 +303,7 @@ const generateMockUsage = () => {
         const startDate = parseISO(order.startDate);
         const endDate = parseISO(order.endDate);
         // Add 1 to include the end day fully in the calculation
-        const totalDays = (differenceInDays(endDate, startDate) || 0) + 1;
+        const totalDays = differenceInDays(endDate, startDate) + 1;
         const dailyGallons = order.totalGallons / totalDays;
         
         let currentDate = new Date(startDate);

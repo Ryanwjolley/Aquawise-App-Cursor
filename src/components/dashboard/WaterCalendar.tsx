@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameDay, differenceInDays, parseISO } from 'date-fns';
 import { getWaterAvailabilities, getWaterOrdersByCompany, WaterAvailability, WaterOrder, getUsersByCompany, User } from '@/lib/data';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnit } from '@/contexts/UnitContext';
@@ -51,11 +51,11 @@ export function WaterCalendar() {
         
         // Calculate availability for the day
         const dayAvailability = availabilities.reduce((total, avail) => {
-          const availStart = new Date(avail.startDate);
-          const availEnd = new Date(avail.endDate);
+          const availStart = parseISO(avail.startDate);
+          const availEnd = parseISO(avail.endDate);
           if (day >= availStart && day <= availEnd) {
-             const duration = (new Date(avail.endDate).getTime() - new Date(avail.startDate).getTime()) / (1000 * 3600 * 24) + 1;
-             return total + (avail.gallons / duration);
+             const durationDays = differenceInDays(availEnd, availStart) + 1;
+             return total + (avail.gallons / durationDays);
           }
           return total;
         }, 0);
@@ -66,11 +66,11 @@ export function WaterCalendar() {
         const dayOrders: (WaterOrder & { userName?: string })[] = [];
 
         for (const order of orders) {
-          const orderStart = new Date(order.startDate);
-          const orderEnd = new Date(order.endDate);
+          const orderStart = parseISO(order.startDate);
+          const orderEnd = parseISO(order.endDate);
           if (day >= orderStart && day <= orderEnd) {
-            const duration = (new Date(order.endDate).getTime() - new Date(order.startDate).getTime()) / (1000 * 3600 * 24) + 1;
-            const dailyGallons = order.totalGallons / duration;
+            const durationDays = differenceInDays(orderEnd, orderStart) + 1;
+            const dailyGallons = order.totalGallons / durationDays;
             if (order.status === 'approved' || order.status === 'completed') {
               approvedDemand += dailyGallons;
             } else if (order.status === 'pending') {
