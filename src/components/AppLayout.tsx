@@ -36,13 +36,13 @@ function ImpersonationBanner() {
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser, isImpersonating } = useAuth();
+  const { currentUser, isImpersonating, stopImpersonating } = useAuth();
   const pathname = usePathname();
 
   const isAdminView = currentUser?.role?.includes('Admin');
   
-  const dashboardPath = isAdminView ? '/admin' : '/';
-  const isDashboardActive = isAdminView ? pathname === '/admin' : pathname === '/';
+  const dashboardPath = isAdminView && !isImpersonating ? '/admin' : '/';
+  const isDashboardActive = (isAdminView && !isImpersonating && pathname === '/admin') || (!isAdminView && pathname === '/');
 
 
   return (
@@ -68,7 +68,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </Link>
                 </SidebarMenuItem>
              
-              {isAdminView && (
+              {isAdminView && !isImpersonating && (
                 <>
                     <SidebarMenuItem>
                         <Link href="/admin/users">
@@ -138,11 +138,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="flex flex-col text-sm truncate">
                 <span className="font-semibold">{currentUser?.name}</span>
                 <span className="text-muted-foreground truncate">
-                  {currentUser?.email}
+                  {isImpersonating ? '(Impersonating)' : currentUser?.email}
                 </span>
               </div>
-              <Button variant="ghost" size="icon" className="ml-auto">
-                <LogOut />
+              <Button variant="ghost" size="icon" className="ml-auto" onClick={isImpersonating ? stopImpersonating : undefined}>
+                {isImpersonating ? <XSquare /> : <LogOut />}
               </Button>
             </div>
           </SidebarFooter>
@@ -155,4 +155,3 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-

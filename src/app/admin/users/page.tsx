@@ -17,16 +17,14 @@ import { UserForm } from "@/components/dashboard/UserForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { User, UserGroup } from "@/lib/data";
 import { addUser, updateUser, deleteUser, getUsersByCompany, getGroupsByCompany } from "@/lib/data";
-import { PlusCircle, MoreHorizontal, Eye } from "lucide-react";
+import { PlusCircle, MoreHorizontal, LogIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useRouter } from "next/navigation";
 
 export default function UserManagementPage() {
   const { currentUser, impersonateUser, company } = useAuth();
   const { toast } = useToast();
-  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<UserGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,8 +72,8 @@ export default function UserManagementPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleViewDashboard = (userId: string) => {
-    router.push(`/admin?viewUser=${userId}`);
+  const handleImpersonate = async (userId: string) => {
+    await impersonateUser(userId);
   }
 
   const handleDeleteConfirm = async () => {
@@ -169,9 +167,9 @@ export default function UserManagementPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
-                              <DropdownMenuItem onClick={() => handleViewDashboard(user.id)}>
-                                <Eye className="mr-2 h-4 w-4"/>
-                                View Dashboard
+                              <DropdownMenuItem onClick={() => handleImpersonate(user.id)}>
+                                <LogIn className="mr-2 h-4 w-4"/>
+                                Impersonate
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleEditUser(user)}>

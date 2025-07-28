@@ -56,13 +56,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [currentUser, company]);
 
   useEffect(() => {
-    // Check if we are currently impersonating on page load
     const adminId = sessionStorage.getItem(impersonationStorageKey);
+    const userIdToLoad = sessionStorage.getItem('impersonation_user_id') || defaultUserId;
+    
     if (adminId) {
         setIsImpersonating(true);
     }
-    // Load the current user (either default, or from a real auth session)
-    loadUser(defaultUserId);
+    
+    loadUser(userIdToLoad);
   }, []);
 
   const loadUser = async (userId: string, redirect: boolean = false) => {
@@ -72,12 +73,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setCurrentUser(user);
       await loadCompany(user.companyId);
        if (redirect) {
-        // If the user is only an admin, redirect to admin page, otherwise to customer page.
-        if (user.role === 'Admin') {
-          router.push('/admin');
-        } else {
-          router.push('/');
-        }
+        const targetPath = user.role === 'Admin' && !isImpersonating ? '/admin' : '/';
+        router.push(targetPath);
       }
     } else {
       setCurrentUser(null);
@@ -100,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const impersonateUser = async (userId: string) => {
     if (currentUser && !sessionStorage.getItem(impersonationStorageKey)) {
         sessionStorage.setItem(impersonationStorageKey, currentUser.id);
+        sessionStorage.setItem('impersonation_user_id', userId);
     }
     setIsImpersonating(true);
     await loadUser(userId, true);
@@ -109,6 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const adminId = sessionStorage.getItem(impersonationStorageKey);
     if (adminId) {
         sessionStorage.removeItem(impersonationStorageKey);
+        sessionStorage.removeItem('impersonation_user_id');
         setIsImpersonating(false);
         await loadUser(adminId, true);
     }
