@@ -64,8 +64,6 @@ interface AllocationFormProps {
 }
 
 
-const GAP_THRESHOLD_MINUTES = 1;
-
 const combineDateTime = (dateStr: string, timeStr: string): Date | null => {
     if (!dateStr || !timeStr || !dateStr.match(dateRegex) || !timeStr.match(timeRegex)) return null;
     return parseISO(`${dateStr}T${timeStr}:00`);
@@ -106,45 +104,44 @@ export function AllocationForm({
   }, [isOpen, company]);
 
 
-  const getInitialValues = () => {
-      const defaultUnit = company?.defaultUnit || 'gallons';
-
-      if (defaultValues) {
-        // When editing, convert the stored gallon value to the company's default display unit.
-        const displayAmount = defaultValues.gallons * (CONVERSION_FACTORS_FROM_GALLONS[defaultUnit] || 1);
-        const start = new Date(defaultValues.startDate);
-        const end = new Date(defaultValues.endDate);
-        let appliesTo = "all";
-        if(defaultValues.userId) {
-            appliesTo = defaultValues.userId;
-        } else if (defaultValues.userGroupId) {
-            appliesTo = `group_${defaultValues.userGroupId}`;
-        }
-
-        return {
-          amount: displayAmount,
-          unit: defaultUnit,
-          appliesTo: appliesTo,
-          startDate: format(start, "yyyy-MM-dd"),
-          startTime: format(start, "HH:mm"),
-          endDate: format(end, "yyyy-MM-dd"),
-          endTime: format(end, "HH:mm"),
-        };
-      }
-      return {
-        amount: 0,
-        unit: defaultUnit,
-        appliesTo: "all",
-        startDate: format(new Date(), "yyyy-MM-dd"),
-        endDate: format(new Date(), "yyyy-MM-dd"),
-        startTime: "00:00",
-        endTime: "23:59",
-      };
-  }
-
   useEffect(() => {
     if (isOpen) {
-        reset(getInitialValues());
+        const defaultUnit = company?.defaultUnit || 'gallons';
+        let initialValues;
+
+        if (defaultValues) {
+            // When editing, convert the stored gallon value to the company's default display unit.
+            const displayAmount = defaultValues.gallons * (CONVERSION_FACTORS_FROM_GALLONS[defaultUnit] || 1);
+            const start = new Date(defaultValues.startDate);
+            const end = new Date(defaultValues.endDate);
+            let appliesTo = "all";
+            if(defaultValues.userId) {
+                appliesTo = defaultValues.userId;
+            } else if (defaultValues.userGroupId) {
+                appliesTo = `group_${defaultValues.userGroupId}`;
+            }
+
+            initialValues = {
+              amount: displayAmount,
+              unit: defaultUnit,
+              appliesTo: appliesTo,
+              startDate: format(start, "yyyy-MM-dd"),
+              startTime: format(start, "HH:mm"),
+              endDate: format(end, "yyyy-MM-dd"),
+              endTime: format(end, "HH:mm"),
+            };
+        } else {
+            initialValues = {
+                amount: 0,
+                unit: defaultUnit,
+                appliesTo: "all",
+                startDate: format(new Date(), "yyyy-MM-dd"),
+                endDate: format(new Date(), "yyyy-MM-dd"),
+                startTime: "00:00",
+                endTime: "23:59",
+            };
+        }
+        reset(initialValues);
     }
   }, [isOpen, defaultValues, reset, company]);
   
@@ -194,7 +191,7 @@ export function AllocationForm({
       if (allocationsBefore.length > 0) {
         const lastAllocation = allocationsBefore[0];
         const gap = differenceInMinutes(newStart, new Date(lastAllocation.endDate));
-        if (gap > GAP_THRESHOLD_MINUTES) {
+        if (gap > 0) { // Any positive gap
           setGapWarning(`There is a gap of ${gap} minutes since the last allocation, which ended on ${format(new Date(lastAllocation.endDate), 'P p')}.`);
         } else {
             setGapWarning(null);
