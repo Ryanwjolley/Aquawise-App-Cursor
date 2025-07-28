@@ -120,7 +120,7 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
           <DialogHeader>
             <DialogTitle>Notification Settings</DialogTitle>
             <DialogDescription>
-              Configure automated alerts for important usage events.
+              Configure automated alerts. Alerts are sent to the administrator and to the user based on their individual notification preferences.
             </DialogDescription>
           </DialogHeader>
 
@@ -191,12 +191,12 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                         </Button>
                     </div>
                      <div>
-                        <Label htmlFor="threshold-email">Send alert to email</Label>
+                        <Label htmlFor="threshold-email">Send admin alert to email</Label>
                         <Controller
                             name="thresholdAlerts.email"
                             control={control}
                             render={({ field }) => (
-                                <Input id="threshold-email" type="email" placeholder="recipient@example.com" {...field} disabled={!watchedThresholdEnabled} />
+                                <Input id="threshold-email" type="email" placeholder="admin-recipient@example.com" {...field} disabled={!watchedThresholdEnabled} />
                             )}
                         />
                          {errors.thresholdAlerts?.email && <p className="text-sm text-destructive pt-1">{errors.thresholdAlerts.email.message}</p>}
@@ -236,12 +236,12 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
                          {errors.spikeAlerts?.percentage && <p className="text-sm text-destructive pt-1">{errors.spikeAlerts.percentage.message}</p>}
                     </div>
                      <div>
-                        <Label htmlFor="spike-email">Send alert to email</Label>
+                        <Label htmlFor="spike-email">Send admin alert to email</Label>
                         <Controller
                             name="spikeAlerts.email"
                             control={control}
                             render={({ field }) => (
-                                <Input id="spike-email" type="email" placeholder="recipient@example.com" {...field} disabled={!watchedSpikeEnabled} />
+                                <Input id="spike-email" type="email" placeholder="admin-recipient@example.com" {...field} disabled={!watchedSpikeEnabled} />
                             )}
                         />
                          {errors.spikeAlerts?.email && <p className="text-sm text-destructive pt-1">{errors.spikeAlerts.email.message}</p>}
@@ -264,5 +264,3 @@ export function NotificationsSetup({ isOpen, onOpenChange, onSave }: Notificatio
     </Dialog>
   );
 }
-
-    

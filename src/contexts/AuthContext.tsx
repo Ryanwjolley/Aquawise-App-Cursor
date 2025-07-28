@@ -29,6 +29,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const defaultUserId = '101'; // Alice Johnson (Admin & Customer)
 
   useEffect(() => {
+    const handleUserUpdate = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        const updatedUser = customEvent.detail as User;
+        if (currentUser && updatedUser.id === currentUser.id) {
+            setCurrentUser(updatedUser);
+        }
+    };
+
+    window.addEventListener('user-updated', handleUserUpdate);
+    return () => {
+        window.removeEventListener('user-updated', handleUserUpdate);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
     // Check if we are currently impersonating on page load
     const adminId = sessionStorage.getItem(impersonationStorageKey);
     if (adminId) {

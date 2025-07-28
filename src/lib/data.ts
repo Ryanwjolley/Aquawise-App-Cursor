@@ -15,6 +15,7 @@ export type User = {
   role: 'Admin' | 'Customer' | 'Admin & Customer';
   companyId: string;
   shares?: number;
+  notificationPreference: 'email' | 'mobile';
 };
 
 export type UsageEntry = {
@@ -41,18 +42,18 @@ const companies: Company[] = [
 
 let users: User[] = [
   // Golden Valley Agriculture
-  { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', mobileNumber: '555-0101', role: 'Admin & Customer', companyId: '1', shares: 50 },
-  { id: '102', name: 'Bob Williams', email: 'bob@gva.com', mobileNumber: '555-0102', role: 'Customer', companyId: '1', shares: 10 },
-  { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', mobileNumber: '555-0103', role: 'Customer', companyId: '1', shares: 15 },
-  { id: '104', name: 'David Garcia', email: 'david@gva.com', mobileNumber: '555-0104', role: 'Customer', companyId: '1', shares: 11 },
-  { id: '105', name: 'Emily Clark', email: 'emily@gva.com', role: 'Customer', companyId: '1', shares: 20 },
-  { id: '106', name: 'Frank Miller', email: 'frank@gva.com', role: 'Customer', companyId: '1', shares: 5 },
-  { id: '107', name: 'Grace Hall', email: 'grace@gva.com', role: 'Customer', companyId: '1', shares: 8 },
+  { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', mobileNumber: '555-0101', role: 'Admin & Customer', companyId: '1', shares: 50, notificationPreference: 'email' },
+  { id: '102', name: 'Bob Williams', email: 'bob@gva.com', mobileNumber: '555-0102', role: 'Customer', companyId: '1', shares: 10, notificationPreference: 'mobile' },
+  { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', mobileNumber: '555-0103', role: 'Customer', companyId: '1', shares: 15, notificationPreference: 'email' },
+  { id: '104', name: 'David Garcia', email: 'david@gva.com', mobileNumber: '555-0104', role: 'Customer', companyId: '1', shares: 11, notificationPreference: 'email' },
+  { id: '105', name: 'Emily Clark', email: 'emily@gva.com', role: 'Customer', companyId: '1', shares: 20, notificationPreference: 'email' },
+  { id: '106', name: 'Frank Miller', email: 'frank@gva.com', role: 'Customer', companyId: '1', shares: 5, notificationPreference: 'mobile' },
+  { id: '107', name: 'Grace Hall', email: 'grace@gva.com', role: 'Customer', companyId: '1', shares: 8, notificationPreference: 'email' },
 
   // Sunrise Farms
-  { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', mobileNumber: '555-0201', role: 'Admin', companyId: '2' },
-  { id: '202', name: 'Evan Davis', email: 'evan@sunrise.com', role: 'Customer', companyId: '2', shares: 12 },
-  { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', mobileNumber: '555-0203', role: 'Customer', companyId: '2', shares: 18 },
+  { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', mobileNumber: '555-0201', role: 'Admin', companyId: '2', notificationPreference: 'email' },
+  { id: '202', name: 'Evan Davis', email: 'evan@sunrise.com', role: 'Customer', companyId: '2', shares: 12, notificationPreference: 'email' },
+  { id: '203', name: 'Fiona White', email: 'fiona@sunrise.com', mobileNumber: '555-0203', role: 'Customer', companyId: '2', shares: 18, notificationPreference: 'mobile' },
 ];
 
 let allocations: Allocation[] = [
@@ -162,6 +163,11 @@ export const updateUser = async (updatedUser: User): Promise<User> => {
     const index = users.findIndex(u => u.id === updatedUser.id);
     if (index === -1) throw new Error("User not found");
     users[index] = updatedUser;
+    // This is a bit of a hack to force a re-render in the AuthContext
+    // In a real app with a proper state management library, this would be handled differently.
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('user-updated', { detail: updatedUser }));
+    }
     return Promise.resolve(updatedUser);
 };
 
@@ -252,8 +258,3 @@ export const deleteAllocation = async (allocationId: string): Promise<void> => {
     allocations = allocations.filter(a => a.id !== allocationId);
     return Promise.resolve();
 };
-
-
-    
-
-    

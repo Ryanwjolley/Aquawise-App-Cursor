@@ -1,3 +1,4 @@
+
 // /src/components/AppLayout.tsx
 "use client";
 
@@ -56,6 +57,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarContent>
             <SidebarMenu>
               {isCustomerView && (
+                <>
                 <SidebarMenuItem>
                   <Link href="/">
                     <SidebarMenuButton tooltip="My Usage" isActive={pathname === '/'}>
@@ -64,6 +66,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <Link href="/settings">
+                        <SidebarMenuButton tooltip="Settings" isActive={pathname.startsWith('/settings')}>
+                            <Settings />
+                            <span>Settings</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </SidebarMenuItem>
+                </>
               )}
               {isAdminView && (
                 <>

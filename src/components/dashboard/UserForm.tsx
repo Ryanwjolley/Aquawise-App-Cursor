@@ -37,6 +37,9 @@ const userFormSchema = z.object({
     required_error: "Please select a role.",
   }),
   shares: z.coerce.number().int().min(0, "Shares must be a positive number.").optional(),
+  notificationPreference: z.enum(["email", "mobile"], {
+    required_error: "Please select a notification preference.",
+  }),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -67,6 +70,7 @@ export function UserForm({
       mobileNumber: "",
       role: "Customer",
       shares: 0,
+      notificationPreference: "email",
     },
   });
 
@@ -78,10 +82,11 @@ export function UserForm({
             mobileNumber: defaultValues?.mobileNumber || "",
             role: defaultValues?.role || "Customer",
             shares: defaultValues?.shares || 0,
+            notificationPreference: defaultValues?.notificationPreference || "email",
         };
         reset(valuesToReset);
     } else {
-      reset({ name: "", email: "", role: "Customer", shares: 0, mobileNumber: "" });
+      reset({ name: "", email: "", role: "Customer", shares: 0, mobileNumber: "", notificationPreference: "email" });
     }
   }, [isOpen, defaultValues, reset]);
 
@@ -172,6 +177,27 @@ export function UserForm({
                         <p className="text-sm text-destructive">{errors.shares.message}</p>
                     )}
                 </div>
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor="notificationPreference">Notification Preference</Label>
+                 <Controller
+                    name="notificationPreference"
+                    control={control}
+                    render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                        <SelectValue placeholder="Select a preference" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="mobile">Mobile (SMS)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    )}
+                />
+                {errors.notificationPreference && (
+                    <p className="text-sm text-destructive">{errors.notificationPreference.message}</p>
+                )}
             </div>
           </div>
           <SheetFooter>

@@ -127,13 +127,14 @@ export default function UserManagementPage() {
                   <TableHead>Mobile</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Shares</TableHead>
+                  <TableHead>Notification</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center">
+                    <TableCell colSpan={7} className="text-center">
                       Loading users...
                     </TableCell>
                   </TableRow>
@@ -145,6 +146,7 @@ export default function UserManagementPage() {
                       <TableCell>{user.mobileNumber || 'N/A'}</TableCell>
                       <TableCell>{user.role}</TableCell>
                       <TableCell>{user.shares ?? 0}</TableCell>
+                      <TableCell className="capitalize">{user.notificationPreference}</TableCell>
                       <TableCell className="text-right">
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
