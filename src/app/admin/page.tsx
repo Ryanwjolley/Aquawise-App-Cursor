@@ -6,8 +6,8 @@ import { AppLayout } from "@/components/AppLayout";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Droplets, TrendingUp, Users, Target } from "lucide-react";
-import type { UsageEntry, Allocation, User as UserType } from "@/lib/data";
-import { getUsageForUser, getAllocationsForUser, getUsersByCompany, getUserById } from "@/lib/data";
+import type { UsageEntry, Allocation, User as UserType, UserGroup } from "@/lib/data";
+import { getUsageForUser, getAllocationsForUser, getUsersByCompany, getUserById, getGroupsByCompany } from "@/lib/data";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,16 +20,17 @@ import { UserDashboard } from "@/components/dashboard/UserDashboard";
 import { useUnit } from "@/contexts/UnitContext";
 
 
-// A component to render the aggregate company view
-function AggregateDashboard({ company, companyUsers, allUsageData, queryRange }) {
+// A component to render the aggregate company or group view
+function AggregateDashboard({ title, users, allUsageData, queryRange }) {
     const { convertUsage, getUnitLabel } = useUnit();
-    const allUsageEntries = Object.values(allUsageData).flat();
-    const totalCompanyUsage = allUsageEntries.reduce((acc, entry) => acc + entry.usage, 0);
-    const totalUsers = companyUsers.length;
-    const avgUserUsage = totalUsers > 0 ? totalCompanyUsage / totalUsers : 0;
-    const totalCompanyShares = companyUsers.reduce((acc, user) => acc + (user.shares || 0), 0);
+    const allUsageEntries = users.map(u => allUsageData[u.id] || []).flat();
+
+    const totalUsage = allUsageEntries.reduce((acc, entry) => acc + entry.usage, 0);
+    const totalUsers = users.length;
+    const avgUserUsage = totalUsers > 0 ? totalUsage / totalUsers : 0;
+    const totalShares = users.reduce((acc, user) => acc + (user.shares || 0), 0);
     
-    const donutChartData = companyUsers.map(user => {
+    const donutChartData = users.map(user => {
         const userUsage = allUsageData[user.id]?.reduce((sum, entry) => sum + entry.usage, 0) || 0;
         const userColor = `hsl(var(--chart-${(parseInt(user.id, 16) % 5) + 1}))`;
         return {
@@ -54,32 +55,32 @@ function AggregateDashboard({ company, companyUsers, allUsageData, queryRange })
         <>
             <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">
-                    {company?.name} Dashboard
+                    {title}
                 </h2>
-                {totalCompanyShares > 0 && (
+                {totalShares > 0 && (
                      <div className="text-lg text-muted-foreground font-medium">
-                        Total Shares: {totalCompanyShares.toLocaleString()}
+                        Total Shares: {totalShares.toLocaleString()}
                     </div>
                 )}
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <MetricCard 
-                    title="Total Company Usage" 
-                    metric={`${convertUsage(totalCompanyUsage).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`}
+                    title="Total Usage" 
+                    metric={`${convertUsage(totalUsage).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`}
                     icon={Droplets} 
-                    description="Total water used across all users" 
+                    description="Total water used across all users in this view" 
                 />
                 <MetricCard 
                     title="Average User Usage" 
                     metric={`${convertUsage(avgUserUsage).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${getUnitLabel()}`} 
                     icon={TrendingUp} 
-                    description="Average usage per user in period" 
+                    description="Average usage per user in this view" 
                 />
                 <MetricCard 
                     title="Active Users" 
                     metric={totalUsers.toString()}
                     icon={Users}
-                    description="Total users in the company"
+                    description="Total users in this view"
                 />
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -100,7 +101,8 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   
   const [companyUsers, setCompanyUsers] = useState<UserType[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
+  const [selectedView, setSelectedView] = useState<string>('all');
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
   const [allUsageData, setAllUsageData] = useState<Record<string, UsageEntry[]>>({});
   const [allAllocations, setAllAllocations] = useState<Record<string, Allocation[]>>({});
@@ -115,7 +117,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const viewUserId = searchParams.get('viewUser');
     if (viewUserId) {
-        setSelectedUserId(viewUserId);
+        setSelectedView(viewUserId);
         // Clean up URL
         router.replace('/admin');
     }
@@ -134,6 +136,11 @@ export default function AdminDashboardPage() {
         
         const users = await getUsersByCompany(currentUser.companyId);
         setCompanyUsers(users);
+
+        if (company?.userGroupsEnabled) {
+            const groups = await getGroupsByCompany(currentUser.companyId);
+            setUserGroups(groups);
+        }
 
         const usagePromises = users.map(user => getUsageForUser(user.id, fromDate, toDate));
         const allocationPromises = users.map(user => getAllocationsForUser(user.id));
@@ -161,20 +168,20 @@ export default function AdminDashboardPage() {
     };
 
     fetchData();
-  }, [currentUser, queryRange]);
+  }, [currentUser, company, queryRange]);
 
   // Update selected user object when ID changes
   useEffect(() => {
-    if (selectedUserId === 'all') {
+    if (selectedView === 'all' || selectedView.startsWith('group_')) {
         setSelectedUser(null);
     } else {
-        getUserById(selectedUserId).then(setSelectedUser);
+        getUserById(selectedView).then(setSelectedUser);
     }
-  }, [selectedUserId])
+  }, [selectedView])
   
 
-  const handleUserSelect = (userId: string) => {
-    setSelectedUserId(userId);
+  const handleViewSelect = (viewId: string) => {
+    setSelectedView(viewId);
   }
 
   const renderContent = () => {
@@ -198,13 +205,20 @@ export default function AdminDashboardPage() {
         )
     }
     
-    if (selectedUserId === 'all') {
-        return <AggregateDashboard company={company} companyUsers={companyUsers} allUsageData={allUsageData} queryRange={queryRange} />;
+    if (selectedView === 'all') {
+        return <AggregateDashboard title={`${company?.name} Dashboard`} users={companyUsers} allUsageData={allUsageData} queryRange={queryRange} />;
+    }
+
+    if (selectedView.startsWith('group_')) {
+        const groupId = selectedView.replace('group_', '');
+        const group = userGroups.find(g => g.id === groupId);
+        const groupUsers = companyUsers.filter(u => u.userGroupId === groupId);
+        return <AggregateDashboard title={`${group?.name} Group Dashboard`} users={groupUsers} allUsageData={allUsageData} queryRange={queryRange} />;
     }
     
     if (selectedUser) {
-        const userUsage = allUsageData[selectedUserId] || [];
-        const userAllocations = allAllocations[selectedUserId] || [];
+        const userUsage = allUsageData[selectedView] || [];
+        const userAllocations = allAllocations[selectedView] || [];
         return (
             <UserDashboard 
                 user={selectedUser} 
@@ -215,11 +229,11 @@ export default function AdminDashboardPage() {
         );
     }
 
-    return <div>Select a user to begin.</div>;
+    return <div>Select a user or group to begin.</div>;
   }
   
   const companyWideAllocations = allAllocations[Object.keys(allAllocations)[0]] || [];
-  const currentAllocations = selectedUser ? allAllocations[selectedUserId] || [] : companyWideAllocations;
+  const currentAllocations = selectedUser ? allAllocations[selectedView] || [] : companyWideAllocations;
 
   return (
     <AppLayout>
@@ -229,9 +243,10 @@ export default function AdminDashboardPage() {
             <div className="hidden md:flex items-center space-x-2">
                  <UserSelector 
                     users={companyUsers}
-                    onUserChange={handleUserSelect}
+                    userGroups={company?.userGroupsEnabled ? userGroups : []}
+                    onUserChange={handleViewSelect}
                     showAllOption={true}
-                    defaultValue={selectedUserId}
+                    defaultValue={selectedView}
                     triggerLabel="View Dashboard For..."
                  />
                  <DateRangeSelector 

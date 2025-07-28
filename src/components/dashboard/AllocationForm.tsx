@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import {
   Sheet,
@@ -18,16 +17,18 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { Allocation, User } from "@/lib/data";
+import type { Allocation, User, UserGroup } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, differenceInMinutes, addMinutes, subMinutes, parseISO } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import { useUnit } from "@/contexts/UnitContext";
+import { getGroupsByCompany } from "@/lib/data";
 
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -39,7 +40,7 @@ const allocationFormSchema = z.object({
   startTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   endTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }),
-  userId: z.string().min(1, { message: "Please select who this applies to." }),
+  appliesTo: z.string().min(1, { message: "Please select who this applies to." }),
 }).refine(data => {
     const start = combineDateTime(data.startDate, data.startTime);
     const end = combineDateTime(data.endDate, data.endTime);
@@ -81,7 +82,8 @@ export function AllocationForm({
   const { unit, convertUsage, getUnitLabel } = useUnit();
   const [overlapWarning, setOverlapWarning] = useState<string | null>(null);
   const [gapWarning, setGapWarning] = useState<string | null>(null);
-
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
+  
   const unitLabel = getUnitLabel();
   
   const {
@@ -96,15 +98,31 @@ export function AllocationForm({
 
   const watchedValues = watch();
   
+  useEffect(() => {
+    if (isOpen && company?.userGroupsEnabled && company.id) {
+        getGroupsByCompany(company.id).then(setUserGroups);
+    } else {
+        setUserGroups([]);
+    }
+  }, [isOpen, company]);
+
+
   const getInitialValues = () => {
       if (defaultValues) {
         // Convert the stored gallon value to the company's default unit for display
         const displayAmount = convertUsage(defaultValues.gallons);
         const start = new Date(defaultValues.startDate);
         const end = new Date(defaultValues.endDate);
+        let appliesTo = "all";
+        if(defaultValues.userId) {
+            appliesTo = defaultValues.userId;
+        } else if (defaultValues.userGroupId) {
+            appliesTo = `group_${defaultValues.userGroupId}`;
+        }
+
         return {
           amount: displayAmount,
-          userId: defaultValues.userId || "all",
+          appliesTo: appliesTo,
           startDate: format(start, "yyyy-MM-dd"),
           startTime: format(start, "HH:mm"),
           endDate: format(end, "yyyy-MM-dd"),
@@ -113,7 +131,7 @@ export function AllocationForm({
       }
       return {
         amount: 0,
-        userId: "all",
+        appliesTo: "all",
         startDate: format(new Date(), "yyyy-MM-dd"),
         endDate: format(new Date(), "yyyy-MM-dd"),
         startTime: "00:00",
@@ -138,8 +156,17 @@ export function AllocationForm({
          return;
       }
       
+      const isGroupAllocation = watchedValues.appliesTo?.startsWith('group_');
+      const userId = !isGroupAllocation && watchedValues.appliesTo !== 'all' ? watchedValues.appliesTo : undefined;
+      const groupId = isGroupAllocation ? watchedValues.appliesTo.replace('group_', '') : undefined;
+
+
       const relevantAllocations = existingAllocations.filter(alloc => 
-        ((watchedValues.userId === 'all' && !alloc.userId) || (alloc.userId === watchedValues.userId)) &&
+        (
+            (!userId && !groupId && !alloc.userId && !alloc.userGroupId) || // Both are "All users"
+            (userId && alloc.userId === userId) || // Same user
+            (groupId && alloc.userGroupId === groupId) // Same group
+        ) &&
         alloc.id !== defaultValues?.id // Exclude the one being edited
       );
 
@@ -205,11 +232,16 @@ export function AllocationForm({
     };
     const totalGallons = data.amount * (conversionFactors[unit] || 1);
 
+    const isGroupAllocation = data.appliesTo.startsWith('group_');
+    const userId = !isGroupAllocation && data.appliesTo !== 'all' ? data.appliesTo : undefined;
+    const userGroupId = isGroupAllocation ? data.appliesTo.replace('group_', '') : undefined;
+
     onSubmit({
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         gallons: totalGallons,
-        userId: data.userId === 'all' ? undefined : data.userId
+        userId: userId,
+        userGroupId: userGroupId,
     });
   }
 
@@ -310,26 +342,37 @@ export function AllocationForm({
             </div>
 
             <div className="grid gap-2 pl-5">
-              <Label htmlFor="user">Applies To</Label>
+              <Label htmlFor="appliesTo">Applies To</Label>
               <Controller
-                name="userId"
+                name="appliesTo"
                 control={control}
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a user" />
+                      <SelectValue placeholder="Select a user or group" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Users</SelectItem>
-                      {companyUsers.map(user => (
-                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                      ))}
+                      {company?.userGroupsEnabled && userGroups.length > 0 && (
+                        <SelectGroup>
+                            <Label className="px-2 py-1.5 text-xs">Groups</Label>
+                             {userGroups.map(group => (
+                                <SelectItem key={group.id} value={`group_${group.id}`}>{group.name}</SelectItem>
+                            ))}
+                        </SelectGroup>
+                      )}
+                      <SelectGroup>
+                        <Label className="px-2 py-1.5 text-xs">Users</Label>
+                         {companyUsers.map(user => (
+                            <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                        ))}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 )}
               />
-              {errors.userId && (
-                <p className="text-sm text-destructive">{errors.userId.message}</p>
+              {errors.appliesTo && (
+                <p className="text-sm text-destructive">{errors.appliesTo.message}</p>
               )}
             </div>
           </div>

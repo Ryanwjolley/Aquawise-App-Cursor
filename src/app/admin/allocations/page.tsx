@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/table";
 import { AllocationForm } from "@/components/dashboard/AllocationForm";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Allocation, User } from "@/lib/data";
-import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById } from "@/lib/data";
+import type { Allocation, User, UserGroup } from "@/lib/data";
+import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById, getGroupsByCompany } from "@/lib/data";
 import { sendAllocationNotificationEmail } from "@/lib/actions";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +31,7 @@ export default function AllocationPage() {
   const { toast } = useToast();
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [companyUsers, setCompanyUsers] = useState<User[]>([]);
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAllocation, setEditingAllocation] = useState<Allocation | undefined>(undefined);
@@ -42,16 +43,26 @@ export default function AllocationPage() {
 
   const userMap = new Map(companyUsers.map(u => [u.id, u.name]));
   userMap.set('all', 'All Users');
+  const groupMap = new Map(userGroups.map(g => [g.id, g.name]));
+
 
   const fetchAndSetData = async () => {
     if (!currentUser?.companyId) return;
     setLoading(true);
-    const [allocs, users] = await Promise.all([
+    let requests: [Promise<Allocation[]>, Promise<User[]>, Promise<UserGroup[]>?] = [
       getAllocationsByCompany(currentUser.companyId),
       getUsersByCompany(currentUser.companyId),
-    ]);
+    ];
+    if (company?.userGroupsEnabled) {
+        requests.push(getGroupsByCompany(currentUser.companyId));
+    }
+    
+    const [allocs, users, groups] = await Promise.all(requests);
+    
     setAllocations(allocs.sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()));
     setCompanyUsers(users);
+    setUserGroups(groups || []);
+
     setLoading(false);
   };
   
@@ -59,7 +70,7 @@ export default function AllocationPage() {
     if (currentUser?.companyId) {
         fetchAndSetData();
     }
-  }, [currentUser]);
+  }, [currentUser, company]);
 
   const handleNewAllocation = () => {
     setEditingAllocation(undefined);
@@ -110,10 +121,12 @@ export default function AllocationPage() {
     if (notificationSettings.allocationChangeAlerts.enabled) {
         try {
             let recipients: User[] = [];
-            // We only need to fetch users if sending to all, otherwise we can get from the form's companyUsers list.
-            if (savedAllocation.userId) {
+            
+            if(savedAllocation.userId) {
                 const user = companyUsers.find(u => u.id === savedAllocation.userId);
                 if (user) recipients.push(user);
+            } else if (savedAllocation.userGroupId) {
+                recipients = companyUsers.filter(u => u.userGroupId === savedAllocation.userGroupId);
             } else {
                 recipients = companyUsers;
             }
@@ -140,6 +153,16 @@ export default function AllocationPage() {
     setEditingAllocation(undefined);
     fetchAndSetData(); // Refresh the list
   };
+  
+  const getAppliesToName = (alloc: Allocation): string => {
+    if (alloc.userId) {
+        return userMap.get(alloc.userId) ?? 'Unknown User';
+    }
+    if (alloc.userGroupId) {
+        return groupMap.get(alloc.userGroupId) ?? 'Unknown Group';
+    }
+    return 'All Users';
+  }
 
   return (
     <AppLayout>
@@ -177,7 +200,7 @@ export default function AllocationPage() {
                 ) : allocations.length > 0 ? (
                   allocations.map((alloc) => (
                     <TableRow key={alloc.id}>
-                      <TableCell className="font-medium">{userMap.get(alloc.userId || 'all') ?? 'Unknown User'}</TableCell>
+                      <TableCell className="font-medium">{getAppliesToName(alloc)}</TableCell>
                       <TableCell>{format(new Date(alloc.startDate), 'P p')} - {format(new Date(alloc.endDate), 'P p')}</TableCell>
                       <TableCell>{convertUsage(alloc.gallons).toLocaleString()}</TableCell>
                       <TableCell className="text-right">

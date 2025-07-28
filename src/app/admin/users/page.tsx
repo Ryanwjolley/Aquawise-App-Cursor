@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/table";
 import { UserForm } from "@/components/dashboard/UserForm";
 import { useAuth } from "@/contexts/AuthContext";
-import type { User } from "@/lib/data";
-import { addUser, updateUser, deleteUser, getUsersByCompany } from "@/lib/data";
+import type { User, UserGroup } from "@/lib/data";
+import { addUser, updateUser, deleteUser, getUsersByCompany, getGroupsByCompany } from "@/lib/data";
 import { PlusCircle, MoreHorizontal, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -24,30 +24,40 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useRouter } from "next/navigation";
 
 export default function UserManagementPage() {
-  const { currentUser, impersonateUser } = useAuth();
+  const { currentUser, impersonateUser, company } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
+  const [groups, setGroups] = useState<UserGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
+  const groupMap = new Map(groups.map(g => [g.id, g.name]));
 
-  const fetchUsers = async () => {
+  const fetchUsersAndGroups = async () => {
     if (!currentUser?.companyId) return;
     setLoading(true);
     const userList = await getUsersByCompany(currentUser.companyId);
     setUsers(userList.filter(u => u.id !== currentUser.id)); // Exclude current admin from the list
+
+    if (company?.userGroupsEnabled) {
+      const groupList = await getGroupsByCompany(currentUser.companyId);
+      setGroups(groupList);
+    } else {
+      setGroups([]);
+    }
+
     setLoading(false);
   };
 
   useEffect(() => {
     if (currentUser?.companyId) {
-        fetchUsers();
+        fetchUsersAndGroups();
     }
-  }, [currentUser]);
+  }, [currentUser, company]);
 
   const handleAddUser = () => {
     setEditingUser(undefined);
@@ -75,7 +85,7 @@ export default function UserManagementPage() {
       title: "User Deleted",
       description: `${userToDelete.name} has been successfully removed.`,
     });
-    fetchUsers();
+    fetchUsersAndGroups();
     setIsDeleteDialogOpen(false);
     setUserToDelete(null);
   };
@@ -83,14 +93,19 @@ export default function UserManagementPage() {
   const handleFormSubmit = async (data: Omit<User, 'id' | 'companyId'>) => {
     if (!currentUser?.companyId) return;
     
+    const userData = {
+        ...data,
+        userGroupId: data.userGroupId || undefined, // Ensure empty string becomes undefined
+    };
+
     if (editingUser) {
-      await updateUser({ ...data, id: editingUser.id, companyId: editingUser.companyId });
+      await updateUser({ ...userData, id: editingUser.id, companyId: editingUser.companyId });
       toast({
         title: "User Updated",
         description: "The user's details have been successfully saved.",
       });
     } else {
-      await addUser({ ...data, companyId: currentUser.companyId });
+      await addUser({ ...userData, companyId: currentUser.companyId });
       toast({
         title: "User Added",
         description: "The new user has been successfully created.",
@@ -99,7 +114,7 @@ export default function UserManagementPage() {
 
     setIsFormOpen(false);
     setEditingUser(undefined);
-    fetchUsers(); // Refresh the user list
+    fetchUsersAndGroups(); // Refresh the user list
   };
 
   return (
@@ -124,6 +139,7 @@ export default function UserManagementPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
+                  {company?.userGroupsEnabled && <TableHead>Group</TableHead>}
                   <TableHead>Mobile</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Shares</TableHead>
@@ -134,7 +150,7 @@ export default function UserManagementPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center">
+                    <TableCell colSpan={company?.userGroupsEnabled ? 8 : 7} className="text-center">
                       Loading users...
                     </TableCell>
                   </TableRow>
@@ -143,6 +159,7 @@ export default function UserManagementPage() {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.name}</TableCell>
                       <TableCell>{user.email}</TableCell>
+                      {company?.userGroupsEnabled && <TableCell>{user.userGroupId ? groupMap.get(user.userGroupId) : 'N/A'}</TableCell>}
                       <TableCell>{user.mobileNumber || 'N/A'}</TableCell>
                       <TableCell>{user.role}</TableCell>
                       <TableCell>{user.shares ?? 0}</TableCell>

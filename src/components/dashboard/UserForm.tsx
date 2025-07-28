@@ -1,4 +1,3 @@
-
 import {
   Sheet,
   SheetContent,
@@ -21,8 +20,11 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { User } from "@/lib/data";
-import { useEffect } from "react";
+import type { User, UserGroup } from "@/lib/data";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { getGroupsByCompany } from "@/lib/data";
+
 
 const phoneRegex = new RegExp(
   /^([+]?[\s0-9]+)?(\d{3}|[(]?[0-9]+[)])?([-]?[\s]?[0-9])+$/
@@ -40,6 +42,7 @@ const userFormSchema = z.object({
   notificationPreference: z.enum(["email", "mobile"], {
     required_error: "Please select a notification preference.",
   }),
+  userGroupId: z.string().optional(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -57,6 +60,9 @@ export function UserForm({
   onSubmit,
   defaultValues,
 }: UserFormProps) {
+  const { company } = useAuth();
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
+
   const {
     handleSubmit,
     control,
@@ -71,8 +77,17 @@ export function UserForm({
       role: "Customer",
       shares: 0,
       notificationPreference: "email",
+      userGroupId: undefined,
     },
   });
+
+  useEffect(() => {
+    if (company?.userGroupsEnabled && company.id) {
+        getGroupsByCompany(company.id).then(setUserGroups);
+    } else {
+        setUserGroups([]);
+    }
+  }, [company])
 
   useEffect(() => {
     if (isOpen) {
@@ -83,10 +98,11 @@ export function UserForm({
             role: defaultValues?.role || "Customer",
             shares: defaultValues?.shares || 0,
             notificationPreference: defaultValues?.notificationPreference || "email",
+            userGroupId: defaultValues?.userGroupId || undefined,
         };
         reset(valuesToReset);
     } else {
-      reset({ name: "", email: "", role: "Customer", shares: 0, mobileNumber: "", notificationPreference: "email" });
+      reset({ name: "", email: "", role: "Customer", shares: 0, mobileNumber: "", notificationPreference: "email", userGroupId: undefined });
     }
   }, [isOpen, defaultValues, reset]);
 
@@ -178,6 +194,31 @@ export function UserForm({
                     )}
                 </div>
             </div>
+            {company?.userGroupsEnabled && (
+                 <div className="grid gap-2">
+                    <Label htmlFor="userGroupId">User Group</Label>
+                    <Controller
+                        name="userGroupId"
+                        control={control}
+                        render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a group (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">None</SelectItem>
+                                {userGroups.map(group => (
+                                    <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        )}
+                    />
+                    {errors.userGroupId && (
+                        <p className="text-sm text-destructive">{errors.userGroupId.message}</p>
+                    )}
+                </div>
+            )}
             <div className="grid gap-2">
                 <Label htmlFor="notificationPreference">Notification Preference</Label>
                  <Controller

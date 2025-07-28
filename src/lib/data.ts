@@ -1,4 +1,3 @@
-
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 
@@ -15,6 +14,7 @@ export type Company = {
   id: string;
   name: string;
   defaultUnit: Unit;
+  userGroupsEnabled: boolean;
 };
 
 export type User = {
@@ -26,7 +26,14 @@ export type User = {
   companyId: string;
   shares?: number;
   notificationPreference: 'email' | 'mobile';
+  userGroupId?: string;
 };
+
+export type UserGroup = {
+    id: string;
+    name: string;
+    companyId: string;
+}
 
 export type UsageEntry = {
   id: string;
@@ -42,23 +49,30 @@ export type Allocation = {
     endDate: string; // ISO 8601 format
     gallons: number;
     userId?: string; // If undefined, applies to all users in the company
+    userGroupId?: string; 
 };
 
 
 let companies: Company[] = [
-  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'gallons' },
-  { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet' },
+  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'gallons', userGroupsEnabled: true },
+  { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet', userGroupsEnabled: false },
+];
+
+let userGroups: UserGroup[] = [
+    { id: 'group1', name: 'Northern Fields', companyId: '1'},
+    { id: 'group2', name: 'Southern Fields', companyId: '1'},
+    { id: 'group3', name: 'Well 5', companyId: '1'},
 ];
 
 let users: User[] = [
   // Golden Valley Agriculture
   { id: '101', name: 'Alice Johnson', email: 'alice@gva.com', mobileNumber: '555-0101', role: 'Admin & Customer', companyId: '1', shares: 50, notificationPreference: 'email' },
-  { id: '102', name: 'Bob Williams', email: 'bob@gva.com', mobileNumber: '555-0102', role: 'Customer', companyId: '1', shares: 10, notificationPreference: 'mobile' },
-  { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', mobileNumber: '555-0103', role: 'Customer', companyId: '1', shares: 15, notificationPreference: 'email' },
-  { id: '104', name: 'David Garcia', email: 'david@gva.com', mobileNumber: '555-0104', role: 'Customer', companyId: '1', shares: 11, notificationPreference: 'email' },
-  { id: '105', name: 'Emily Clark', email: 'emily@gva.com', role: 'Customer', companyId: '1', shares: 20, notificationPreference: 'email' },
-  { id: '106', name: 'Frank Miller', email: 'frank@gva.com', role: 'Customer', companyId: '1', shares: 5, notificationPreference: 'mobile' },
-  { id: '107', name: 'Grace Hall', email: 'grace@gva.com', role: 'Customer', companyId: '1', shares: 8, notificationPreference: 'email' },
+  { id: '102', name: 'Bob Williams', email: 'bob@gva.com', mobileNumber: '555-0102', role: 'Customer', companyId: '1', shares: 10, notificationPreference: 'mobile', userGroupId: 'group1' },
+  { id: '103', name: 'Charlie Brown', email: 'charlie@gva.com', mobileNumber: '555-0103', role: 'Customer', companyId: '1', shares: 15, notificationPreference: 'email', userGroupId: 'group1' },
+  { id: '104', name: 'David Garcia', email: 'david@gva.com', mobileNumber: '555-0104', role: 'Customer', companyId: '1', shares: 11, notificationPreference: 'email', userGroupId: 'group2' },
+  { id: '105', name: 'Emily Clark', email: 'emily@gva.com', role: 'Customer', companyId: '1', shares: 20, notificationPreference: 'email', userGroupId: 'group2' },
+  { id: '106', name: 'Frank Miller', email: 'frank@gva.com', role: 'Customer', companyId: '1', shares: 5, notificationPreference: 'mobile', userGroupId: 'group3' },
+  { id: '107', name: 'Grace Hall', email: 'grace@gva.com', role: 'Customer', companyId: '1', shares: 8, notificationPreference: 'email', userGroupId: 'group3' },
 
   // Sunrise Farms
   { id: '201', name: 'Diana Miller', email: 'diana@sunrise.com', mobileNumber: '555-0201', role: 'Admin', companyId: '2', notificationPreference: 'email' },
@@ -70,9 +84,9 @@ let allocations: Allocation[] = [
     // Weekly Allocations for June & July 2025 for GVA (companyId: '1')
     { id: 'alloc_gva_1', companyId: '1', startDate: '2025-06-01T00:00:00.000Z', endDate: '2025-06-07T23:59:59.000Z', gallons: 850000 },
     { id: 'alloc_gva_2', companyId: '1', startDate: '2025-06-08T00:00:00.000Z', endDate: '2025-06-14T23:59:59.000Z', gallons: 950000 },
-    { id: 'alloc_gva_3', companyId: '1', startDate: '2025-06-15T00:00:00.000Z', endDate: '2025-06-21T23:59:59.000Z', gallons: 700000 },
-    { id: 'alloc_gva_4', companyId: '1', startDate: '2025-06-22T00:00:00.000Z', endDate: '2025-06-28T23:59:59.000Z', gallons: 1000000 },
-    { id: 'alloc_gva_5', companyId: '1', startDate: '2025-06-29T00:00:00.000Z', endDate: '2025-07-05T23:59:59.000Z', gallons: 650000 },
+    { id: 'alloc_gva_3', companyId: '1', startDate: '2025-06-15T00:00:00.000Z', endDate: '2025-06-21T23:59:59.000Z', gallons: 700000, userGroupId: 'group1' },
+    { id: 'alloc_gva_4', companyId: '1', startDate: '2025-06-22T00:00:00.000Z', endDate: '2025-06-28T23:59:59.000Z', gallons: 1000000, userGroupId: 'group2' },
+    { id: 'alloc_gva_5', companyId: '1', startDate: '2025-06-29T00:00:00.000Z', endDate: '2025-07-05T23:59:59.000Z', gallons: 650000, userId: '101' },
     { id: 'alloc_gva_6', companyId: '1', startDate: '2025-07-06T00:00:00.000Z', endDate: '2025-07-12T23:59:59.000Z', gallons: 750000 },
     { id: 'alloc_gva_7', companyId: '1', startDate: '2025-07-13T00:00:00.000Z', endDate: '2025-07-19T23:59:59.000Z', gallons: 900000 },
     { id: 'alloc_gva_8', companyId: '1', startDate: '2025-07-20T00:00:00.000Z', endDate: '2025-07-26T23:59:59.000Z', gallons: 600000 },
@@ -95,10 +109,18 @@ const generateMockUsage = () => {
     let idCounter = 1;
 
     for (const alloc of allocations) {
-        const companyUsers = users.filter(u => u.companyId === alloc.companyId && u.role.includes('Customer'));
-        if (companyUsers.length === 0) continue;
+        let relevantUsers: User[];
+        if (alloc.userId) {
+            relevantUsers = users.filter(u => u.id === alloc.userId);
+        } else if (alloc.userGroupId) {
+            relevantUsers = users.filter(u => u.userGroupId === alloc.userGroupId);
+        } else {
+            relevantUsers = users.filter(u => u.companyId === alloc.companyId && u.role.includes('Customer'));
+        }
+        
+        if (relevantUsers.length === 0) continue;
 
-        const totalShares = companyUsers.reduce((sum, u) => sum + (u.shares || 1), 0);
+        const totalShares = relevantUsers.reduce((sum, u) => sum + (u.shares || 1), 0);
         const dailyAllocation = alloc.gallons / 7;
 
         const startDate = new Date(alloc.startDate);
@@ -106,7 +128,7 @@ const generateMockUsage = () => {
         const currentDate = new Date(startDate);
         
         while(currentDate <= endDate) {
-            for (const user of companyUsers) {
+            for (const user of relevantUsers) {
                 const userShareRatio = (user.shares || 1) / totalShares;
                 // Base usage is proportional to their share, with some randomness
                 const baseDailyUsage = dailyAllocation * userShareRatio;
@@ -174,6 +196,34 @@ export const updateCompany = async (updatedCompany: Company): Promise<Company> =
     }
     return Promise.resolve(updatedCompany);
 }
+
+// --- User Group Functions
+export const getGroupsByCompany = async (companyId: string): Promise<UserGroup[]> => {
+    return Promise.resolve(userGroups.filter(g => g.companyId === companyId));
+};
+export const addGroup = async (groupData: Omit<UserGroup, 'id'>): Promise<UserGroup> => {
+    const newGroup: UserGroup = { ...groupData, id: `g${Date.now()}` };
+    userGroups.push(newGroup);
+    return Promise.resolve(newGroup);
+};
+export const updateGroup = async (updatedGroup: UserGroup): Promise<UserGroup> => {
+    const index = userGroups.findIndex(g => g.id === updatedGroup.id);
+    if (index === -1) throw new Error("Group not found");
+    userGroups[index] = updatedGroup;
+    return Promise.resolve(updatedGroup);
+};
+export const deleteGroup = async (groupId: string): Promise<void> => {
+    userGroups = userGroups.filter(g => g.id !== groupId);
+    // Also unassign users from this group
+    users.forEach(u => {
+        if (u.userGroupId === groupId) {
+            u.userGroupId = undefined;
+        }
+    });
+    return Promise.resolve();
+};
+
+
 
 export const getUsersByCompany = async (companyId: string): Promise<User[]> => {
   return Promise.resolve(users.filter(u => u.companyId === companyId));
@@ -269,9 +319,9 @@ export const getAllocationsForUser = async (userId: string): Promise<Allocation[
     const user = await getUserById(userId);
     if (!user) return [];
     
-    // Return allocations that are company-wide (no userId) or specific to this user
+    // Return allocations that are company-wide (no userId) or specific to this user or their group
     return Promise.resolve(
-        allocations.filter(a => a.companyId === user.companyId && (!a.userId || a.userId === userId))
+        allocations.filter(a => a.companyId === user.companyId && (!a.userId || a.userId === userId || (user.userGroupId && a.userGroupId === user.userGroupId)))
     );
 };
 
