@@ -12,7 +12,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateCompany, getGroupsByCompany, addGroup, updateGroup, deleteGroup } from "@/lib/data";
+import { updateCompany, getGroupsByCompany, addGroup, updateGroup, deleteGroup, updateUser, User } from "@/lib/data";
 import type { Unit, UserGroup } from "@/lib/data";
 import {
   Select,
@@ -49,26 +49,33 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from "@/components/ui/sheet";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
+
+// --- Zod Schemas ---
 const displaySettingsSchema = z.object({
   defaultUnit: z.enum(["gallons", "kgal", "acre-feet"]),
   userGroupsEnabled: z.boolean().default(false),
 });
-
 type DisplaySettingsFormValues = z.infer<typeof displaySettingsSchema>;
 
 const groupFormSchema = z.object({
     name: z.string().min(2, { message: "Group name must be at least 2 characters." }),
 });
-
 type GroupFormValues = z.infer<typeof groupFormSchema>;
+
+const userSettingsSchema = z.object({
+  notificationPreference: z.enum(["email", "mobile"], {
+    required_error: "Please select a notification preference.",
+  }),
+});
+type UserSettingsFormValues = z.infer<typeof userSettingsSchema>;
 
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const { company, reloadCompany, currentUser } = useAuth();
   
-  // States for modals and dialogs
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isGroupFormOpen, setIsGroupFormOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<UserGroup | undefined>(undefined);
@@ -78,7 +85,9 @@ export default function SettingsPage() {
   const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
 
-  // Main form for display settings
+  const isAdmin = currentUser?.role?.includes('Admin') ?? false;
+
+  // --- React Hook Form Instances ---
   const { 
     control: displayControl, 
     handleSubmit: handleDisplaySubmit, 
@@ -89,7 +98,6 @@ export default function SettingsPage() {
     resolver: zodResolver(displaySettingsSchema),
   });
   
-  // Form for adding/editing groups
    const { 
     control: groupControl, 
     handleSubmit: handleGroupSubmit, 
@@ -99,6 +107,15 @@ export default function SettingsPage() {
     resolver: zodResolver(groupFormSchema),
   });
 
+  const {
+    control: userSettingsControl,
+    handleSubmit: handleUserSettingsSubmit,
+    reset: resetUserSettingsForm,
+    formState: { isSubmitting: isUserSettingsSubmitting, errors: userSettingsErrors },
+  } = useForm<UserSettingsFormValues>({
+    resolver: zodResolver(userSettingsSchema),
+  });
+  
   const userGroupsEnabled = watchDisplayForm("userGroupsEnabled");
 
 
@@ -111,7 +128,7 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    if (company) {
+    if (company && isAdmin) {
       resetDisplayForm({ 
           defaultUnit: company.defaultUnit || 'gallons',
           userGroupsEnabled: company.userGroupsEnabled || false
@@ -120,15 +137,20 @@ export default function SettingsPage() {
         fetchUserGroups();
       }
     }
-  }, [company, resetDisplayForm]);
+     if (currentUser) {
+      resetUserSettingsForm({
+        notificationPreference: currentUser.notificationPreference,
+      });
+    }
+  }, [company, currentUser, isAdmin, resetDisplayForm, resetUserSettingsForm]);
 
   useEffect(() => {
-    // When the toggle is flipped, fetch groups if it's enabled
-    if(userGroupsEnabled) {
+    if(userGroupsEnabled && isAdmin) {
         fetchUserGroups();
     }
-  }, [userGroupsEnabled]);
+  }, [userGroupsEnabled, isAdmin]);
 
+  // --- Handlers ---
   const handleNotificationsSave = (data: any) => {
     console.log("Saving notification settings:", data);
     toast({
@@ -157,6 +179,27 @@ export default function SettingsPage() {
         })
     }
   }
+  
+  const onUserSettingsSubmit = async (data: UserSettingsFormValues) => {
+    if (!currentUser) return;
+    try {
+      const updatedUserData: User = {
+        ...currentUser,
+        notificationPreference: data.notificationPreference,
+      };
+      await updateUser(updatedUserData);
+      toast({
+        title: "Preferences Saved",
+        description: "Your notification preferences have been updated.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save your settings. Please try again.",
+      });
+    }
+  };
 
   // --- Group Management Handlers ---
   const handleAddGroup = () => {
@@ -218,172 +261,229 @@ export default function SettingsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
         </div>
         <div className="grid gap-6">
-            <form onSubmit={handleDisplaySubmit(onDisplaySettingsSubmit)}>
+            <form onSubmit={handleUserSettingsSubmit(onUserSettingsSubmit)}>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Display Settings</CardTitle>
-                        <CardDescription>
-                            Configure system-wide display preferences and feature flags.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="grid gap-2 max-w-sm">
-                            <Label htmlFor="defaultUnit">Default Reporting Unit</Label>
-                             <Controller
-                                name="defaultUnit"
-                                control={displayControl}
-                                render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger id="defaultUnit">
-                                        <SelectValue placeholder="Select a unit" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="gallons">Gallons</SelectItem>
-                                        <SelectItem value="kgal">kGal (Thousands)</SelectItem>
-                                        <SelectItem value="acre-feet">Acre-Feet</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                )}
-                            />
-                        </div>
-                         <div className="flex items-center space-x-2">
-                            <Controller
-                                name="userGroupsEnabled"
-                                control={displayControl}
-                                render={({ field }) => (
-                                    <Switch
-                                        id="user-groups-enabled"
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                    />
-                                )}
-                            />
-                            <Label htmlFor="user-groups-enabled">Enable User Groups Feature</Label>
-                        </div>
-                    </CardContent>
-                    <CardFooter className="border-t px-6 py-4">
-                        <Button type="submit" disabled={isDisplaySubmitting || !isDisplayDirty}>Save</Button>
-                    </CardFooter>
-                </Card>
-            </form>
-
-            {userGroupsEnabled && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>User Groups</CardTitle>
-                        <CardDescription>
-                            Organize users into groups for easier allocation and reporting.
-                        </CardDescription>
+                    <CardTitle>My Notification Preferences</CardTitle>
+                    <CardDescription>
+                        Choose how you would like to receive important alerts about your water usage.
+                    </CardDescription>
                     </CardHeader>
                     <CardContent>
-                         <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Group Name</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {loadingGroups ? (
-                              <TableRow>
-                                <TableCell colSpan={2} className="text-center">
-                                  Loading groups...
-                                </TableCell>
-                              </TableRow>
-                            ) : userGroups.length > 0 ? (
-                              userGroups.map((group) => (
-                                <TableRow key={group.id}>
-                                  <TableCell className="font-medium">{group.name}</TableCell>
-                                  <TableCell className="text-right">
-                                     <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="icon">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                          <DropdownMenuItem onClick={() => handleEditGroup(group)}>
-                                            Edit
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem onClick={() => handleDeleteRequest(group)} className="text-destructive">
-                                            Delete
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={2} className="text-center">
-                                        No user groups created yet.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
+                    <Controller
+                        name="notificationPreference"
+                        control={userSettingsControl}
+                        render={({ field }) => (
+                        <RadioGroup
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            className="grid gap-4"
+                        >
+                            <Label className="flex items-center gap-4 rounded-md border p-4 cursor-pointer hover:bg-accent has-[[data-state=checked]]:border-primary">
+                                <RadioGroupItem value="email" id="email" />
+                                <div>
+                                    <p className="font-semibold">Email</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Send notifications to your email address: {currentUser?.email}
+                                    </p>
+                                </div>
+                            </Label>
+                            <Label className={`flex items-center gap-4 rounded-md border p-4 cursor-pointer hover:bg-accent has-[[data-state=checked]]:border-primary ${!currentUser?.mobileNumber ? 'cursor-not-allowed opacity-50' : ''}`}>
+                            <RadioGroupItem value="mobile" id="mobile" disabled={!currentUser?.mobileNumber} />
+                                <div>
+                                    <p className="font-semibold">Text Message (SMS)</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {currentUser?.mobileNumber
+                                        ? `Send notifications to your mobile number: ${currentUser.mobileNumber}`
+                                        : "No mobile number on file. Please contact an admin to add one."}
+                                    </p>
+                                </div>
+                            </Label>
+                        </RadioGroup>
+                        )}
+                    />
+                    {userSettingsErrors.notificationPreference && (
+                        <p className="text-sm text-destructive pt-4">{userSettingsErrors.notificationPreference.message}</p>
+                    )}
                     </CardContent>
-                    <CardFooter className="border-t px-6 py-4">
-                        <Button onClick={handleAddGroup}>
-                            <PlusCircle className="mr-2 h-4 w-4"/>
-                            Add Group
+                     <CardFooter className="border-t px-6 py-4">
+                        <Button type="submit" disabled={isUserSettingsSubmitting}>
+                            {isUserSettingsSubmitting ? "Saving..." : "Save Preferences"}
                         </Button>
                     </CardFooter>
                 </Card>
-            )}
+            </form>
+            
+            {isAdmin && (
+            <>
+                <form onSubmit={handleDisplaySubmit(onDisplaySettingsSubmit)}>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Display Settings</CardTitle>
+                            <CardDescription>
+                                Configure system-wide display preferences and feature flags for the entire company.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="grid gap-2 max-w-sm">
+                                <Label htmlFor="defaultUnit">Default Reporting Unit</Label>
+                                <Controller
+                                    name="defaultUnit"
+                                    control={displayControl}
+                                    render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger id="defaultUnit">
+                                            <SelectValue placeholder="Select a unit" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="gallons">Gallons</SelectItem>
+                                            <SelectItem value="kgal">kGal (Thousands)</SelectItem>
+                                            <SelectItem value="acre-feet">Acre-Feet</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    )}
+                                />
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Controller
+                                    name="userGroupsEnabled"
+                                    control={displayControl}
+                                    render={({ field }) => (
+                                        <Switch
+                                            id="user-groups-enabled"
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    )}
+                                />
+                                <Label htmlFor="user-groups-enabled">Enable User Groups Feature</Label>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="border-t px-6 py-4">
+                            <Button type="submit" disabled={isDisplaySubmitting || !isDisplayDirty}>Save Display Settings</Button>
+                        </CardFooter>
+                    </Card>
+                </form>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Notifications</CardTitle>
-                    <CardDescription>
-                        Manage how you and your team are notified about water usage.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0">
-                            <BellRing className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <div className="flex-grow">
-                            <h3 className="text-lg font-medium">Usage Alerts</h3>
-                            <p className="text-sm text-muted-foreground">
-                                Set up automated email alerts for important usage events like exceeding allocation thresholds or detecting unusual spikes in consumption.
-                            </p>
-                        </div>
-                        <div className="flex-shrink-0">
-                            <Button onClick={() => setIsNotificationsOpen(true)}>
-                                Configure
+                {userGroupsEnabled && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>User Groups</CardTitle>
+                            <CardDescription>
+                                Organize users into groups for easier allocation and reporting.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                            <TableHeader>
+                                <TableRow>
+                                <TableHead>Group Name</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loadingGroups ? (
+                                <TableRow>
+                                    <TableCell colSpan={2} className="text-center">
+                                    Loading groups...
+                                    </TableCell>
+                                </TableRow>
+                                ) : userGroups.length > 0 ? (
+                                userGroups.map((group) => (
+                                    <TableRow key={group.id}>
+                                    <TableCell className="font-medium">{group.name}</TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                            <DropdownMenuItem onClick={() => handleEditGroup(group)}>
+                                                Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleDeleteRequest(group)} className="text-destructive">
+                                                Delete
+                                            </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                    </TableRow>
+                                ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={2} className="text-center">
+                                            No user groups created yet.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                            </Table>
+                        </CardContent>
+                        <CardFooter className="border-t px-6 py-4">
+                            <Button onClick={handleAddGroup}>
+                                <PlusCircle className="mr-2 h-4 w-4"/>
+                                Add Group
                             </Button>
+                        </CardFooter>
+                    </Card>
+                )}
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Company Notifications</CardTitle>
+                        <CardDescription>
+                            Manage how you and your team are notified about water usage.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-start gap-4">
+                            <div className="flex-shrink-0">
+                                <BellRing className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                            <div className="flex-grow">
+                                <h3 className="text-lg font-medium">Usage Alerts</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Set up automated email alerts for important usage events like exceeding allocation thresholds or detecting unusual spikes in consumption.
+                                </p>
+                            </div>
+                            <div className="flex-shrink-0">
+                                <Button onClick={() => setIsNotificationsOpen(true)}>
+                                    Configure
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle>Integrations</CardTitle>
-                    <CardDescription>
-                        Connect AquaWise to other services (coming soon).
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0">
-                            <Mail className="h-8 w-8 text-muted-foreground" />
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Integrations</CardTitle>
+                        <CardDescription>
+                            Connect AquaWise to other services (coming soon).
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-start gap-4">
+                            <div className="flex-shrink-0">
+                                <Mail className="h-8 w-8 text-muted-foreground" />
+                            </div>
+                            <div className="flex-grow">
+                                <h3 className="text-lg font-medium">Email Reports</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Configure weekly or monthly summary reports to be sent to stakeholders.
+                                </p>
+                            </div>
+                            <div className="flex-shrink-0">
+                                <Button variant="secondary" disabled>
+                                    Configure
+                                </Button>
+                            </div>
                         </div>
-                        <div className="flex-grow">
-                            <h3 className="text-lg font-medium">Email Reports</h3>
-                            <p className="text-sm text-muted-foreground">
-                                Configure weekly or monthly summary reports to be sent to stakeholders.
-                            </p>
-                        </div>
-                        <div className="flex-shrink-0">
-                            <Button variant="secondary" disabled>
-                                Configure
-                            </Button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            </>
+            )}
         </div>
       </div>
       <NotificationsSetup
@@ -439,3 +539,4 @@ export default function SettingsPage() {
     </AppLayout>
   );
 }
+
