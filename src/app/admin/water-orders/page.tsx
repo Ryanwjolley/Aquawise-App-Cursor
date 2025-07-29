@@ -13,13 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Settings, Calendar, PlusCircle } from "lucide-react";
+import { Settings, Calendar, PlusCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { WaterOrder, User, Unit } from "@/lib/data";
-import { getWaterOrdersByCompany, updateWaterOrderStatus, getUsersByCompany, getUnitLabel, addWaterOrder, checkOrderAvailability } from "@/lib/data";
+import { getWaterOrdersByCompany, updateWaterOrderStatus, getUsersByCompany, addWaterOrder, checkOrderAvailability, checkAndCompleteExpiredOrders } from "@/lib/data";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,10 +32,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
+import { useUnit } from "@/contexts/UnitContext";
 
 
 export default function AdminWaterOrdersPage() {
     const { currentUser, company } = useAuth();
+    const { getUnitLabel } = useUnit();
     const { toast } = useToast();
     const [orders, setOrders] = useState<WaterOrder[]>([]);
     const [users, setUsers] = useState<User[]>([]);
@@ -52,6 +53,10 @@ export default function AdminWaterOrdersPage() {
     const fetchOrdersAndUsers = async () => {
         if (!currentUser?.companyId) return;
         setLoading(true);
+
+        // Auto-complete any expired orders before fetching the list
+        await checkAndCompleteExpiredOrders(currentUser.companyId);
+        
         const [companyOrders, companyUsers] = await Promise.all([
             getWaterOrdersByCompany(currentUser.companyId),
             getUsersByCompany(currentUser.companyId)
@@ -303,3 +308,5 @@ export default function AdminWaterOrdersPage() {
     </TooltipProvider>
   );
 }
+
+    

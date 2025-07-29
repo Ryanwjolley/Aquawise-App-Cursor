@@ -1,9 +1,10 @@
 
 
 
+
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
-import { differenceInDays, max, min, parseISO, format, startOfDay, subDays } from "date-fns";
+import { differenceInDays, max, min, parseISO, format, startOfDay, subDays, isPast } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { sendThresholdAlertEmail, sendSpikeAlertEmail, sendWaterOrderStatusUpdateEmail, sendWaterOrderSubmissionEmail } from './actions';
 
@@ -935,8 +936,8 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
                     
                     const unit = company.defaultUnit;
                     const unitLabel = getUnitLabel(unit);
-                    const convertedUsage = usageInPeriod * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
-                    const convertedAllocation = allocationForPeriod * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
+                    const convertedUsage = usageInPeriod * (CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
+                    const convertedAllocation = allocationForPeriod * (CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
                     
                     const message = `You have reached ${threshold.percentage}% of your water allocation. Current usage: ${convertedUsage.toLocaleString(undefined, {maximumFractionDigits: 1})} of ${convertedAllocation.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel}.`;
                     const details = `<p>Hello,</p>
@@ -972,8 +973,8 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
                 
                 const unit = company.defaultUnit;
                 const unitLabel = getUnitLabel(unit);
-                const convertedDailyUsage = todaysUsage * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
-                const convertedWeeklyAverage = average * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
+                const convertedDailyUsage = todaysUsage * (CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
+                const convertedWeeklyAverage = average * (CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
                 
                 const message = `High usage spike detected: ${convertedDailyUsage.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel} used on ${format(today, 'P')}, which is ${Math.round(spikePercentage)}% above your weekly average.`;
                 const details = `<p>Hello,</p>
@@ -996,3 +997,23 @@ export const checkAllUsersForAlerts = async (userIds: string[], date: string) =>
         await checkAndTriggerAlerts(userId, date);
     }
 }
+
+/**
+ * Scans for approved water orders whose end date has passed and marks them as completed.
+ * This simulates a cron job for a serverless environment.
+ */
+export const checkAndCompleteExpiredOrders = async (companyId: string) => {
+    const companyOrders = await getWaterOrdersByCompany(companyId);
+    const approvedOrders = companyOrders.filter(o => o.status === 'approved');
+
+    for (const order of approvedOrders) {
+        if (isPast(parseISO(order.endDate))) {
+            console.log(`Auto-completing expired order ${order.id}`);
+            // In a real app with concurrent users, you'd want a flag to prevent multiple completions.
+            // For this mock environment, this is sufficient.
+            await updateWaterOrderStatus(order.id, 'completed', 'system');
+        }
+    }
+};
+
+    

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameDay, differenceInDays, parseISO, startOfDay } from 'date-fns';
-import { getWaterAvailabilities, getWaterOrdersByCompany, WaterAvailability, WaterOrder, getUsersByCompany, User, updateWaterOrderStatus, getUnitLabel as getUnitLabelFromData } from '@/lib/data';
+import { getWaterAvailabilities, getWaterOrdersByCompany, WaterAvailability, WaterOrder, getUsersByCompany, User, updateWaterOrderStatus, checkAndCompleteExpiredOrders } from '@/lib/data';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnit } from '@/contexts/UnitContext';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { getUnitLabel as getUnitLabelFromData } from '@/lib/data';
 
 
 type DailyData = {
@@ -43,6 +44,9 @@ export function WaterCalendar() {
 
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
+
+    // Auto-complete any expired orders before fetching the list
+    await checkAndCompleteExpiredOrders(currentUser.companyId);
 
     const [availabilities, orders, users] = await Promise.all([
       getWaterAvailabilities(currentUser.companyId),
@@ -399,3 +403,5 @@ function OrderDetailsDialog({ isOpen, onOpenChange, order, onStatusChange, onRej
         </Dialog>
     );
 }
+
+    
