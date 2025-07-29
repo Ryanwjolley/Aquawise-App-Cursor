@@ -10,12 +10,21 @@ import { Button } from "@/components/ui/button";
 import { CheckCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
-
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 export default function NotificationsPage() {
     const { currentUser } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
     const fetchNotifications = async () => {
         if (!currentUser) return;
@@ -40,11 +49,12 @@ export default function NotificationsPage() {
         };
     }, [currentUser]);
 
-
-    const handleMarkAsRead = async (id: string) => {
-        await markNotificationAsRead(id);
-        fetchNotifications();
-    }
+    const handleNotificationClick = (notification: Notification) => {
+        setSelectedNotification(notification);
+        if (!notification.isRead) {
+            markNotificationAsRead(notification.id);
+        }
+    };
 
     const handleMarkAllAsRead = async () => {
         if (!currentUser) return;
@@ -75,11 +85,13 @@ export default function NotificationsPage() {
                         {loading ? (
                             <p>Loading notifications...</p>
                         ) : notifications.length > 0 ? (
-                            <ul className="space-y-4">
+                            <ul className="space-y-1">
                                 {notifications.map(n => (
-                                    <li key={n.id} className={cn(
-                                        "grid grid-cols-[25px_1fr] items-start pb-4 border-b last:border-b-0",
-                                        !n.isRead ? "font-semibold" : "text-muted-foreground"
+                                    <li key={n.id} 
+                                        onClick={() => handleNotificationClick(n)}
+                                        className={cn(
+                                            "grid grid-cols-[25px_1fr] items-start p-3 border-b last:border-b-0 rounded-md cursor-pointer hover:bg-muted",
+                                            !n.isRead ? "font-semibold" : "text-muted-foreground"
                                     )}>
                                         <span className={cn(
                                             "flex h-2 w-2 translate-y-1.5 rounded-full",
@@ -92,11 +104,6 @@ export default function NotificationsPage() {
                                             <p className="text-xs">
                                                 {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                                             </p>
-                                            <div className="flex items-center gap-4 mt-1">
-                                                {!n.isRead && (
-                                                    <Button variant="link" size="sm" className="h-auto p-0 text-xs text-muted-foreground" onClick={() => handleMarkAsRead(n.id)}>Mark as read</Button>
-                                                )}
-                                            </div>
                                         </div>
                                     </li>
                                 ))}
@@ -110,6 +117,24 @@ export default function NotificationsPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <Dialog open={!!selectedNotification} onOpenChange={(isOpen) => !isOpen && setSelectedNotification(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Notification Details</DialogTitle>
+                         <DialogDescription>
+                            Received {selectedNotification ? formatDistanceToNow(new Date(selectedNotification.createdAt), { addSuffix: true }) : ''}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 text-sm" dangerouslySetInnerHTML={{ __html: selectedNotification?.details || '' }} />
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button>Close</Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </AppLayout>
     )
 

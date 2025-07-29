@@ -98,6 +98,7 @@ export type Notification = {
     id: string;
     userId: string;
     message: string;
+    details: string; // For the modal/email view
     createdAt: string; // ISO 8601 format
     isRead: boolean;
 }
@@ -381,8 +382,8 @@ usageData.push(
 
 // Add some notifications
 notifications.push(
-    { id: 'n1', userId: '102', message: 'Your water order was approved.', createdAt: new Date().toISOString(), isRead: false },
-    { id: 'n2', userId: '102', message: 'Your water order was rejected: Canal Maintenance.', createdAt: new Date(Date.now() - 86400000).toISOString(), isRead: true }
+    { id: 'n1', userId: '102', message: 'Your water order was approved.', details: 'Your water order for 3 CFS on July 10, 2025 from 8:00 AM to 4:00 PM was approved.', createdAt: new Date().toISOString(), isRead: false },
+    { id: 'n2', userId: '102', message: 'Your water order was rejected: Canal Maintenance.', details: 'Your water order for 2 CFS on July 15, 2025 from 8:00 AM to 12:00 PM was rejected. Administrator\'s Note: Canal maintenance scheduled during this time. Please reschedule for after the 18th.', createdAt: new Date(Date.now() - 86400000).toISOString(), isRead: true }
 );
 
 
@@ -702,10 +703,17 @@ export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' 
     if (user) {
         await sendWaterOrderSubmissionEmail(newOrder, user, admins);
         const orderAmount = `${newOrder.amount} ${getUnitLabel(newOrder.unit)}`;
+        
+        const details = `A new water order has been submitted for your review.<br/><br/>`
+            + `<strong>User:</strong> ${user.name} (${user.email})<br/>`
+            + `<strong>Period:</strong> ${format(parseISO(newOrder.startDate), 'P p')} to ${format(parseISO(newOrder.endDate), 'P p')}<br/>`
+            + `<strong>Requested Amount:</strong> ${newOrder.amount.toLocaleString()} ${getUnitLabel(newOrder.unit)}`;
+
         for (const admin of admins) {
             addNotification({
                 userId: admin.id,
                 message: `New water order for ${orderAmount} submitted by ${user.name}.`,
+                details: details,
             });
         }
     }
@@ -736,18 +744,29 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
         }
         
         const orderAmount = `${order.amount} ${getUnitLabel(order.unit)}`;
-        const date = format(parseISO(order.startDate), 'P');
-        let message = `Your water order for ${orderAmount} on ${date} was ${status}.`;
+        const dateRange = `${format(parseISO(order.startDate), 'P p')} - ${format(parseISO(order.endDate), 'P p')}`;
+        
+        let message = `Your water order for ${orderAmount} on ${format(parseISO(order.startDate), 'P')} was ${status}.`;
+        let details = `An update has been made to your recent water order.<br/><br/>`
+            + `<strong>Order Period:</strong> ${dateRange}<br/>`
+            + `<strong>Request:</strong> ${orderAmount}<br/>`
+            + `<strong>New Status:</strong> ${status.toUpperCase()}`;
 
-        if (status === 'rejected' && notes) {
-            message = `Your water order for ${orderAmount} on ${date} was rejected: ${notes}`;
+        if (status === 'rejected') {
+            if (notes) {
+                message = `Your water order was rejected: ${notes}`;
+                details += `<br/><strong>Administrator's Note:</strong> ${notes}`;
+            } else {
+                 message = `Your water order was rejected.`;
+            }
         } else if (status === 'completed') {
-            message = `Your water order for ${orderAmount} on ${date} has been completed and usage added to your dashboard.`
+            message = `Your water order has been completed and usage added to your dashboard.`
         }
 
         addNotification({
             userId: order.userId,
             message: message,
+            details: details
         });
     }
 
@@ -907,9 +926,13 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
                     const usageInDefaultUnit = usageInPeriod * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
                     const allocationInDefaultUnit = allocationForPeriod * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
                     const unitLabel = getUnitLabel(company.defaultUnit);
+                    
                     const message = `You have reached ${threshold.percentage}% of your water allocation. Current usage: ${usageInDefaultUnit.toLocaleString(undefined, {maximumFractionDigits: 1})} of ${allocationInDefaultUnit.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel}.`;
+                    const details = `This is an automated alert to inform you that you have reached <strong>${threshold.percentage}%</strong> of your water allocation for the current period.<br/><br/>`
+                        + `<strong>Current Usage:</strong> ${usageInDefaultUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}<br/>`
+                        + `<strong>Total Allocation:</strong> ${allocationInDefaultUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}`;
 
-                    addNotification({ userId, message });
+                    addNotification({ userId, message, details });
                     sentThresholdAlerts.add(alertKey);
                 }
             }
@@ -933,9 +956,17 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
                 await sendSpikeAlertEmail(user, company, todaysUsage, average);
                 
                 const usageInDefaultUnit = todaysUsage * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
+                 const weeklyAverageInDefaultUnit = average * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
                 const unitLabel = getUnitLabel(company.defaultUnit);
+                
                 const message = `High usage spike detected: ${usageInDefaultUnit.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel} used on ${format(today, 'P')}, which is ${Math.round(spikePercentage)}% above your weekly average.`;
-                addNotification({ userId, message });
+                const details = `This is an automated alert to inform you of a significant spike in water usage.<br/><br/>`
+                    + `<strong>Usage on ${format(today, 'P')}:</strong> ${usageInDefaultUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}<br/>`
+                    + `<strong>7-Day Average Usage:</strong> ${weeklyAverageInDefaultUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}/day<br/>`
+                    + `<strong>Spike:</strong> ${Math.round(spikePercentage)}% above average.<br/><br/>`
+                    + `This could indicate a leak or other issue. Please review the usage data on the AquaWise dashboard.`;
+
+                addNotification({ userId, message, details });
             }
         }
     }

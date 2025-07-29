@@ -26,6 +26,15 @@ import { getNotificationsForUser, markNotificationAsRead, Notification } from "@
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { DevUserSwitcher } from "./DevUserSwitcher";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 function ImpersonationBanner() {
     const { stopImpersonating, currentUser } = useAuth();
@@ -44,6 +53,7 @@ function NotificationsPopover() {
     const { currentUser } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isOpen, setIsOpen] = useState(false);
+    const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
     const fetchNotifications = async () => {
         if (!currentUser) return;
@@ -69,56 +79,76 @@ function NotificationsPopover() {
     }, [currentUser]);
 
 
-    const handleMarkAsRead = async (id: string) => {
-        await markNotificationAsRead(id);
-        fetchNotifications(); // Refresh list
-    }
+    const handleNotificationClick = (notification: Notification) => {
+        setSelectedNotification(notification);
+        if (!notification.isRead) {
+            markNotificationAsRead(notification.id);
+        }
+    };
     
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
     return (
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
-            <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                    <Bell />
-                    {unreadCount > 0 && (
-                        <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">{unreadCount}</Badge>
-                    )}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
-                <div className="grid gap-4">
-                    <div className="space-y-2">
-                        <h4 className="font-medium leading-none">Notifications</h4>
-                        <p className="text-sm text-muted-foreground">
-                            Recent alerts and updates.
-                        </p>
-                    </div>
-                    <div className="grid gap-2 max-h-80 overflow-y-auto">
-                        {notifications.length > 0 ? (
-                            notifications.map(n => (
-                                <div key={n.id} className={`grid grid-cols-[25px_1fr] items-start pb-4 last:pb-0 ${!n.isRead ? 'font-bold' : ''}`}>
-                                    <span className={`flex h-2 w-2 translate-y-1 rounded-full ${!n.isRead ? 'bg-sky-500' : 'bg-muted-foreground'}`} />
-                                    <div className="grid gap-1">
-                                        <p className="text-sm">
-                                            {n.message}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-center text-muted-foreground py-4">No new notifications.</p>
+        <>
+            <Popover open={isOpen} onOpenChange={setIsOpen}>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="relative">
+                        <Bell />
+                        {unreadCount > 0 && (
+                            <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">{unreadCount}</Badge>
                         )}
-                    </div>
-                     <Button asChild variant="outline" size="sm" className="w-full">
-                        <Link href="/notifications">View All Notifications</Link>
                     </Button>
-                </div>
-            </PopoverContent>
-        </Popover>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="end">
+                    <div className="grid gap-4">
+                        <div className="space-y-2">
+                            <h4 className="font-medium leading-none">Notifications</h4>
+                            <p className="text-sm text-muted-foreground">
+                                Recent alerts and updates.
+                            </p>
+                        </div>
+                        <div className="grid gap-1 max-h-80 overflow-y-auto">
+                            {notifications.length > 0 ? (
+                                notifications.map(n => (
+                                    <div key={n.id} onClick={() => handleNotificationClick(n)} className={`grid grid-cols-[25px_1fr] items-start p-2 rounded-md cursor-pointer hover:bg-muted ${!n.isRead ? 'font-bold' : ''}`}>
+                                        <span className={`flex h-2 w-2 translate-y-1 rounded-full ${!n.isRead ? 'bg-sky-500' : 'bg-muted-foreground'}`} />
+                                        <div className="grid gap-1">
+                                            <p className="text-sm">
+                                                {n.message}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-center text-muted-foreground py-4">No new notifications.</p>
+                            )}
+                        </div>
+                        <Button asChild variant="outline" size="sm" className="w-full">
+                            <Link href="/notifications">View All Notifications</Link>
+                        </Button>
+                    </div>
+                </PopoverContent>
+            </Popover>
+            <Dialog open={!!selectedNotification} onOpenChange={(isOpen) => !isOpen && setSelectedNotification(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Notification Details</DialogTitle>
+                         <DialogDescription>
+                            Received {selectedNotification ? formatDistanceToNow(new Date(selectedNotification.createdAt), { addSuffix: true }) : ''}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 text-sm" dangerouslySetInnerHTML={{ __html: selectedNotification?.details || '' }} />
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button>Close</Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 

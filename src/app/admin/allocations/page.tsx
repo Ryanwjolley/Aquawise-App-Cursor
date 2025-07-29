@@ -139,12 +139,21 @@ export default function AllocationPage() {
             // Add in-app notification
             const unitLabel = getUnitLabel();
             const convertedAmount = convertUsage(savedAllocation.gallons);
-            const message = `Your water allocation has been ${updateType}. The new allocation of ${convertedAmount.toLocaleString()} ${unitLabel} is valid from ${format(new Date(savedAllocation.startDate), 'P')} to ${format(new Date(savedAllocation.endDate), 'P')}.`;
+            const startDate = format(new Date(savedAllocation.startDate), 'P');
+            const endDate = format(new Date(savedAllocation.endDate), 'P');
+
+            const message = `Your water allocation has been ${updateType}. The new allocation of ${convertedAmount.toLocaleString()} ${unitLabel} is valid from ${startDate} to ${endDate}.`;
+
+            const details = `Your water allocation has been ${updateType}. Here are the details:<br/><br/>`
+                + `<strong>Period:</strong> ${format(new Date(savedAllocation.startDate), 'P p')} to ${format(new Date(savedAllocation.endDate), 'P p')}<br/>`
+                + `<strong>Allocated Amount:</strong> ${convertedAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}`;
+
 
             for (const recipient of recipients) {
                 addNotification({
                     userId: recipient.id,
                     message,
+                    details
                 });
             }
             
