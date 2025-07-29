@@ -7,7 +7,7 @@ import { WaterCalendar } from "@/components/dashboard/WaterCalendar";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Settings } from "lucide-react";
+import { Settings, ClipboardList } from "lucide-react";
 
 
 export default function AdminWaterCalendarPage() {
@@ -20,12 +20,20 @@ export default function AdminWaterCalendarPage() {
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Water Calendar</h2>
            {isAdmin && (
-            <Button variant="outline" asChild>
-                <Link href="/admin/availability">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Manage System Availability
-                </Link>
-            </Button>
+            <div className="flex items-center space-x-2">
+                <Button variant="outline" asChild>
+                    <Link href="/admin/water-orders">
+                        <ClipboardList className="mr-2 h-4 w-4" />
+                        Back to Water Orders
+                    </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                    <Link href="/admin/availability">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Manage System Availability
+                    </Link>
+                </Button>
+            </div>
            )}
         </div>
         <Card>
