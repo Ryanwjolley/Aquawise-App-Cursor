@@ -12,6 +12,7 @@ interface AuthContextValue {
   impersonateUser: (userId: string) => Promise<void>;
   stopImpersonating: () => Promise<void>;
   logout: () => void;
+  switchUser: (userId: string) => Promise<void>;
   isImpersonating: boolean;
   loading: boolean;
   reloadCompany: () => Promise<void>;
@@ -81,9 +82,7 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
                 let targetPath = '/';
                 if (user.role === 'Super Admin' && !stillImpersonating && !wasImpersonating) {
                     targetPath = '/super-admin';
-                } else if (user.role?.includes('Admin') && !stillImpersonating) {
-                    targetPath = '/admin';
-                } else if (user.role?.includes('Admin') && stillImpersonating) {
+                } else if (user.role?.includes('Admin')) {
                     targetPath = '/admin';
                 }
                 router.push(targetPath);
@@ -105,6 +104,12 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
             await loadCompany(currentUser.companyId);
         }
     }
+
+    const switchUser = async (userId: string) => {
+        sessionStorage.clear();
+        setIsImpersonating(false);
+        await loadUser(userId, true);
+    };
 
     const impersonateUser = async (userId: string) => {
         if (currentUser && !sessionStorage.getItem(impersonationAdminIdKey)) {
@@ -128,12 +133,10 @@ const AuthHandler = ({ children }: { children: ReactNode }) => {
     }
     
     const logout = () => {
-        sessionStorage.clear();
-        setIsImpersonating(false);
-        loadUser(defaultUserId, true);
+        switchUser(defaultUserId);
     }
 
-    const value = { currentUser, company, impersonateUser, loading, isImpersonating, stopImpersonating, reloadCompany, logout };
+    const value = { currentUser, company, impersonateUser, loading, isImpersonating, stopImpersonating, reloadCompany, logout, switchUser };
 
     return (
         <AuthContext.Provider value={value}>

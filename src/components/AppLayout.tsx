@@ -13,7 +13,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuBadge,
   SidebarFooter,
   SidebarInset,
 } from "@/components/ui/sidebar";
@@ -26,6 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { getNotificationsForUser, markNotificationAsRead, Notification } from "@/lib/data";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { DevUserSwitcher } from "./DevUserSwitcher";
 
 function ImpersonationBanner() {
     const { stopImpersonating, currentUser } = useAuth();
@@ -106,11 +106,6 @@ function NotificationsPopover() {
                                         <p className="text-xs text-muted-foreground">
                                             {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                                         </p>
-                                        <div className="flex items-center gap-4 mt-1">
-                                            {!n.isRead && (
-                                                <Button variant="link" size="sm" className="h-auto p-0 justify-start text-xs text-muted-foreground" onClick={() => handleMarkAsRead(n.id)}>Mark as read</Button>
-                                            )}
-                                        </div>
                                     </div>
                                 </div>
                             ))
@@ -271,7 +266,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                 <SidebarMenuButton tooltip="Notifications" isActive={pathname.startsWith('/notifications')}>
                                     <Bell />
                                     <span>Notifications</span>
-                                     {unreadCount > 0 && <SidebarMenuBadge>{unreadCount}</SidebarMenuBadge>}
                                 </SidebarMenuButton>
                             </Link>
                         </SidebarMenuItem>
@@ -290,6 +284,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>
+            <DevUserSwitcher />
             <div className="p-2">
                 <UnitSwitcher />
             </div>

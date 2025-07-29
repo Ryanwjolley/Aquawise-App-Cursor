@@ -516,6 +516,9 @@ export const deleteGroup = async (groupId: string): Promise<void> => {
     return Promise.resolve();
 };
 
+export const getAllUsers = async (): Promise<User[]> => {
+  return Promise.resolve(users);
+};
 
 
 export const getUsersByCompany = async (companyId: string): Promise<User[]> => {
