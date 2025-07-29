@@ -14,12 +14,21 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FileUp, AlertTriangle, Info } from "lucide-react";
-import { findExistingUsageForUsersAndDates, User } from "@/lib/data";
+import { findExistingUsageForUsersAndDates, User, Unit } from "@/lib/data";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup
+} from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DataUploadFormProps {
-    onUpload: (data: any[], mode: 'overwrite' | 'new_only') => void;
+    onUpload: (data: any[], mode: 'overwrite' | 'new_only', unit: Unit) => void;
     companyUsers: User[];
 }
 
@@ -30,11 +39,14 @@ interface CsvRecord {
 type ConflictMode = 'overwrite' | 'new_only';
 
 export function DataUploadForm({ onUpload, companyUsers }: DataUploadFormProps) {
+    const { company } = useAuth();
     const [file, setFile] = useState<File | null>(null);
     const [records, setRecords] = useState<CsvRecord[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [duplicates, setDuplicates] = useState<string[]>([]);
     const [conflictMode, setConflictMode] = useState<ConflictMode>('overwrite');
+    const [uploadUnit, setUploadUnit] = useState<Unit>(company?.defaultUnit || 'gallons');
+
 
     const userMap = useMemo(() => new Map(companyUsers.map(u => [u.email, u.id])), [companyUsers]);
 
@@ -108,7 +120,7 @@ export function DataUploadForm({ onUpload, companyUsers }: DataUploadFormProps) 
 
     const handleSubmit = () => {
         if (records.length > 0) {
-            onUpload(records, conflictMode);
+            onUpload(records, conflictMode, uploadUnit);
             setFile(null);
             setRecords([]);
             setDuplicates([]);
@@ -122,8 +134,25 @@ export function DataUploadForm({ onUpload, companyUsers }: DataUploadFormProps) 
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-                <Input id="csv-upload" type="file" accept=".csv" onChange={handleFileChange} className="max-w-sm"/>
+            <div className="flex items-end space-x-4">
+                <div className="grid w-full max-w-sm items-center gap-1.5">
+                    <Label htmlFor="csv-upload">CSV File</Label>
+                    <Input id="csv-upload" type="file" accept=".csv" onChange={handleFileChange} />
+                </div>
+                 <div className="grid w-[200px] items-center gap-1.5">
+                    <Label htmlFor="unit">Data Unit</Label>
+                    <Select value={uploadUnit} onValueChange={(value: Unit) => setUploadUnit(value)}>
+                        <SelectTrigger id="unit">
+                            <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="gallons">Gallons</SelectItem>
+                            <SelectItem value="kgal">kGal (Thousands)</SelectItem>
+                            <SelectItem value="acre-feet">Acre-Feet</SelectItem>
+                            <SelectItem value="cubic-feet">Cubic Feet</SelectItem>
+                        </SelectContent>
+                    </Select>
+                 </div>
             </div>
 
             {error && (

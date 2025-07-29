@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { bulkAddUsageEntries, getUsersByCompany, User, getUnitLabel, getUsageForUser, Allocation, UsageEntry, findExistingUsageForUsersAndDates } from "@/lib/data";
+import { bulkAddUsageEntries, getUsersByCompany, User, getUnitLabel, getUsageForUser, Allocation, UsageEntry, findExistingUsageForUsersAndDates, Unit } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUnit } from "@/contexts/UnitContext";
@@ -63,8 +63,8 @@ export default function UsageDataPage() {
     }
   }, [currentUser]);
 
-  const handleDataUpload = async (data: any[], mode: 'overwrite' | 'new_only') => {
-    console.log(`Preparing to upload ${data.length} records with mode: ${mode}`);
+  const handleDataUpload = async (data: any[], mode: 'overwrite' | 'new_only', unit: Unit) => {
+    console.log(`Preparing to upload ${data.length} records with mode: ${mode} in unit: ${unit}`);
     
     const userEmailMap = new Map(companyUsers.map(u => [u.email, u.id]));
     
@@ -74,7 +74,7 @@ export default function UsageDataPage() {
       usage: parseInt(record.usage, 10),
     })).filter(entry => entry.userId);
 
-    const { added, updated } = await bulkAddUsageEntries(entriesToAdd, mode, company?.defaultUnit || 'gallons');
+    const { added, updated } = await bulkAddUsageEntries(entriesToAdd, mode, unit);
     
     toast({
       title: "Upload Successful",
@@ -182,7 +182,7 @@ export default function UsageDataPage() {
                 <CardHeader>
                     <CardTitle>Bulk Upload from CSV</CardTitle>
                     <CardDescription>
-                        Upload a CSV file with user water usage. The file should have columns: `userEmail`, `date` (in YYYY-MM-DD format), and `usage` (in your company's default unit: {unitLabel}). 
+                        Upload a CSV file with user water usage. The file should have columns: `userEmail` and `date` (YYYY-MM-DD), and `usage`. Please specify the unit for the `usage` column below.
                         You can <Link href="/test-data.csv" className="underline text-primary" download>download a sample file</Link> to see the required format.
                     </CardDescription>
                 </CardHeader>
