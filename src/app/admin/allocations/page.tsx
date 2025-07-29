@@ -101,19 +101,19 @@ export default function AllocationPage() {
 
   const handleFormSubmit = async (data: Omit<Allocation, 'id' | 'companyId'>) => {
     if (!currentUser?.companyId || !company) return;
-    
+
     const updateType = editingAllocation ? 'updated' : 'created';
     let savedAllocation: Allocation;
-    
+
     if (editingAllocation) {
-      savedAllocation = await updateAllocation({ ...data, id: editingAllocation.id, companyId: currentUser.companyId });
+        savedAllocation = await updateAllocation({ ...data, id: editingAllocation.id, companyId: currentUser.companyId });
     } else {
-      savedAllocation = await addAllocation({ ...data, companyId: currentUser.companyId });
+        savedAllocation = await addAllocation({ ...data, companyId: currentUser.companyId });
     }
 
     toast({
-      title: `Allocation ${updateType}`,
-      description: `The allocation has been successfully ${updateType}.`,
+        title: `Allocation ${updateType}`,
+        description: `The allocation has been successfully ${updateType}.`,
     });
 
     // Re-fetch users to ensure we have the latest list for notifications
@@ -121,7 +121,7 @@ export default function AllocationPage() {
     let recipients: User[] = [];
 
     // Determine recipients
-    if(savedAllocation.userId) {
+    if (savedAllocation.userId) {
         const user = allUsers.find(u => u.id === savedAllocation.userId);
         if (user) recipients.push(user);
     } else if (savedAllocation.userGroupId) {
@@ -137,10 +137,14 @@ export default function AllocationPage() {
             await sendAllocationNotificationEmail(savedAllocation, recipients, updateType, company.defaultUnit);
             
             // Add in-app notification
+            const unitLabel = getUnitLabel();
+            const convertedAmount = convertUsage(savedAllocation.gallons);
+            const message = `Your water allocation has been ${updateType}. The new allocation of ${convertedAmount.toLocaleString()} ${unitLabel} is valid from ${format(new Date(savedAllocation.startDate), 'P')} to ${format(new Date(savedAllocation.endDate), 'P')}.`;
+
             for (const recipient of recipients) {
                 addNotification({
                     userId: recipient.id,
-                    message: `Your water allocation has been ${updateType}. The new allocation of ${convertUsage(savedAllocation.gallons).toLocaleString()} ${getUnitLabel()} is valid from ${format(new Date(savedAllocation.startDate), 'P')} to ${format(new Date(savedAllocation.endDate), 'P')}.`,
+                    message,
                 });
             }
             
@@ -163,7 +167,6 @@ export default function AllocationPage() {
         await checkAllUsersForAlerts(recipients.map(r => r.id), savedAllocation.startDate);
         console.log(`Re-checked alerts for ${recipients.length} users after allocation change.`);
     }
-
 
     setIsFormOpen(false);
     setEditingAllocation(undefined);

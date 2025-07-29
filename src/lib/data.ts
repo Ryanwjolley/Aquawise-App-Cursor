@@ -100,7 +100,6 @@ export type Notification = {
     message: string;
     createdAt: string; // ISO 8601 format
     isRead: boolean;
-    link?: string;
 }
 
 export type NotificationSettings = {
@@ -699,10 +698,11 @@ export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' 
 
     if (user) {
         await sendWaterOrderSubmissionEmail(newOrder, user, admins);
+        const orderAmount = `${newOrder.amount} ${getUnitLabel(newOrder.unit)}`;
         for (const admin of admins) {
             addNotification({
                 userId: admin.id,
-                message: `New water order submitted by ${user.name}.`,
+                message: `New water order for ${orderAmount} submitted by ${user.name}.`,
             });
         }
     }
@@ -732,11 +732,14 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
             await sendWaterOrderStatusUpdateEmail(order, user);
         }
         
-        let message = `Your water order has been ${status}.`;
+        const orderAmount = `${order.amount} ${getUnitLabel(order.unit)}`;
+        const date = format(parseISO(order.startDate), 'P');
+        let message = `Your water order for ${orderAmount} on ${date} was ${status}.`;
+
         if (status === 'rejected' && notes) {
-            message = `Your water order was rejected: ${notes}`;
+            message = `Your water order for ${orderAmount} on ${date} was rejected: ${notes}`;
         } else if (status === 'completed') {
-            message = `Your water order has been marked as completed and the usage has been added to your dashboard.`
+            message = `Your water order for ${orderAmount} on ${date} has been completed and usage added to your dashboard.`
         }
 
         addNotification({
@@ -897,7 +900,13 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
                 const alertKey = `${userId}-${relevantAllocation.id}-${threshold.percentage}`;
                 if (currentPercentage >= threshold.percentage && !sentThresholdAlerts.has(alertKey)) {
                     await sendThresholdAlertEmail(user, company, usageInPeriod, allocationForPeriod, threshold.percentage);
-                    addNotification({ userId, message: `You have reached ${threshold.percentage}% of your water allocation.` });
+                    
+                    const usageInDefaultUnit = usageInPeriod * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
+                    const allocationInDefaultUnit = allocationForPeriod * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
+                    const unitLabel = getUnitLabel(company.defaultUnit);
+                    const message = `You have reached ${threshold.percentage}% of your water allocation. Current usage: ${usageInDefaultUnit.toLocaleString(undefined, {maximumFractionDigits: 1})} of ${allocationInDefaultUnit.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel}.`;
+
+                    addNotification({ userId, message });
                     sentThresholdAlerts.add(alertKey);
                 }
             }
@@ -919,7 +928,11 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
             const spikePercentage = average > 0 ? ((todaysUsage - average) / average) * 100 : 0;
             if (spikePercentage > spikeAlerts.percentage) {
                 await sendSpikeAlertEmail(user, company, todaysUsage, average);
-                 addNotification({ userId, message: `High usage spike of ${Math.round(spikePercentage)}% detected.` });
+                
+                const usageInDefaultUnit = todaysUsage * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
+                const unitLabel = getUnitLabel(company.defaultUnit);
+                const message = `High usage spike detected: ${usageInDefaultUnit.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel} used on ${format(today, 'P')}, which is ${Math.round(spikePercentage)}% above your weekly average.`;
+                addNotification({ userId, message });
             }
         }
     }
