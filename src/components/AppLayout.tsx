@@ -82,7 +82,7 @@ function NotificationsPopover() {
     const handleNotificationClick = (notification: Notification) => {
         setSelectedNotification(notification);
         if (!notification.isRead) {
-            markNotificationAsRead(notification.id);
+            markNotificationAsRead(notification.id).then(() => fetchNotifications());
         }
     };
     
@@ -140,10 +140,15 @@ function NotificationsPopover() {
                             Received {selectedNotification ? formatDistanceToNow(new Date(selectedNotification.createdAt), { addSuffix: true }) : ''}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4 text-sm" dangerouslySetInnerHTML={{ __html: selectedNotification?.details || '' }} />
+                    <div className="py-4 text-sm max-h-96 overflow-y-auto" dangerouslySetInnerHTML={{ __html: selectedNotification?.details || '' }} />
                     <DialogFooter>
+                       {selectedNotification?.link && (
+                            <Button asChild>
+                                <Link href={selectedNotification.link} onClick={() => setSelectedNotification(null)}>View Details</Link>
+                            </Button>
+                        )}
                         <DialogClose asChild>
-                            <Button>Close</Button>
+                            <Button variant={selectedNotification?.link ? 'outline' : 'default'}>Close</Button>
                         </DialogClose>
                     </DialogFooter>
                 </DialogContent>

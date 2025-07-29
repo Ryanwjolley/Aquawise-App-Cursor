@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,8 @@ export default function NotificationsPage() {
         setSelectedNotification(notification);
         if (!notification.isRead) {
             markNotificationAsRead(notification.id);
+            // We can optimistically update the UI if needed, but for simplicity we re-fetch
+            fetchNotifications(); 
         }
     };
 
@@ -126,10 +129,15 @@ export default function NotificationsPage() {
                             Received {selectedNotification ? formatDistanceToNow(new Date(selectedNotification.createdAt), { addSuffix: true }) : ''}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4 text-sm" dangerouslySetInnerHTML={{ __html: selectedNotification?.details || '' }} />
+                    <div className="py-4 text-sm max-h-96 overflow-y-auto" dangerouslySetInnerHTML={{ __html: selectedNotification?.details || '' }} />
                     <DialogFooter>
+                        {selectedNotification?.link && (
+                            <Button asChild>
+                                <Link href={selectedNotification.link}>View Details</Link>
+                            </Button>
+                        )}
                         <DialogClose asChild>
-                            <Button>Close</Button>
+                            <Button variant={selectedNotification?.link ? 'outline' : 'default'}>Close</Button>
                         </DialogClose>
                     </DialogFooter>
                 </DialogContent>

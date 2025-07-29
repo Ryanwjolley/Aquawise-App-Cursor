@@ -2,6 +2,7 @@
 
 
 
+
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 import { differenceInDays, max, min, parseISO, format, startOfDay, subDays, isPast } from "date-fns";
@@ -101,6 +102,7 @@ export type Notification = {
     userId: string;
     message: string;
     details: string; // For the modal/email view
+    link?: string; // Optional link for the modal action button
     createdAt: string; // ISO 8601 format
     isRead: boolean;
 }
@@ -719,7 +721,8 @@ export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' 
             addNotification({
                 userId: admin.id,
                 message,
-                details
+                details,
+                link: '/admin/water-orders'
             });
         }
     }
@@ -776,7 +779,8 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
             addNotification({
                 userId: order.userId,
                 message: message,
-                details: details
+                details: details,
+                link: '/water-orders'
             });
         }
     }
@@ -947,8 +951,11 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
                             <li><strong>Total Allocation:</strong> ${convertedAllocation.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}</li>
                         </ul>
                         <p>You can view more details on the AquaWise dashboard.</p>`;
+                        
+                    const dashboardPath = user.role.includes('Admin') ? '/admin' : '/';
+                    const link = `${dashboardPath}?from=${relevantAllocation.startDate}&to=${relevantAllocation.endDate}`;
 
-                    addNotification({ userId, message, details });
+                    addNotification({ userId, message, details, link });
                     sentThresholdAlerts.add(alertKey);
                 }
             }
@@ -985,8 +992,10 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
                         <li><strong>Spike:</strong> ${Math.round(spikePercentage)}% above average.</li>
                     </ul>
                     <p>This could indicate a leak or other issue. Please review the usage data on the AquaWise dashboard.</p>`;
-
-                addNotification({ userId, message, details });
+                
+                const dashboardPath = user.role.includes('Admin') ? '/admin' : '/';
+                const link = `${dashboardPath}?from=${format(subDays(today, 7), 'yyyy-MM-dd')}&to=${date}`;
+                addNotification({ userId, message, details, link });
             }
         }
     }

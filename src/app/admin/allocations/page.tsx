@@ -154,10 +154,13 @@ export default function AllocationPage() {
             <p>You can view your usage and allocation details by logging into the AquaWise dashboard.</p>`;
 
             for (const recipient of recipients) {
+                const dashboardPath = recipient.role.includes('Admin') ? '/admin' : '/';
+                const link = `${dashboardPath}?from=${savedAllocation.startDate}&to=${savedAllocation.endDate}`;
                 addNotification({
                     userId: recipient.id,
                     message,
-                    details
+                    details,
+                    link
                 });
             }
             
