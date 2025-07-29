@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import {
   Sheet,
@@ -23,7 +24,8 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, parseISO, differenceInSeconds, differenceInDays } from "date-fns";
-import { CONVERSION_FACTORS_TO_GALLONS, Unit } from "@/lib/data";
+import { CONVERSION_FACTORS_TO_GALLONS, Unit, User } from "@/lib/data";
+import { useAuth } from "@/contexts/AuthContext";
 
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -36,6 +38,7 @@ const waterOrderFormSchema = z.object({
   endTime: z.string().regex(timeRegex, "Invalid time format. Use HH:MM."),
   amount: z.coerce.number().positive({ message: "Amount must be positive." }),
   unit: z.enum(['gallons', 'kgal', 'acre-feet', 'cubic-feet', 'cfs', 'gpm', 'acre-feet-day']),
+  userId: z.string().optional(),
 }).refine(data => {
     const start = combineDateTime(data.startDate, data.startTime);
     const end = combineDateTime(data.endDate, data.endTime);
@@ -51,7 +54,8 @@ type WaterOrderFormValues = z.infer<typeof waterOrderFormSchema>;
 interface WaterOrderFormProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onSubmit: (data: Omit<any, 'id' | 'companyId' | 'userId' | 'status' | 'createdAt'>) => void;
+  onSubmit: (data: Omit<any, 'id' | 'companyId' | 'status' | 'createdAt'>) => void;
+  companyUsers?: User[];
 }
 
 const combineDateTime = (dateStr: string, timeStr: string): Date | null => {
@@ -63,7 +67,11 @@ export function WaterOrderForm({
   isOpen,
   onOpenChange,
   onSubmit,
+  companyUsers = []
 }: WaterOrderFormProps) {
+  
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role.includes('Admin');
   
   const {
     handleSubmit,
@@ -81,6 +89,7 @@ export function WaterOrderForm({
         endTime: "16:00",
         amount: 1,
         unit: 'cfs',
+        userId: currentUser?.id
     }
   });
 
@@ -97,10 +106,19 @@ export function WaterOrderForm({
   }, [watchedStartDate, endDateValue, setValue]);
 
   useEffect(() => {
-    if (!isOpen) {
-      reset();
+    if (isOpen) {
+      // Set the default user to the current user, especially for the admin form.
+      reset({
+        startDate: format(new Date(), "yyyy-MM-dd"),
+        startTime: "08:00",
+        endDate: format(new Date(), "yyyy-MM-dd"),
+        endTime: "16:00",
+        amount: 1,
+        unit: 'cfs',
+        userId: currentUser?.id
+      });
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, currentUser]);
   
   const handleFormSubmit = (data: WaterOrderFormValues) => {
     const startDate = combineDateTime(data.startDate, data.startTime);
@@ -138,6 +156,7 @@ export function WaterOrderForm({
         amount: data.amount,
         unit: data.unit,
         totalGallons,
+        userId: data.userId, // Pass userId along
     });
   }
 
@@ -156,6 +175,30 @@ export function WaterOrderForm({
           </SheetHeader>
           <div className="flex-1 space-y-6 overflow-y-auto py-6 pr-6 pl-1">
             <div className="space-y-4 pl-5">
+              {isAdmin && (
+                <div className="grid gap-2">
+                  <Label htmlFor="userId">User</Label>
+                  <Controller
+                    name="userId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger id="userId">
+                          <SelectValue placeholder="Select a user" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companyUsers.map(user => (
+                            <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.userId && (
+                    <p className="text-sm text-destructive">{errors.userId.message}</p>
+                  )}
+                </div>
+              )}
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="startDate">Start Date</Label>

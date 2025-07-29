@@ -48,7 +48,7 @@ export default function AdminWaterOrdersPage() {
     const [isFormOpen, setIsFormOpen] = useState(false);
 
     const userMap = new Map(users.map(u => [u.id, u.name]));
-    const isCustomer = currentUser?.role?.includes('Customer');
+    const isAdmin = currentUser?.role?.includes('Admin');
 
     const fetchOrdersAndUsers = async () => {
         if (!currentUser?.companyId) return;
@@ -75,8 +75,12 @@ export default function AdminWaterOrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser, company]);
 
-    const handleFormSubmit = async (data: Omit<WaterOrder, 'id' | 'companyId' | 'userId' | 'status' | 'createdAt'>) => {
+    const handleFormSubmit = async (data: Omit<WaterOrder, 'id' | 'companyId' | 'status' | 'createdAt'>) => {
         if (!currentUser || !currentUser.companyId) return;
+
+        // If an admin is creating on behalf of someone, the userId comes from the form.
+        // Otherwise, it's the current user.
+        const userIdForOrder = data.userId || currentUser.id;
 
         const isAvailable = await checkOrderAvailability(currentUser.companyId, data.startDate, data.endDate, data.totalGallons);
 
@@ -93,13 +97,13 @@ export default function AdminWaterOrdersPage() {
 
         await addWaterOrder({
             ...data,
-            userId: currentUser.id,
+            userId: userIdForOrder,
             companyId: currentUser.companyId,
         });
 
         toast({
             title: "Water Order Submitted",
-            description: "Your request has been sent for approval.",
+            description: `Your request for ${userMap.get(userIdForOrder) || 'user'} has been sent for approval.`,
         });
 
         setIsFormOpen(false);
@@ -162,12 +166,10 @@ export default function AdminWaterOrdersPage() {
                     <h2 className="text-3xl font-bold tracking-tight">Manage Water Orders</h2>
                     {company?.waterOrdersEnabled && (
                         <div className="flex items-center space-x-2">
-                            {isCustomer && (
-                                <Button onClick={() => setIsFormOpen(true)}>
-                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                    New Water Order
-                                </Button>
-                            )}
+                            <Button onClick={() => setIsFormOpen(true)}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                New Water Order
+                            </Button>
                             <Button variant="outline" asChild>
                                 <Link href="/admin/water-calendar">
                                     <Calendar className="mr-2 h-4 w-4" />
@@ -279,6 +281,7 @@ export default function AdminWaterOrdersPage() {
                 isOpen={isFormOpen}
                 onOpenChange={setIsFormOpen}
                 onSubmit={handleFormSubmit}
+                companyUsers={users}
             />
 
             <AlertDialog open={isRejectionDialogOpen} onOpenChange={setIsRejectionDialogOpen}>
@@ -308,5 +311,3 @@ export default function AdminWaterOrdersPage() {
     </TooltipProvider>
   );
 }
-
-    
