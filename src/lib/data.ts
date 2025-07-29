@@ -3,6 +3,7 @@
 
 
 
+
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 import { differenceInDays, max, min, parseISO, format, startOfDay, subDays, isPast } from "date-fns";
@@ -139,7 +140,7 @@ let MOCK_NOTIFICATION_SETTINGS: NotificationSettings = {
 
 let companies: Company[] = [
   { id: '0', name: 'AquaWise HQ', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true, notificationSettings: MOCK_NOTIFICATION_SETTINGS },
-  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: false, notificationSettings: MOCK_NOTIFICATION_SETTINGS },
+  { id: '1', name: 'Golden Valley Agriculture', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: true, notificationSettings: MOCK_NOTIFICATION_SETTINGS },
   { id: '2', name: 'Sunrise Farms', defaultUnit: 'acre-feet', userGroupsEnabled: false, waterOrdersEnabled: true, notificationSettings: MOCK_NOTIFICATION_SETTINGS },
   { id: '3', name: 'Pleasant View Orchards', defaultUnit: 'acre-feet', userGroupsEnabled: true, waterOrdersEnabled: true, notificationSettings: MOCK_NOTIFICATION_SETTINGS },
 ];
@@ -964,7 +965,9 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
 
     // 2. Check Spike Alerts
     if (spikeAlerts.enabled) {
-        const today = parseISO(date);
+        // Use `new Date(date)` to handle 'YYYY-MM-DD' strings correctly.
+        // It creates a date at UTC midnight, which is what we need for day-based comparisons.
+        const today = new Date(date);
         const sevenDaysAgo = format(subDays(today, 7), 'yyyy-MM-dd');
         const yesterday = format(subDays(today, 1), 'yyyy-MM-dd');
         
