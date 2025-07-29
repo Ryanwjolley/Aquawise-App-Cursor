@@ -280,14 +280,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                         </SidebarMenuButton>
                                     </Link>
                                 </SidebarMenuItem>
-                                <SidebarMenuItem>
-                                    <Link href="/water-calendar">
-                                        <SidebarMenuButton tooltip="Water Calendar" isActive={pathname.startsWith('/water-calendar')}>
-                                        <Calendar />
-                                        <span>Water Calendar</span>
-                                        </SidebarMenuButton>
-                                    </Link>
-                                </SidebarMenuItem>
                             </>
                         )}
 
