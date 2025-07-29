@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { format, parseISO, isValid, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { format, parse, isValid, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import type { Allocation } from "@/lib/data";
 
@@ -41,16 +41,12 @@ export function DateRangeSelector({ onUpdate, className, selectedRange, allocati
   }, [selectedRange]);
 
   const handleUpdateClick = () => {
-    const fromDate = new Date(startDate);
-    const toDate = new Date(endDate);
-    
-    // The dates from the input are UTC midnight. To include the full end day, we adjust it.
-    // e.g. '2025-07-26' becomes '2025-07-26T00:00:00.000Z'. 
-    // We want the range to include this entire day.
-    const toDateInclusive = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(), 23, 59, 59);
+    const fromDate = parse(startDate, 'yyyy-MM-dd', new Date());
+    const toDate = parse(endDate, 'yyyy-MM-dd', new Date());
 
-    if (isValid(fromDate) && isValid(toDateInclusive) && fromDate <= toDateInclusive) {
-        onUpdate({ from: fromDate, to: toDateInclusive });
+    if (isValid(fromDate) && isValid(toDate) && fromDate <= toDate) {
+        // Set to start of day for 'from' and end of day for 'to' to ensure the full range is included
+        onUpdate({ from: startOfDay(fromDate), to: endOfDay(toDate) });
         setPopoverOpen(false);
     } else {
         // Optional: handle invalid date range, e.g., show a toast

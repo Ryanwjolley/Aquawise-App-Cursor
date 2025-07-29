@@ -167,7 +167,7 @@ export default function UserManagementPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
-                              <DropdownMenuItem onClick={() => handleImpersonate(user.id)}>
+                              <DropdownMenuItem onClick={() => handleImpersonate(user.id)} disabled={user.id === currentUser?.id}>
                                 <LogIn className="mr-2 h-4 w-4"/>
                                 Impersonate
                               </DropdownMenuItem>

@@ -147,6 +147,10 @@ export function WaterOrderForm({
                 const durationInMinutes = durationInSeconds / 60;
                 totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.gpm * durationInMinutes;
                 break;
+            case 'acre-feet-day':
+                const durationInDaysForRate = durationInSeconds / (24 * 60 * 60);
+                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate['acre-feet-day'] * durationInDaysForRate;
+                break;
         }
     }
     

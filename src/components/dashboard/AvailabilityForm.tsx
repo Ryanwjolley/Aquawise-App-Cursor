@@ -130,11 +130,6 @@ export function AvailabilityForm({
     }
   }, [isOpen, defaultValues, reset, company]);
   
-  useEffect(() => {
-    if (!isOpen) {
-      reset();
-    }
-  }, [isOpen, reset]);
   
   const handleFormSubmit = (data: AvailabilityFormValues) => {
     const startDate = combineDateTime(data.startDate, data.startTime);
