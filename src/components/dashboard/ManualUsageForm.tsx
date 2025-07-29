@@ -73,6 +73,8 @@ export function ManualUsageForm({
     handleSubmit,
     control,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<ManualUsageFormValues>({
     resolver: zodResolver(manualUsageFormSchema),
@@ -86,6 +88,18 @@ export function ManualUsageForm({
         userId: undefined,
     }
   });
+
+  const watchedStartDate = watch("startDate");
+  const endDateValue = watch("endDate");
+
+  // When start date changes, if it's after end date, update end date.
+  useEffect(() => {
+    const currentStartDate = new Date(watchedStartDate);
+    const currentEndDate = new Date(endDateValue);
+    if (currentStartDate > currentEndDate) {
+      setValue("endDate", watchedStartDate);
+    }
+  }, [watchedStartDate, endDateValue, setValue]);
 
 
   useEffect(() => {

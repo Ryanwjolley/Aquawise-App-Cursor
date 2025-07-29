@@ -124,6 +124,7 @@ export function AllocationForm({
     control,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<AllocationFormValues>({
     resolver: zodResolver(allocationFormSchema),
@@ -131,6 +132,17 @@ export function AllocationForm({
   });
 
   const watchedValues = watch();
+  const watchedStartDate = watch("startDate");
+
+  // When start date changes, if it's after end date, update end date.
+  useEffect(() => {
+    const currentStartDate = new Date(watchedStartDate);
+    const currentEndDate = new Date(watchedValues.endDate);
+    if (currentStartDate > currentEndDate) {
+      setValue("endDate", watchedStartDate);
+    }
+  }, [watchedStartDate, watchedValues.endDate, setValue]);
+
 
   // When form opens, reset to the correct default values
   useEffect(() => {

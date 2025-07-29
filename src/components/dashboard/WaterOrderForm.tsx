@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import {
   Sheet,
@@ -70,6 +69,8 @@ export function WaterOrderForm({
     handleSubmit,
     control,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<WaterOrderFormValues>({
     resolver: zodResolver(waterOrderFormSchema),
@@ -83,6 +84,17 @@ export function WaterOrderForm({
     }
   });
 
+  const watchedStartDate = watch("startDate");
+  const endDateValue = watch("endDate");
+
+  // When start date changes, if it's after end date, update end date.
+  useEffect(() => {
+    const currentStartDate = new Date(watchedStartDate);
+    const currentEndDate = new Date(endDateValue);
+    if (currentStartDate > currentEndDate) {
+      setValue("endDate", watchedStartDate);
+    }
+  }, [watchedStartDate, endDateValue, setValue]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -223,13 +235,13 @@ export function WaterOrderForm({
                                         <SelectItem value="kgal">kGal (Thousands)</SelectItem>
                                         <SelectItem value="acre-feet">Acre-Feet</SelectItem>
                                         <SelectItem value="cubic-feet">Cubic Feet</SelectItem>
-                                    </SelectGroup>
+                                     </SelectGroup>
                                      <SelectGroup>
                                         <Label className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Flow Rate</Label>
                                         <SelectItem value="gpm">GPM</SelectItem>
                                         <SelectItem value="cfs">CFS</SelectItem>
                                         <SelectItem value="acre-feet-day">Acre-Feet/Day</SelectItem>
-                                    </SelectGroup>
+                                     </SelectGroup>
                                 </SelectContent>
                             </Select>
                         )}
