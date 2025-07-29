@@ -234,31 +234,25 @@ export default function AdminWaterOrdersPage() {
                                             </TableCell>
                                             <TableCell className="text-xs text-muted-foreground">{order.adminNotes || 'N/A'}</TableCell>
                                             <TableCell className="text-right">
-                                                {(order.status === 'pending' || order.status === 'approved') && (
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon">
-                                                            <MoreHorizontal className="h-4 w-4" />
+                                                {order.status === 'pending' && (
+                                                    <div className="flex items-center justify-end space-x-2">
+                                                        <Button variant="outline" size="sm" onClick={() => handleStatusChange(order.id, 'approved')}>
+                                                            Approve
                                                         </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent>
-                                                            {order.status === 'pending' && (
-                                                                <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'approved')}>
-                                                                    Approve
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                            {order.status === 'approved' && (
-                                                                <DropdownMenuItem onClick={() => handleStatusChange(order.id, 'completed')}>
-                                                                    Mark as Complete
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                            {(order.status === 'pending' || order.status === 'approved') && (
-                                                                <DropdownMenuItem onClick={() => handleRejectionRequest(order)} className="text-destructive">
-                                                                    Reject
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+                                                        <Button variant="destructive" size="sm" onClick={() => handleRejectionRequest(order)}>
+                                                            Reject
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                                {order.status === 'approved' && (
+                                                    <div className="flex items-center justify-end space-x-2">
+                                                        <Button variant="outline" size="sm" onClick={() => handleStatusChange(order.id, 'completed')}>
+                                                            Mark as Complete
+                                                        </Button>
+                                                        <Button variant="destructive" size="sm" onClick={() => handleRejectionRequest(order)}>
+                                                            Reject
+                                                        </Button>
+                                                    </div>
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -309,5 +303,3 @@ export default function AdminWaterOrdersPage() {
     </TooltipProvider>
   );
 }
-
-    
