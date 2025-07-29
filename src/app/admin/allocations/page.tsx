@@ -16,7 +16,7 @@ import {
 import { AllocationForm } from "@/components/dashboard/AllocationForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Allocation, User, UserGroup } from "@/lib/data";
-import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById, getGroupsByCompany, addNotification, checkAllUsersForAlerts } from "@/lib/data";
+import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById, getGroupsByCompany, addNotification, checkAllUsersForAlerts, getUnitLabel as getUnitLabelFromData, CONVERSION_FACTORS_FROM_GALLONS } from "@/lib/data";
 import { sendAllocationNotificationEmail } from "@/lib/actions";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -137,17 +137,21 @@ export default function AllocationPage() {
             await sendAllocationNotificationEmail(savedAllocation, recipients, updateType, company.defaultUnit);
             
             // Add in-app notification
-            const unitLabel = getUnitLabel();
-            const convertedAmount = convertUsage(savedAllocation.gallons);
-            const startDate = format(new Date(savedAllocation.startDate), 'P');
-            const endDate = format(new Date(savedAllocation.endDate), 'P');
+            const unit = company.defaultUnit;
+            const unitLabel = getUnitLabelFromData(unit);
+            const convertedAmount = savedAllocation.gallons * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
+            const formattedStart = format(new Date(savedAllocation.startDate), 'P');
+            const formattedEnd = format(new Date(savedAllocation.endDate), 'P');
 
-            const message = `Your water allocation has been ${updateType}. The new allocation of ${convertedAmount.toLocaleString()} ${unitLabel} is valid from ${startDate} to ${endDate}.`;
-
-            const details = `Your water allocation has been ${updateType}. Here are the details:<br/><br/>`
-                + `<strong>Period:</strong> ${format(new Date(savedAllocation.startDate), 'P p')} to ${format(new Date(savedAllocation.endDate), 'P p')}<br/>`
-                + `<strong>Allocated Amount:</strong> ${convertedAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}`;
-
+            const message = `Your water allocation has been ${updateType}. The new allocation of ${convertedAmount.toLocaleString()} ${unitLabel} is valid from ${formattedStart} to ${formattedEnd}.`;
+            
+            const details = `<p>Hello,</p>
+            <p>Your water allocation has been ${updateType}. Here are the details:</p>
+            <ul>
+                <li><strong>Period:</strong> ${format(new Date(savedAllocation.startDate), 'P p')} to ${format(new Date(savedAllocation.endDate), 'P p')}</li>
+                <li><strong>Allocated Amount:</strong> ${convertedAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}</li>
+            </ul>
+            <p>You can view your usage and allocation details by logging into the AquaWise dashboard.</p>`;
 
             for (const recipient of recipients) {
                 addNotification({
@@ -173,7 +177,8 @@ export default function AllocationPage() {
     
     // --- Re-check for threshold alerts after allocation change ---
     if (recipients.length > 0) {
-        await checkAllUsersForAlerts(recipients.map(r => r.id), savedAllocation.startDate);
+        const startDateForCheck = format(new Date(savedAllocation.startDate), 'yyyy-MM-dd');
+        await checkAllUsersForAlerts(recipients.map(r => r.id), startDateForCheck);
         console.log(`Re-checked alerts for ${recipients.length} users after allocation change.`);
     }
 

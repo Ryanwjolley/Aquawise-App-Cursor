@@ -1,5 +1,6 @@
 
 
+
 // A mock data service to simulate database interactions.
 // In a real application, this would be replaced with actual database calls (e.g., to Firestore).
 import { differenceInDays, max, min, parseISO, format, startOfDay, subDays } from "date-fns";
@@ -382,7 +383,7 @@ usageData.push(
 
 // Add some notifications
 notifications.push(
-    { id: 'n1', userId: '102', message: 'Your water order was approved.', details: 'Your water order for 3 CFS on July 10, 2025 from 8:00 AM to 4:00 PM was approved.', createdAt: new Date().toISOString(), isRead: false },
+    { id: 'n1', userId: '102', message: 'Your water order for 3 CFS on Jul 10, 2025 was approved.', details: 'Your water order for 3 CFS on July 10, 2025 from 8:00 AM to 4:00 PM was approved.', createdAt: new Date().toISOString(), isRead: false },
     { id: 'n2', userId: '102', message: 'Your water order was rejected: Canal Maintenance.', details: 'Your water order for 2 CFS on July 15, 2025 from 8:00 AM to 12:00 PM was rejected. Administrator\'s Note: Canal maintenance scheduled during this time. Please reschedule for after the 18th.', createdAt: new Date(Date.now() - 86400000).toISOString(), isRead: true }
 );
 
@@ -704,16 +705,20 @@ export const addWaterOrder = async (orderData: Omit<WaterOrder, 'id' | 'status' 
         await sendWaterOrderSubmissionEmail(newOrder, user, admins);
         const orderAmount = `${newOrder.amount} ${getUnitLabel(newOrder.unit)}`;
         
-        const details = `A new water order has been submitted for your review.<br/><br/>`
-            + `<strong>User:</strong> ${user.name} (${user.email})<br/>`
-            + `<strong>Period:</strong> ${format(parseISO(newOrder.startDate), 'P p')} to ${format(parseISO(newOrder.endDate), 'P p')}<br/>`
-            + `<strong>Requested Amount:</strong> ${newOrder.amount.toLocaleString()} ${getUnitLabel(newOrder.unit)}`;
+        const message = `New water order for ${orderAmount} submitted by ${user.name}.`;
+        const details = `<p>A new water order has been submitted for your review.</p>
+            <ul>
+                <li><strong>User:</strong> ${user.name} (${user.email})</li>
+                <li><strong>Period:</strong> ${format(parseISO(newOrder.startDate), 'P p')} to ${format(parseISO(newOrder.endDate), 'P p')}</li>
+                <li><strong>Requested Amount:</strong> ${newOrder.amount.toLocaleString()} ${getUnitLabel(newOrder.unit)}</li>
+            </ul>
+            <p>Please log in to the AquaWise admin dashboard to approve or reject this request.</p>`;
 
         for (const admin of admins) {
             addNotification({
                 userId: admin.id,
-                message: `New water order for ${orderAmount} submitted by ${user.name}.`,
-                details: details,
+                message,
+                details
             });
         }
     }
@@ -741,33 +746,38 @@ export const updateWaterOrderStatus = async (orderId: string, status: 'approved'
         const user = await getUserById(order.userId);
         if (user) {
             await sendWaterOrderStatusUpdateEmail(order, user);
-        }
-        
-        const orderAmount = `${order.amount} ${getUnitLabel(order.unit)}`;
-        const dateRange = `${format(parseISO(order.startDate), 'P p')} - ${format(parseISO(order.endDate), 'P p')}`;
-        
-        let message = `Your water order for ${orderAmount} on ${format(parseISO(order.startDate), 'P')} was ${status}.`;
-        let details = `An update has been made to your recent water order.<br/><br/>`
-            + `<strong>Order Period:</strong> ${dateRange}<br/>`
-            + `<strong>Request:</strong> ${orderAmount}<br/>`
-            + `<strong>New Status:</strong> ${status.toUpperCase()}`;
 
-        if (status === 'rejected') {
-            if (notes) {
-                message = `Your water order was rejected: ${notes}`;
-                details += `<br/><strong>Administrator's Note:</strong> ${notes}`;
-            } else {
-                 message = `Your water order was rejected.`;
+            const orderAmount = `${order.amount.toLocaleString()} ${getUnitLabel(order.unit)}`;
+            const dateRange = `${format(parseISO(order.startDate), 'P p')} - ${format(parseISO(order.endDate), 'P p')}`;
+            
+            let message = `Your water order for ${orderAmount} on ${format(parseISO(order.startDate), 'P')} was ${status}.`;
+            let details = `<p>Hello ${user.name},</p>
+                <p>An update has been made to your recent water order.</p>
+                <ul>
+                    <li><strong>Order Period:</strong> ${dateRange}</li>
+                    <li><strong>Request:</strong> ${orderAmount}</li>
+                    <li><strong>New Status:</strong> ${status.toUpperCase()}</li>
+                </ul>`;
+
+            if (status === 'rejected') {
+                if (notes) {
+                    message = `Your water order was rejected: ${notes}`;
+                    details += `<p><strong>Administrator's Note:</strong> ${notes}</p>`;
+                } else {
+                    message = `Your water order was rejected.`;
+                }
+            } else if (status === 'completed') {
+                message = `Your water order has been completed and usage added to your dashboard.`
             }
-        } else if (status === 'completed') {
-            message = `Your water order has been completed and usage added to your dashboard.`
-        }
 
-        addNotification({
-            userId: order.userId,
-            message: message,
-            details: details
-        });
+            details += `<p>You can view the details by logging into your AquaWise dashboard.</p>`;
+
+            addNotification({
+                userId: order.userId,
+                message: message,
+                details: details
+            });
+        }
     }
 
     // If completed, record the usage and check for alerts
@@ -909,7 +919,7 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
         const allCompanyUsers = await getUsersByCompany(user.companyId);
         
         const relevantAllocation = userAllocations.find(a => 
-            date >= a.startDate && date <= a.endDate
+            date >= format(parseISO(a.startDate), 'yyyy-MM-dd') && date <= format(parseISO(a.endDate), 'yyyy-MM-dd')
         );
 
         if (relevantAllocation) {
@@ -923,14 +933,19 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
                 if (currentPercentage >= threshold.percentage && !sentThresholdAlerts.has(alertKey)) {
                     await sendThresholdAlertEmail(user, company, usageInPeriod, allocationForPeriod, threshold.percentage);
                     
-                    const usageInDefaultUnit = usageInPeriod * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
-                    const allocationInDefaultUnit = allocationForPeriod * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
-                    const unitLabel = getUnitLabel(company.defaultUnit);
+                    const unit = company.defaultUnit;
+                    const unitLabel = getUnitLabel(unit);
+                    const convertedUsage = usageInPeriod * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
+                    const convertedAllocation = allocationForPeriod * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
                     
-                    const message = `You have reached ${threshold.percentage}% of your water allocation. Current usage: ${usageInDefaultUnit.toLocaleString(undefined, {maximumFractionDigits: 1})} of ${allocationInDefaultUnit.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel}.`;
-                    const details = `This is an automated alert to inform you that you have reached <strong>${threshold.percentage}%</strong> of your water allocation for the current period.<br/><br/>`
-                        + `<strong>Current Usage:</strong> ${usageInDefaultUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}<br/>`
-                        + `<strong>Total Allocation:</strong> ${allocationInDefaultUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}`;
+                    const message = `You have reached ${threshold.percentage}% of your water allocation. Current usage: ${convertedUsage.toLocaleString(undefined, {maximumFractionDigits: 1})} of ${convertedAllocation.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel}.`;
+                    const details = `<p>Hello,</p>
+                        <p>This is an automated alert to inform you that you have reached <strong>${threshold.percentage}%</strong> of your water allocation for the current period.</p>
+                        <ul>
+                            <li><strong>Current Usage:</strong> ${convertedUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}</li>
+                            <li><strong>Total Allocation:</strong> ${convertedAllocation.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}</li>
+                        </ul>
+                        <p>You can view more details on the AquaWise dashboard.</p>`;
 
                     addNotification({ userId, message, details });
                     sentThresholdAlerts.add(alertKey);
@@ -955,16 +970,20 @@ const checkAndTriggerAlerts = async (userId: string, date: string) => {
             if (spikePercentage > spikeAlerts.percentage) {
                 await sendSpikeAlertEmail(user, company, todaysUsage, average);
                 
-                const usageInDefaultUnit = todaysUsage * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
-                 const weeklyAverageInDefaultUnit = average * (CONVERSION_FACTORS_FROM_GALLONS[company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS] || 1);
-                const unitLabel = getUnitLabel(company.defaultUnit);
+                const unit = company.defaultUnit;
+                const unitLabel = getUnitLabel(unit);
+                const convertedDailyUsage = todaysUsage * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
+                const convertedWeeklyAverage = average * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
                 
-                const message = `High usage spike detected: ${usageInDefaultUnit.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel} used on ${format(today, 'P')}, which is ${Math.round(spikePercentage)}% above your weekly average.`;
-                const details = `This is an automated alert to inform you of a significant spike in water usage.<br/><br/>`
-                    + `<strong>Usage on ${format(today, 'P')}:</strong> ${usageInDefaultUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}<br/>`
-                    + `<strong>7-Day Average Usage:</strong> ${weeklyAverageInDefaultUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}/day<br/>`
-                    + `<strong>Spike:</strong> ${Math.round(spikePercentage)}% above average.<br/><br/>`
-                    + `This could indicate a leak or other issue. Please review the usage data on the AquaWise dashboard.`;
+                const message = `High usage spike detected: ${convertedDailyUsage.toLocaleString(undefined, {maximumFractionDigits: 1})} ${unitLabel} used on ${format(today, 'P')}, which is ${Math.round(spikePercentage)}% above your weekly average.`;
+                const details = `<p>Hello,</p>
+                    <p>This is an automated alert to inform you of a significant spike in water usage.</p>
+                    <ul>
+                        <li><strong>Usage on ${format(today, 'P')}:</strong> ${convertedDailyUsage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}</li>
+                        <li><strong>7-Day Average Usage:</strong> ${convertedWeeklyAverage.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unitLabel}/day</li>
+                        <li><strong>Spike:</strong> ${Math.round(spikePercentage)}% above average.</li>
+                    </ul>
+                    <p>This could indicate a leak or other issue. Please review the usage data on the AquaWise dashboard.</p>`;
 
                 addNotification({ userId, message, details });
             }
