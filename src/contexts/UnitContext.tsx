@@ -3,7 +3,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Unit, UnitLabel } from '@/lib/data';
-import { getUnitLabel as getLabel, CONVERSION_FACTORS_FROM_GALLONS } from '@/lib/data';
+import { CONVERSION_FACTORS_FROM_GALLONS } from '@/lib/data';
+import { formatUnitLabel } from '@/lib/utils';
 import { useAuth } from './AuthContext';
 
 
@@ -30,11 +31,13 @@ export const UnitProvider = ({ children }: { children: ReactNode }) => {
 
 
   const convertUsage = (gallons: number): number => {
-    return gallons * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
+    // Only volume units are valid here by type; others map to 1 implicitly
+    const factor = (CONVERSION_FACTORS_FROM_GALLONS as any)[unit] ?? 1;
+    return gallons * factor;
   };
   
   const getUnitLabel = (): UnitLabel => {
-      return getLabel(unit);
+      return formatUnitLabel(unit) as UnitLabel;
   }
 
   const value = { unit, setUnit, convertUsage, getUnitLabel };

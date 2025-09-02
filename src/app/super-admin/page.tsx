@@ -13,10 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getCompanies, getUsersByCompany } from "@/lib/data";
+// Use Firestore-backed users for accurate counts
+import { getUsersByCompanyFS } from "@/lib/firestoreClientUsers";
+import { getCompaniesFS } from "@/lib/firestoreCompanies";
 import type { Company, User } from "@/lib/data";
 import { PlusCircle, LogIn } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 interface CompanyWithAdmin extends Company {
   userCount: number;
@@ -25,22 +28,23 @@ interface CompanyWithAdmin extends Company {
 
 export default function SuperAdminPage() {
   const { impersonateUser, currentUser } = useAuth();
+  const router = useRouter();
   const [companies, setCompanies] = useState<CompanyWithAdmin[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Only super admins should see this page
-    if (currentUser?.role !== 'Super Admin') {
-        // Or redirect to their own dashboard
-        return;
+    // If not super admin (e.g., after impersonation), redirect to admin dashboard
+    if (currentUser && currentUser.role !== 'Super Admin') {
+      router.replace('/admin');
+      return;
     }
 
     const fetchCompanies = async () => {
       setLoading(true);
-      const companyList = await getCompanies();
+      const companyList = await getCompaniesFS();
       const companiesWithDetails = await Promise.all(
         companyList.map(async (company) => {
-          const users = await getUsersByCompany(company.id);
+          const users = await getUsersByCompanyFS(company.id);
           // Find any user with Admin privileges
           const adminUser = users.find(u => u.role.includes('Admin'));
           return { ...company, userCount: users.length, adminUser };
@@ -51,11 +55,11 @@ export default function SuperAdminPage() {
     };
 
     fetchCompanies();
-  }, [currentUser]);
+  }, [currentUser, router]);
 
-  const handleManageCompany = (adminUser?: User) => {
-    if (adminUser) {
-        impersonateUser(adminUser.id);
+  const handleManageCompany = (adminUser?: User, companyId?: string) => {
+    if (adminUser && companyId) {
+        impersonateUser(adminUser.id, companyId);
     } else {
         // Handle case where no admin is found, maybe with a toast notification
         console.error("No admin user found for this company.");
@@ -105,7 +109,7 @@ export default function SuperAdminPage() {
                       <TableCell>{company.userCount}</TableCell>
                       <TableCell>{company.adminUser ? `${company.adminUser.name} (${company.adminUser.email})` : 'N/A'}</TableCell>
                       <TableCell className="text-right">
-                         <Button variant="outline" size="sm" onClick={() => handleManageCompany(company.adminUser)} disabled={!company.adminUser}>
+                         <Button variant="outline" size="sm" onClick={() => handleManageCompany(company.adminUser, company.id)} disabled={!company.adminUser}>
                             <LogIn className="mr-2 h-4 w-4"/>
                             Manage
                          </Button>

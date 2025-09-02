@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isCompanyMember(companyId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid));
+    }
+
+    match /companies/{companyId} {
+      // Company document can be read by any authenticated member of the company
+      allow read: if isCompanyMember(companyId);
+      // Writes to company settings should go through server (Admin SDK)
+      allow write: if false;
+
+      // Users subcollection
+      match /users/{userId} {
+        // Read all company users for admins/managers in server; but allow client reads for member directory
+        allow read: if isCompanyMember(companyId);
+        // Allow users to update limited profile fields themselves if desired; disabled by default
+        allow write: if false;
+      }
+
+      // Impersonation audit trail: only privileged roles can read; writes are server-only
+      match /impersonationEvents/{eventId} {
+        allow read: if isCompanyMember(companyId) &&
+          (get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role in ['admin','manager','super_admin']);
+        allow write: if false;
+      }
+
+      // User groups
+      match /userGroups/{groupId} {
+        allow read: if isCompanyMember(companyId);
+        allow write: if false;
+      }
+
+      // Allocations (read-only to clients)
+      match /allocations/{allocationId} {
+        allow read: if isCompanyMember(companyId);
+        allow write: if false;
+      }
+
+      // System water availability (read-only to clients)
+      match /waterAvailabilities/{availabilityId} {
+        allow read: if isCompanyMember(companyId);
+        allow write: if false;
+      }
+
+      // Water orders: clients may create their own orders; updates are admin-only via server
+      match /waterOrders/{orderId} {
+        allow read: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId) && request.resource.data.userId == request.auth.uid;
+        // Disallow client-side updates/deletes; handled by server actions (Admin SDK)
+        allow update, delete: if false;
+      }
+
+      // Daily usage entries (read-only to clients)
+      match /usage/{usageId} {
+        allow read: if isCompanyMember(companyId);
+        allow write: if false;
+      }
+
+      // Notifications: readable by the owner; allow owner to mark read
+      match /notifications/{notificationId} {
+        allow read: if isCompanyMember(companyId) && resource.data.userId == request.auth.uid;
+        // Allow owner to update isRead from false->true only
+        allow update: if isCompanyMember(companyId)
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['isRead'])
+          && resource.data.isRead == false
+          && request.resource.data.isRead == true;
+        // Creation and deletion are server-side only
+        allow create, delete: if false;
+      }
+    }
+  }
+}

@@ -3,7 +3,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getAllUsers, User } from "@/lib/data";
+import type { User } from "@/lib/data";
+import { getUsersByCompanyFS } from "@/lib/firestoreClientUsers";
 import {
   Select,
   SelectContent,
@@ -22,10 +23,10 @@ export function DevUserSwitcher() {
 
   useEffect(() => {
     // Only fetch users in development environment
-    if (process.env.NODE_ENV === 'development') {
-      getAllUsers().then(setAllUsers);
+    if (process.env.NODE_ENV === 'development' && currentUser?.companyId) {
+      getUsersByCompanyFS(currentUser.companyId).then(setAllUsers);
     }
-  }, []);
+  }, [currentUser?.companyId]);
 
   const handleUserSwitch = (userId: string) => {
     if (userId) {

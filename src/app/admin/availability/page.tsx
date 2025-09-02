@@ -16,7 +16,8 @@ import {
 import { AvailabilityForm } from "@/components/dashboard/AvailabilityForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { WaterAvailability } from "@/lib/data";
-import { addWaterAvailability, updateWaterAvailability, deleteWaterAvailability, getWaterAvailabilities } from "@/lib/data";
+import { getWaterAvailabilitiesFS } from "@/lib/firestoreAvailability";
+import { addWaterAvailabilityAction, updateWaterAvailabilityAction, deleteWaterAvailabilityAction } from "./actions";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -38,7 +39,7 @@ export default function AvailabilityPage() {
   const fetchAndSetData = async () => {
     if (!currentUser?.companyId) return;
     setLoading(true);
-    const avails = await getWaterAvailabilities(currentUser.companyId);
+    const avails = await getWaterAvailabilitiesFS(currentUser.companyId);
     setAvailabilities(avails.sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()));
     setLoading(false);
   };
@@ -66,7 +67,8 @@ export default function AvailabilityPage() {
 
   const handleDeleteConfirm = async () => {
     if (!availabilityToDelete) return;
-    await deleteWaterAvailability(availabilityToDelete.id);
+    if (!currentUser) return;
+    await deleteWaterAvailabilityAction(currentUser.companyId, availabilityToDelete.id, currentUser.id);
     toast({
       title: "Availability Deleted",
       description: "The availability period has been successfully removed.",
@@ -80,13 +82,13 @@ export default function AvailabilityPage() {
     if (!currentUser?.companyId) return;
     
     if (editingAvailability) {
-      await updateWaterAvailability({ ...data, id: editingAvailability.id, companyId: currentUser.companyId });
+      await updateWaterAvailabilityAction(currentUser.companyId, editingAvailability.id, data, currentUser.id);
       toast({
         title: "Availability Updated",
         description: "The availability period has been successfully saved.",
       });
     } else {
-      await addWaterAvailability({ ...data, companyId: currentUser.companyId });
+      await addWaterAvailabilityAction(currentUser.companyId, data, currentUser.id);
       toast({
         title: "Availability Created",
         description: "The new water availability has been successfully saved.",

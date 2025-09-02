@@ -4,7 +4,7 @@
 import sgMail from '@sendgrid/mail';
 import { format } from 'date-fns';
 import type { Allocation, User, Unit, WaterOrder, Company } from './data';
-import { getUnitLabel, getUserById } from './data';
+import { formatUnitLabel } from './utils';
 import "dotenv/config";
 
 
@@ -41,7 +41,7 @@ export const sendAllocationNotificationEmail = async (allocation: Allocation, re
     const formattedEnd = format(new Date(allocation.endDate), 'P p');
 
     const convertedAmount = allocation.gallons * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
-    const unitLabel = getUnitLabel(unit);
+    const unitLabel = formatUnitLabel(unit);
 
     const msg = {
         to: recipients.map(r => r.email),
@@ -66,7 +66,7 @@ export const sendWaterOrderSubmissionEmail = async (order: WaterOrder, user: Use
 
     const formattedStart = format(new Date(order.startDate), 'P p');
     const formattedEnd = format(new Date(order.endDate), 'P p');
-    const unitLabel = getUnitLabel(order.unit);
+    const unitLabel = formatUnitLabel(order.unit);
 
     const msg = {
         to: recipients.map(r => r.email),
@@ -89,7 +89,7 @@ export const sendWaterOrderSubmissionEmail = async (order: WaterOrder, user: Use
 export const sendWaterOrderStatusUpdateEmail = async (order: WaterOrder, user: User) => {
     const formattedStart = format(new Date(order.startDate), 'P p');
     const formattedEnd = format(new Date(order.endDate), 'P p');
-    const unitLabel = getUnitLabel(order.unit);
+    const unitLabel = formatUnitLabel(order.unit);
 
     const subject = `Your Water Order has been ${order.status}`;
     let body = `
@@ -121,7 +121,7 @@ export const sendWaterOrderStatusUpdateEmail = async (order: WaterOrder, user: U
 
 export const sendThresholdAlertEmail = async (user: User, company: Company, usage: number, allocation: number, percentage: number) => {
     const unit = company.defaultUnit;
-    const unitLabel = getUnitLabel(unit);
+    const unitLabel = formatUnitLabel(unit);
     const convertedUsage = usage * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
     const convertedAllocation = allocation * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
 
@@ -158,7 +158,7 @@ export const sendThresholdAlertEmail = async (user: User, company: Company, usag
 
 export const sendSpikeAlertEmail = async (user: User, company: Company, dailyUsage: number, weeklyAverage: number) => {
     const unit = company.defaultUnit;
-    const unitLabel = getUnitLabel(unit);
+    const unitLabel = formatUnitLabel(unit);
     const convertedDailyUsage = dailyUsage * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
     const convertedWeeklyAverage = weeklyAverage * CONVERSION_FACTORS_FROM_GALLONS[unit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS];
     const spikePercentage = weeklyAverage > 0 ? Math.round(((dailyUsage - weeklyAverage) / weeklyAverage) * 100) : 100;

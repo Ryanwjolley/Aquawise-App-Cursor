@@ -6,7 +6,9 @@ import { AppLayout } from "@/components/AppLayout";
 import { DataUploadForm } from "@/components/dashboard/DataUploadForm";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { bulkAddUsageEntries, getUsersByCompany, User, getUnitLabel } from "@/lib/data";
+import type { User, Unit } from "@/lib/data";
+import { getUsersByCompanyFS } from "@/lib/firestoreClientUsers";
+import { bulkAddUsageEntriesServer } from "@/app/admin/usage-data/actions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUnit } from "@/contexts/UnitContext";
@@ -19,11 +21,11 @@ export default function DataUploadPage() {
 
   useEffect(() => {
     if (currentUser?.companyId) {
-      getUsersByCompany(currentUser.companyId).then(setCompanyUsers);
+      getUsersByCompanyFS(currentUser.companyId).then(setCompanyUsers);
     }
   }, [currentUser]);
 
-  const handleDataUpload = async (data: any[], mode: 'overwrite' | 'new_only') => {
+  const handleDataUpload = async (data: any[], mode: 'overwrite' | 'new_only', unit: Unit) => {
     console.log(`Preparing to upload ${data.length} records with mode: ${mode}`);
     
     // Map emails to user IDs
@@ -35,7 +37,8 @@ export default function DataUploadPage() {
       usage: parseInt(record.usage, 10),
     })).filter(entry => entry.userId); // Filter out records where user wasn't found
 
-    const { added, updated } = await bulkAddUsageEntries(entriesToAdd, mode, company?.defaultUnit || 'gallons');
+  if (!currentUser) return;
+  const { added, updated } = await bulkAddUsageEntriesServer(currentUser.companyId, entriesToAdd, mode, unit);
     
     console.log(`Upload complete. Added: ${added}, Updated: ${updated}`);
     toast({

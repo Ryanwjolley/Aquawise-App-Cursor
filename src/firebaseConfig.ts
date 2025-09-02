@@ -2,20 +2,18 @@
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-const firebaseConfig = { // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-    apiKey: "AIzaSyCruZkmkjMrt8L4DtvSvOTIuCGchuADHnQ",
-    authDomain: "jdeirrigation-9dd4b.firebaseapp.com",
-    projectId: "jdeirrigation-9dd4b",
-    storageBucket: "jdeirrigation-9dd4b.firebasestorage.app",
-    messagingSenderId: "314231905579",
-    appId: "1:314231905579:web:14b8156425ed5430c2396e"
+// Env-based Firebase configuration (set in .env.local)
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY as string,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN as string,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID as string,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET as string,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID as string,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID as string,
 };
 
-// Initialize Firebase
+// Initialize Firebase (client SDK)
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Cloud Firestore and get a reference to the service

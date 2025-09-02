@@ -1,0 +1,35 @@
+{
+  "info": {
+    "name": "Zenner Integration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Sync Usage (Mock)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integrations/zenner/usage",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "integrations", "zenner", "usage"]
+        }
+      }
+    },
+    {
+      "name": "Sync Users (Mock)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/integrations/zenner/users",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "integrations", "zenner", "users"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" }
+  ]
+}

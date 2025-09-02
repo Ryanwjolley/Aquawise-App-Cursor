@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FileUp, AlertTriangle, Info } from "lucide-react";
-import { findExistingUsageForUsersAndDates, User, Unit } from "@/lib/data";
+import type { User, Unit } from "@/lib/data";
+import { findExistingUsageAction } from "@/lib/firestoreUsage";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import {
@@ -58,7 +59,8 @@ export function DataUploadForm({ onUpload, companyUsers }: DataUploadFormProps) 
                     date: r.date,
                 })).filter(e => e.userId !== 'unknown');
                 
-                const foundDuplicates = await findExistingUsageForUsersAndDates(entriesToCheck);
+                if (!company) return;
+                const foundDuplicates = await findExistingUsageAction(company.id, entriesToCheck);
                 setDuplicates(foundDuplicates);
             };
             checkDuplicates();

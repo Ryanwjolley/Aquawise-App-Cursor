@@ -24,9 +24,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { WaterAvailability } from "@/lib/data";
 import { useAuth } from "@/contexts/AuthContext";
-import { format, differenceInMinutes, addMinutes, subMinutes, parseISO, differenceInSeconds, differenceInDays } from "date-fns";
+import { format, differenceInMinutes, addMinutes, subMinutes, parseISO } from "date-fns";
 import { useUnit } from "@/contexts/UnitContext";
-import { getGroupsByCompany, CONVERSION_FACTORS_TO_GALLONS, CONVERSION_FACTORS_FROM_GALLONS } from "@/lib/data";
+import { convertToGallons, convertGallonsToUnit } from "@/lib/utils";
 
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -71,6 +71,7 @@ export function AvailabilityForm({
   defaultValues
 }: AvailabilityFormProps) {
   const { company } = useAuth();
+  const { convertUsage } = useUnit();
   
   const {
     handleSubmit,
@@ -101,7 +102,7 @@ export function AvailabilityForm({
 
       if (defaultValues) {
         // When editing, convert the stored gallon value to the company's default display unit.
-        const displayAmount = defaultValues.gallons * (CONVERSION_FACTORS_FROM_GALLONS[defaultUnit] || 1);
+        const displayAmount = convertGallonsToUnit(defaultValues.gallons, defaultUnit);
         const start = new Date(defaultValues.startDate);
         const end = new Date(defaultValues.endDate);
 
@@ -140,30 +141,9 @@ export function AvailabilityForm({
         return;
     }
 
-    let totalGallons = 0;
-    const { amount, unit } = data;
-    
-    // Check if it's a simple volume conversion
-    if (unit in CONVERSION_FACTORS_TO_GALLONS.volume) {
-      totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.volume[unit as keyof typeof CONVERSION_FACTORS_TO_GALLONS.volume]!;
-    } 
-    // Check if it's a rate conversion
-    else if (unit in CONVERSION_FACTORS_TO_GALLONS.rate) {
-        const durationInSeconds = differenceInSeconds(endDate, startDate);
-        switch(unit) {
-            case 'cfs':
-                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.cfs * durationInSeconds;
-                break;
-            case 'gpm':
-                const durationInMinutes = durationInSeconds / 60;
-                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.gpm * durationInMinutes;
-                break;
-            case 'acre-feet-day':
-                const durationInDaysForRate = durationInSeconds / (24 * 60 * 60);
-                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate['acre-feet-day'] * durationInDaysForRate;
-                break;
-        }
-    }
+  const { amount, unit } = data;
+  const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+  const totalGallons = convertToGallons(amount, unit, durationHours);
 
     onSubmit({
         startDate: startDate.toISOString(),

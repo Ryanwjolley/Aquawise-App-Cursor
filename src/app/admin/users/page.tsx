@@ -16,11 +16,12 @@ import {
 import { UserForm } from "@/components/dashboard/UserForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { User, UserGroup } from "@/lib/data";
-import { addUser, updateUser, deleteUser, getUsersByCompany, getGroupsByCompany } from "@/lib/data";
+import { getUsersByCompanyFS, getGroupsByCompanyFS } from "@/lib/firestoreClientUsers";
 import { PlusCircle, MoreHorizontal, LogIn } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { addUserAction, updateUserAction, deleteUserAction } from './actions';
 
 export default function UserManagementPage() {
   const { currentUser, impersonateUser, company } = useAuth();
@@ -38,11 +39,11 @@ export default function UserManagementPage() {
   const fetchUsersAndGroups = async () => {
     if (!currentUser?.companyId) return;
     setLoading(true);
-    const userList = await getUsersByCompany(currentUser.companyId);
+    const userList = await getUsersByCompanyFS(currentUser.companyId);
     setUsers(userList);
 
     if (company?.userGroupsEnabled) {
-      const groupList = await getGroupsByCompany(currentUser.companyId);
+      const groupList = await getGroupsByCompanyFS(currentUser.companyId);
       setGroups(groupList);
     } else {
       setGroups([]);
@@ -78,7 +79,8 @@ export default function UserManagementPage() {
 
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return;
-    await deleteUser(userToDelete.id);
+  if (!currentUser) return;
+  await deleteUserAction(currentUser.companyId, userToDelete.id, currentUser.id);
     toast({
       title: "User Deleted",
       description: `${userToDelete.name} has been successfully removed.`,
@@ -94,13 +96,13 @@ export default function UserManagementPage() {
     const userData = { ...data };
 
     if (editingUser) {
-      await updateUser({ ...userData, id: editingUser.id, companyId: editingUser.companyId, role: editingUser.role });
+      await updateUserAction(currentUser.companyId, editingUser.id, { ...userData, role: editingUser.role }, currentUser.id);
       toast({
         title: "User Updated",
         description: "The user's details have been successfully saved.",
       });
     } else {
-      await addUser({ ...userData, companyId: currentUser.companyId });
+      await addUserAction(currentUser.companyId, { ...userData, role: data.role, companyId: currentUser.companyId } as any, currentUser.id);
       toast({
         title: "User Added",
         description: "The new user has been successfully created.",

@@ -23,7 +23,6 @@ import * as z from "zod";
 import type { User, UserGroup } from "@/lib/data";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getGroupsByCompany } from "@/lib/data";
 
 
 const phoneRegex = new RegExp(

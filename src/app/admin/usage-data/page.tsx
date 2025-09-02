@@ -15,7 +15,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { bulkAddUsageEntries, getUsersByCompany, User, getUnitLabel, getUsageForUser, Allocation, UsageEntry, findExistingUsageForUsersAndDates, Unit } from "@/lib/data";
+import { User, getUnitLabel, UsageEntry, Unit } from "@/lib/data";
+import { getUsersByCompanyFS } from "@/lib/firestoreClientUsers";
+import { getCompanyUsageFS, findExistingUsageAction } from "@/lib/firestoreUsage";
+import { bulkAddUsageEntriesServer } from "./actions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUnit } from "@/contexts/UnitContext";
@@ -46,14 +49,11 @@ export default function UsageDataPage() {
     if (!currentUser?.companyId) return;
     setLoading(true);
 
-    const users = await getUsersByCompany(currentUser.companyId);
+    const users = await getUsersByCompanyFS(currentUser.companyId);
     setCompanyUsers(users);
 
-    const usagePromises = users.map(user => getUsageForUser(user.id));
-    const allUsageResults = await Promise.all(usagePromises);
-    const flattenedUsage = allUsageResults.flat().sort((a,b) => b.date.localeCompare(a.date)); // Sort by most recent
-    
-    setAllUsageData(flattenedUsage);
+    const companyUsage = await getCompanyUsageFS(currentUser.companyId);
+    setAllUsageData(companyUsage);
     setLoading(false);
   }
 
@@ -74,7 +74,8 @@ export default function UsageDataPage() {
       usage: parseInt(record.usage, 10),
     })).filter(entry => entry.userId);
 
-    const { added, updated } = await bulkAddUsageEntries(entriesToAdd, mode, unit);
+  if (!currentUser) return;
+  const { added, updated } = await bulkAddUsageEntriesServer(currentUser.companyId, entriesToAdd, mode, unit);
     
     toast({
       title: "Upload Successful",
@@ -86,7 +87,8 @@ export default function UsageDataPage() {
   const handleManualEntry = async (entries: Omit<UsageEntry, 'id'>[]) => {
     // Check for conflicts before submitting
     const entriesToCheck = entries.map(e => ({ userId: e.userId, date: e.date }));
-    const duplicates = await findExistingUsageForUsersAndDates(entriesToCheck);
+  if (!currentUser) return;
+  const duplicates = await findExistingUsageAction(currentUser.companyId, entriesToCheck);
 
     if (duplicates.length > 0) {
       setConflictingEntries(entries);
@@ -98,7 +100,8 @@ export default function UsageDataPage() {
   }
 
   const submitManualEntry = async (entries: Omit<UsageEntry, 'id'>[], mode: 'add' | 'overwrite') => {
-     const { added, updated } = await bulkAddUsageEntries(entries, mode);
+  if (!currentUser) return;
+  const { added, updated } = await bulkAddUsageEntriesServer(currentUser.companyId, entries, mode);
       toast({
           title: "Manual Entry Successful",
           description: `${added} new records added. ${updated} records updated.`,

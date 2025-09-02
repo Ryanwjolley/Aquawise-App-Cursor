@@ -2,7 +2,7 @@
 // /src/components/AppLayout.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -20,9 +20,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Home, Users, Settings, LogOut, Droplets, Building2, Upload, Target, XSquare, AreaChart, ClipboardList, Calendar, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { normalizeRole } from "@/lib/roles";
 import { UnitSwitcher } from "@/components/dashboard/UnitSwitcher";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { getNotificationsForUser, markNotificationAsRead, Notification } from "@/lib/data";
+import type { Notification } from "@/lib/data";
+import { getNotificationsForUserFS, markNotificationAsReadFS } from "@/lib/firestoreNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { DevUserSwitcher } from "./DevUserSwitcher";
@@ -38,15 +40,16 @@ import {
 
 function ImpersonationBanner() {
     const { stopImpersonating, currentUser } = useAuth();
+    const role = normalizeRole(currentUser?.role);
     return (
-        <div className="bg-accent text-accent-foreground py-2 px-4 text-center text-sm flex items-center justify-center gap-4">
-            <span>You are viewing the dashboard as <strong>{currentUser?.name}</strong>.</span>
-            <Button variant="outline" size="sm" className="h-7" onClick={stopImpersonating}>
+        <div className="bg-amber-500/90 text-white py-2 px-4 text-center text-sm flex items-center justify-center gap-4 shadow-inner">
+            <span>Impersonating <strong>{currentUser?.name}</strong> ({role.replace('_', ' ')})</span>
+            <Button variant="secondary" size="sm" className="h-7" onClick={stopImpersonating}>
                 <XSquare className="mr-2 h-4 w-4" />
-                Return to Admin View
+                Stop
             </Button>
         </div>
-    )
+    );
 }
 
 function NotificationsPopover() {
@@ -56,8 +59,8 @@ function NotificationsPopover() {
     const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
     const fetchNotifications = async () => {
-        if (!currentUser) return;
-        const userNotifications = await getNotificationsForUser(currentUser.id);
+        if (!currentUser || !currentUser.companyId) return;
+        const userNotifications = await getNotificationsForUserFS(currentUser.companyId, currentUser.id);
         setNotifications(userNotifications);
     };
 
@@ -81,8 +84,8 @@ function NotificationsPopover() {
 
     const handleNotificationClick = (notification: Notification) => {
         setSelectedNotification(notification);
-        if (!notification.isRead) {
-            markNotificationAsRead(notification.id).then(() => fetchNotifications());
+        if (!notification.isRead && currentUser?.companyId) {
+            markNotificationAsReadFS(currentUser.companyId, notification.id).then(() => fetchNotifications());
         }
     };
     
@@ -159,38 +162,49 @@ function NotificationsPopover() {
 
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser, company, isImpersonating, stopImpersonating, logout } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const pathname = usePathname();
+    const { currentUser, company, isImpersonating, stopImpersonating, logout } = useAuth();
+    const [unreadCount, setUnreadCount] = useState(0);
+    const pathname = usePathname();
 
-  useEffect(() => {
-    const fetchCount = async () => {
-        if(currentUser) {
-            const userNotifications = await getNotificationsForUser(currentUser.id);
-            setUnreadCount(userNotifications.filter(n => !n.isRead).length);
-        }
-    }
-    
-    const handleNotificationUpdate = () => {
+    // Derived booleans memoized (avoid recalculation and keep hooks top-level)
+    const { isSuperAdminView, isAdminView, isCustomerView, dashboardPath, isDashboardActive } = useMemo(() => {
+        const role = currentUser?.role || '';
+        const isSuper = role === 'Super Admin' && !isImpersonating;
+        const isAdmin = role.includes('Admin');
+        const isCustomer = role.includes('Customer');
+        const dashPath = isAdmin ? '/admin' : '/';
+        const dashActive = pathname === dashPath || (isAdmin && pathname === '/admin' && pathname.length <= 7);
+        return { isSuperAdminView: isSuper, isAdminView: isAdmin, isCustomerView: isCustomer, dashboardPath: dashPath, isDashboardActive: dashActive };
+    }, [currentUser?.role, isImpersonating, pathname]);
+
+    // Notification count effect (guards inside, not conditional outside)
+    useEffect(() => {
+        let mounted = true;
+        const fetchCount = async () => {
+            if(currentUser?.companyId) {
+                const userNotifications = await getNotificationsForUserFS(currentUser.companyId, currentUser.id);
+                if (mounted) setUnreadCount(userNotifications.filter(n => !n.isRead).length);
+            } else if (mounted) {
+                setUnreadCount(0);
+            }
+        };
+        const handleNotificationUpdate = () => { fetchCount(); };
         fetchCount();
-    };
+        window.addEventListener('notifications-updated', handleNotificationUpdate);
+        return () => {
+            mounted = false;
+            window.removeEventListener('notifications-updated', handleNotificationUpdate);
+        };
+    }, [currentUser?.companyId, currentUser?.id]);
 
-    fetchCount();
-    window.addEventListener('notifications-updated', handleNotificationUpdate);
-    
-    return () => {
-        window.removeEventListener('notifications-updated', handleNotificationUpdate);
-    };
-
-  }, [currentUser]);
-
-
-  const isSuperAdminView = currentUser?.role === 'Super Admin' && !isImpersonating;
-  const isAdminView = currentUser?.role?.includes('Admin');
-  const isCustomerView = currentUser?.role?.includes('Customer');
-  
-  const dashboardPath = isAdminView ? '/admin' : '/';
-  const isDashboardActive = pathname === dashboardPath || (isAdminView && pathname === '/admin' && pathname.length <= 7);
+    // Early return AFTER hooks: allowed since hooks are unconditional above.
+    if (!currentUser) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+                {children}
+            </div>
+        );
+    }
 
   return (
     <SidebarProvider>

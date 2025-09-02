@@ -3,7 +3,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameDay, differenceInDays, parseISO, startOfDay } from 'date-fns';
-import { getWaterAvailabilities, getWaterOrdersByCompany, WaterAvailability, WaterOrder, getUsersByCompany, User, updateWaterOrderStatus, checkAndCompleteExpiredOrders } from '@/lib/data';
+import { WaterAvailability, WaterOrder, User } from '@/lib/data';
+import { getWaterAvailabilitiesFS } from '@/lib/firestoreAvailability';
+import { getWaterOrdersByCompanyFS } from '@/lib/firestoreOrders';
+import { getUsersByCompanyFS } from '@/lib/firestoreClientUsers';
+import { updateWaterOrderStatusAction } from '@/app/admin/water-orders/actions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUnit } from '@/contexts/UnitContext';
 import { Button } from '@/components/ui/button';
@@ -16,7 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { getUnitLabel as getUnitLabelFromData } from '@/lib/data';
+import { formatUnitLabel } from '@/lib/utils';
 
 
 type DailyData = {
@@ -45,13 +49,10 @@ export function WaterCalendar() {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(currentDate);
 
-    // Auto-complete any expired orders before fetching the list
-    await checkAndCompleteExpiredOrders(currentUser.companyId);
-
     const [availabilities, orders, users] = await Promise.all([
-      getWaterAvailabilities(currentUser.companyId),
-      getWaterOrdersByCompany(currentUser.companyId),
-      getUsersByCompany(currentUser.companyId),
+      getWaterAvailabilitiesFS(currentUser.companyId),
+      getWaterOrdersByCompanyFS(currentUser.companyId),
+      getUsersByCompanyFS(currentUser.companyId),
     ]);
     
     const userMap = new Map(users.map(u => [u.id, u.name]));
@@ -119,7 +120,7 @@ export function WaterCalendar() {
     if (!currentUser) return;
     
     try {
-        await updateWaterOrderStatus(orderId, status, currentUser.id, notes);
+        await updateWaterOrderStatusAction(currentUser.companyId, orderId, status, currentUser.id, notes);
         toast({
             title: "Order Updated",
             description: `The water order has been successfully ${status}.`,
@@ -324,7 +325,7 @@ function DayCell({ dayData, onOrderClick }: { dayData: DailyData | null, onOrder
                         <button key={order.id} onClick={() => onOrderClick(order)} className="rounded-md p-1 -m-1 text-left hover:bg-accent block w-full">
                             <div className="grid grid-cols-3 items-center gap-4 text-xs">
                                 <span className="col-span-1 truncate">{order.userName || 'Unknown User'}</span>
-                                <span className="col-span-1">{order.amount.toLocaleString()} {getUnitLabelFromData(order.unit)}</span>
+                                <span className="col-span-1">{order.amount.toLocaleString()} {formatUnitLabel(order.unit)}</span>
                                 <Badge variant={order.status === 'approved' || order.status === 'completed' ? 'default' : order.status === 'pending' ? 'outline' : 'destructive'} className="capitalize justify-self-end">{order.status}</Badge>
                             </div>
                         </button>
@@ -341,7 +342,7 @@ function DayCell({ dayData, onOrderClick }: { dayData: DailyData | null, onOrder
 function OrderDetailsDialog({ isOpen, onOpenChange, order, onStatusChange, onRejectionRequest }: { 
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
-    order: WaterOrder | null;
+  order: (WaterOrder & { userName?: string }) | null;
     onStatusChange: (orderId: string, status: 'approved' | 'rejected' | 'completed', notes?: string) => void;
     onRejectionRequest: () => void;
 }) {
@@ -373,7 +374,7 @@ function OrderDetailsDialog({ isOpen, onOpenChange, order, onStatusChange, onRej
                     </div>
                     <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                         <Label>Request</Label>
-                        <span>{order.amount} {getUnitLabelFromData(order.unit)}</span>
+                        <span>{order.amount} {order.unit}</span>
                     </div>
                     <div className="grid grid-cols-[120px_1fr] items-center gap-4">
                         <Label>Total Volume</Label>

@@ -23,8 +23,9 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format, parseISO, differenceInSeconds, differenceInDays } from "date-fns";
-import { CONVERSION_FACTORS_TO_GALLONS, Unit, User } from "@/lib/data";
+import { format, parseISO, differenceInSeconds } from "date-fns";
+import type { Unit, User, WaterOrder } from "@/lib/data";
+import { convertToGallons } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
 
@@ -54,7 +55,7 @@ type WaterOrderFormValues = z.infer<typeof waterOrderFormSchema>;
 interface WaterOrderFormProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onSubmit: (data: Omit<any, 'id' | 'companyId' | 'status' | 'createdAt'>) => void;
+  onSubmit: (data: Omit<WaterOrder, 'id' | 'companyId' | 'status' | 'createdAt'>) => void | Promise<void>;
   companyUsers?: User[];
 }
 
@@ -129,38 +130,16 @@ export function WaterOrderForm({
         return;
     }
 
-    let totalGallons = 0;
-    const { amount, unit } = data;
+  const durationHours = differenceInSeconds(endDate, startDate) / 3600;
+  const totalGallons = convertToGallons(data.amount, data.unit, durationHours);
     
-    // Check if it's a simple volume conversion
-    if (unit in CONVERSION_FACTORS_TO_GALLONS.volume) {
-      totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.volume[unit as keyof typeof CONVERSION_FACTORS_TO_GALLONS.volume]!;
-    } 
-    // Check if it's a rate conversion
-    else if (unit in CONVERSION_FACTORS_TO_GALLONS.rate) {
-        const durationInSeconds = differenceInSeconds(endDate, startDate);
-        switch(unit) {
-            case 'cfs':
-                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.cfs * durationInSeconds;
-                break;
-            case 'gpm':
-                const durationInMinutes = durationInSeconds / 60;
-                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.gpm * durationInMinutes;
-                break;
-            case 'acre-feet-day':
-                const durationInDaysForRate = durationInSeconds / (24 * 60 * 60);
-                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate['acre-feet-day'] * durationInDaysForRate;
-                break;
-        }
-    }
-    
-    onSubmit({
+  onSubmit({
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         amount: data.amount,
         unit: data.unit,
         totalGallons,
-        userId: data.userId, // Pass userId along
+    userId: data.userId || currentUser?.id || '', // ensure defined
     });
   }
 

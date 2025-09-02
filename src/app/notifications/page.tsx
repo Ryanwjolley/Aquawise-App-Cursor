@@ -4,7 +4,8 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { Notification, getNotificationsForUser, markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/data";
+import type { Notification } from "@/lib/data";
+import { getNotificationsForUserFS, markNotificationAsReadFS, markAllNotificationsAsReadFS } from "@/lib/firestoreNotifications";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCheck } from "lucide-react";
@@ -28,9 +29,9 @@ export default function NotificationsPage() {
     const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
     const fetchNotifications = async () => {
-        if (!currentUser) return;
+        if (!currentUser?.companyId) return;
         setLoading(true);
-        const userNotifications = await getNotificationsForUser(currentUser.id);
+        const userNotifications = await getNotificationsForUserFS(currentUser.companyId, currentUser.id);
         setNotifications(userNotifications);
         setLoading(false);
     };
@@ -52,16 +53,16 @@ export default function NotificationsPage() {
 
     const handleNotificationClick = (notification: Notification) => {
         setSelectedNotification(notification);
-        if (!notification.isRead) {
-            markNotificationAsRead(notification.id);
+        if (!notification.isRead && currentUser?.companyId) {
+            markNotificationAsReadFS(currentUser.companyId, notification.id);
             // We can optimistically update the UI if needed, but for simplicity we re-fetch
             fetchNotifications(); 
         }
     };
 
     const handleMarkAllAsRead = async () => {
-        if (!currentUser) return;
-        await markAllNotificationsAsRead(currentUser.id);
+    if (!currentUser?.companyId) return;
+    await markAllNotificationsAsReadFS(currentUser.companyId, currentUser.id);
         fetchNotifications();
     }
     

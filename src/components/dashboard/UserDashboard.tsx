@@ -12,7 +12,8 @@ import type { DateRange } from "react-day-picker";
 import { useUnit } from "@/contexts/UnitContext";
 import { calculateUserAllocation } from "@/lib/data";
 import { useState, useEffect } from "react";
-import { getUsersByCompany } from "@/lib/data";
+import { format } from "date-fns";
+import { getUsersByCompanyFS } from "@/lib/firestoreClientUsers";
 
 
 interface UserDashboardProps {
@@ -29,7 +30,7 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
 
     useEffect(() => {
         if(user?.companyId) {
-            getUsersByCompany(user.companyId).then(setAllCompanyUsers);
+            getUsersByCompanyFS(user.companyId).then(setAllCompanyUsers);
         }
     }, [user]);
 
@@ -37,10 +38,25 @@ export function UserDashboard({ user, usageData, allocations, queryRange }: User
     
     const totalUsage = usageData.reduce((acc, entry) => acc + entry.usage, 0);
 
-    const dailyChartData = usageData.map(entry => ({
-        date: entry.date,
-        usage: convertUsage(entry.usage)
-    })).sort((a,b) => a.date.localeCompare(b.date));
+    // Build a dense series for every day in the selected range, filling 0 when no usage
+    const usageByDate = usageData.reduce<Record<string, number>>((map, entry) => {
+        map[entry.date] = (map[entry.date] || 0) + entry.usage;
+        return map;
+    }, {});
+
+    const dailyChartData = (() => {
+        if (!queryRange.from || !queryRange.to) return [] as { date: string; usage: number }[];
+        const series: { date: string; usage: number }[] = [];
+        const current = new Date(queryRange.from);
+        const end = new Date(queryRange.to);
+        while (current <= end) {
+            const key = format(current, 'yyyy-MM-dd');
+            const gallons = usageByDate[key] || 0;
+            series.push({ date: key, usage: convertUsage(gallons) });
+            current.setDate(current.getDate() + 1);
+        }
+        return series;
+    })();
 
     const allocationForPeriod = calculateUserAllocation(user, allCompanyUsers, allocations, queryRange);
     const allocationUsagePercent = allocationForPeriod > 0 ? (totalUsage / allocationForPeriod) * 100 : 0;

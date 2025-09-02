@@ -1,154 +1,202 @@
-
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import type { User, Company } from '@/lib/data';
-import { getUserById, getCompanyById } from '@/lib/data';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { auth } from '@/firebaseConfig';
+import { GoogleAuthProvider, onAuthStateChanged, signOut, signInWithPopup, signInWithRedirect } from 'firebase/auth';
+import { fetchCompany, fetchUserProfile } from '@/lib/firestoreData';
+import { normalizeRole, canImpersonate } from '@/lib/roles';
 
 interface AuthContextValue {
   currentUser: User | null;
   company: Company | null;
-  impersonateUser: (userId: string) => Promise<void>;
-  stopImpersonating: () => Promise<void>;
-  logout: () => void;
-  switchUser: (userId: string) => Promise<void>;
-  isImpersonating: boolean;
   loading: boolean;
+  isImpersonating: boolean;
+  logout: () => Promise<void>;
+  googleSignIn: () => Promise<void>;
   reloadCompany: () => Promise<void>;
+  impersonateUser: (userId: string, companyId?: string) => Promise<void>;
+  stopImpersonating: () => Promise<void>;
+  switchUser: (userId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const impersonationAdminIdKey = 'impersonation_admin_id';
-const impersonationAdminRoleKey = 'impersonation_admin_role';
-const impersonationUserIdKey = 'impersonation_user_id';
-
-
 const AuthHandler = ({ children }: { children: ReactNode }) => {
-    const router = useRouter();
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [company, setCompany] = useState<Company | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [isImpersonating, setIsImpersonating] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [impersonationRecordId, setImpersonationRecordId] = useState<string | null>(null);
+  const [originalUser, setOriginalUser] = useState<User | null>(null);
+  const [originalCompany, setOriginalCompany] = useState<Company | null>(null);
 
-    const defaultUserId = '101'; // Alice Johnson (Admin & Customer for GVA)
+  const lastSentTokenRef = useRef<string | null>(null);
 
-    useEffect(() => {
-        const handleUserUpdate = (event: Event) => {
-            const customEvent = event as CustomEvent;
-            const updatedUser = customEvent.detail as User;
-            if (currentUser && updatedUser.id === currentUser.id) {
-                setCurrentUser(updatedUser);
-            }
-        };
+  async function ensureSessionCookie(fbUser: any) {
+    try {
+      if (!fbUser) return;
+      const token = await fbUser.getIdToken();
+      if (token && token !== lastSentTokenRef.current) {
+        await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: token }),
+        });
+        lastSentTokenRef.current = token;
+      }
+    } catch {}
+  }
 
-        const handleCompanyUpdate = (event: Event) => {
-            const customEvent = event as CustomEvent;
-            const updatedCompany = customEvent.detail as Company;
-            if (company && updatedCompany.id === company.id) {
-                setCompany(updatedCompany);
-            }
-        };
-
-        window.addEventListener('user-updated', handleUserUpdate);
-        window.addEventListener('company-updated', handleCompanyUpdate);
-        return () => {
-            window.removeEventListener('user-updated', handleUserUpdate);
-            window.removeEventListener('company-updated', handleCompanyUpdate);
-        };
-    }, [currentUser, company]);
-
-    useEffect(() => {
-        const adminId = sessionStorage.getItem(impersonationAdminIdKey);
-        const userIdToLoad = sessionStorage.getItem(impersonationUserIdKey) || defaultUserId;
-        
-        if (adminId) {
-            setIsImpersonating(true);
-        }
-        
-        loadUser(userIdToLoad);
-    }, []);
-
-    const loadUser = async (userId: string, redirect: boolean = false, wasImpersonating: boolean = false) => {
-        setLoading(true);
-        const user = await getUserById(userId);
-        if (user) {
-            setCurrentUser(user);
-            await loadCompany(user.companyId);
-            if (redirect) {
-                const stillImpersonating = !!sessionStorage.getItem(impersonationAdminIdKey);
-                
-                let targetPath = '/';
-                if (user.role === 'Super Admin' && !stillImpersonating && !wasImpersonating) {
-                    targetPath = '/super-admin';
-                } else if (user.role?.includes('Admin')) {
-                    targetPath = '/admin';
-                }
-                router.push(targetPath);
-            }
-        } else {
-            setCurrentUser(null);
-            setCompany(null);
-        }
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      setLoading(true);
+      if (!fbUser) {
+        setCurrentUser(null);
+        setCompany(null);
         setLoading(false);
-    }
-    
-    const loadCompany = async (companyId: string) => {
-        const userCompany = await getCompanyById(companyId);
-        setCompany(userCompany || null);
-    }
-    
-    const reloadCompany = async () => {
-        if(currentUser?.companyId) {
-            await loadCompany(currentUser.companyId);
+        if (pathname !== '/login') router.replace('/login');
+        return;
+      }
+
+      // Ensure backend session cookie present (for middleware / server guards)
+      await ensureSessionCookie(fbUser);
+
+      // If currently impersonating, do not override the client-side identity
+      if (isImpersonating && currentUser && company) {
+        setLoading(false);
+        return;
+      }
+
+      // Super admin belongs to AquaWise company with canonical id '0'
+      const companyId = '0';
+      const profile = await fetchUserProfile(companyId, fbUser.uid);
+
+      if (profile) {
+        setCurrentUser(profile);
+        const companyDoc = await fetchCompany(companyId);
+        setCompany(companyDoc);
+        // Redirect based on role
+        const role = (profile.role || '').toLowerCase();
+        if (pathname === '/login') {
+          if (role.includes('super')) router.replace('/super-admin');
+          else if (role.includes('admin') || role.includes('manager')) router.replace('/admin');
+          else router.replace('/');
         }
+      } else {
+        // No profile; keep minimal identity
+        setCurrentUser({ id: fbUser.uid, name: fbUser.email || 'User', email: fbUser.email || '', role: 'Customer', companyId: companyId } as unknown as User);
+        const companyDoc = await fetchCompany(companyId);
+        setCompany(companyDoc);
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [router, pathname]);
+
+  const logout = async () => {
+    try { await fetch('/api/auth/session', { method: 'DELETE' }); } catch {}
+    await signOut(auth);
+    router.replace('/login');
+  };
+
+  const googleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err: any) {
+      const code = err?.code || '';
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/popup-blocked') {
+        await signInWithRedirect(auth, provider);
+      } else {
+        throw err;
+      }
     }
+  };
 
-    const switchUser = async (userId: string) => {
-        sessionStorage.clear();
-        setIsImpersonating(false);
-        await loadUser(userId, true);
-    };
-
-    const impersonateUser = async (userId: string) => {
-        if (currentUser && !sessionStorage.getItem(impersonationAdminIdKey)) {
-            sessionStorage.setItem(impersonationAdminIdKey, currentUser.id);
-            sessionStorage.setItem(impersonationAdminRoleKey, currentUser.role);
-            sessionStorage.setItem(impersonationUserIdKey, userId);
-        }
-        setIsImpersonating(true);
-        await loadUser(userId, true);
-    };
-
-    const stopImpersonating = async () => {
-        const adminId = sessionStorage.getItem(impersonationAdminIdKey);
-        if (adminId) {
-            sessionStorage.removeItem(impersonationAdminIdKey);
-            sessionStorage.removeItem(impersonationAdminRoleKey);
-            sessionStorage.removeItem(impersonationUserIdKey);
-            setIsImpersonating(false);
-            await loadUser(adminId, true, true);
-        }
+  const reloadCompany = async () => {
+    if (currentUser?.companyId) {
+      const c = await fetchCompany(currentUser.companyId);
+      setCompany(c);
     }
-    
-    const logout = () => {
-        switchUser(defaultUserId);
+  };
+
+  const impersonateUser = async (targetUserId: string, targetCompanyId?: string) => {
+    if (!currentUser) return;
+    const actorRole = normalizeRole(currentUser.role);
+    const companyIdToUse = targetCompanyId || currentUser.companyId;
+    if (!companyIdToUse) return;
+    const targetProfile = await fetchUserProfile(companyIdToUse, targetUserId);
+    const targetCompany = await fetchCompany(companyIdToUse);
+    if (!targetProfile || !targetCompany) return;
+    if (!canImpersonate(actorRole, targetProfile.role)) return; // silently ignore if forbidden
+    setOriginalUser(currentUser);
+    setOriginalCompany(company);
+    setCurrentUser(targetProfile);
+    setCompany(targetCompany);
+    setIsImpersonating(true);
+    // Fire audit API (best-effort; failure should not block UX)
+    try {
+      const resp = await fetch('/api/impersonation/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: companyIdToUse,
+          actorUserId: currentUser.id,
+          targetUserId,
+          actorRole: actorRole,
+          targetRole: targetProfile.role,
+        }),
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json.id) setImpersonationRecordId(json.id);
+      }
+    } catch {}
+    router.replace(actorRole === 'super_admin' ? '/super-admin' : '/admin');
+  };
+
+  const stopImpersonating = async () => {
+    if (originalUser && originalCompany) {
+      setCurrentUser(originalUser);
+      setCompany(originalCompany);
     }
+    // Close audit record
+    if (impersonationRecordId) {
+      try {
+        await fetch('/api/impersonation/end', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId: originalUser?.companyId, recordId: impersonationRecordId }),
+        });
+      } catch {}
+    }
+    setOriginalUser(null);
+    setOriginalCompany(null);
+  setIsImpersonating(false);
+    const role = normalizeRole(originalUser?.role);
+    if (role === 'super_admin') router.replace('/super-admin');
+    else if (role === 'admin' || role === 'manager') router.replace('/admin');
+    else router.replace('/');
+  };
 
-    const value = { currentUser, company, impersonateUser, loading, isImpersonating, stopImpersonating, reloadCompany, logout, switchUser };
+  const switchUser = async (_userId: string) => {
+    // Not supported in production; keep for API compatibility
+    return;
+  };
 
-    return (
-        <AuthContext.Provider value={value}>
-            {!loading && children}
-        </AuthContext.Provider>
-    );
+  const value = { currentUser, company, loading, isImpersonating, logout, googleSignIn, reloadCompany, impersonateUser, stopImpersonating, switchUser };
+
+  return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
 };
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    return <AuthHandler>{children}</AuthHandler>
-}
-
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  return <AuthHandler>{children}</AuthHandler>;
+};
 
 export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);

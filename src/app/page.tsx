@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { useState, useEffect } from "react";
 import type { UsageEntry, Allocation } from "@/lib/data";
-import { getUsageForUser, getAllocationsForUser } from "@/lib/data";
+import { getUsageForUserFS, getAllocationsForUserFS } from "@/lib/firestoreQueries";
 import { format, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +15,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 
 
 export default function CustomerDashboardPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, isImpersonating } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -28,6 +28,13 @@ export default function CustomerDashboardPage() {
     from: undefined,
     to: undefined,
   });
+
+  // Super Admins should never view the customer dashboard unless impersonating a user.
+  useEffect(() => {
+    if (currentUser && (currentUser.role || '').toLowerCase().includes('super') && !isImpersonating) {
+      router.replace('/super-admin');
+    }
+  }, [currentUser, isImpersonating, router]);
 
   useEffect(() => {
     const fromParam = searchParams.get('from');
@@ -53,10 +60,10 @@ export default function CustomerDashboardPage() {
         const fromDate = queryRange?.from ? format(queryRange.from, "yyyy-MM-dd") : undefined;
         const toDate = queryRange?.to ? format(queryRange.to, "yyyy-MM-dd") : undefined;
         
-        const [data, allocs] = await Promise.all([
-            getUsageForUser(currentUser.id, fromDate, toDate),
-            getAllocationsForUser(currentUser.id)
-        ]);
+    const [data, allocs] = await Promise.all([
+      getUsageForUserFS(currentUser.companyId, currentUser.id, fromDate, toDate),
+      getAllocationsForUserFS(currentUser.companyId, currentUser.id, currentUser.userGroupId)
+    ]);
 
         setUsageData(data);
         setAllAllocations(allocs);
@@ -89,6 +96,11 @@ export default function CustomerDashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, queryRange]);
 
+
+  // If redirecting super admin, avoid flashing dashboard
+  if (currentUser && (currentUser.role || '').toLowerCase().includes('super') && !isImpersonating) {
+    return null;
+  }
 
   return (
     <AppLayout>

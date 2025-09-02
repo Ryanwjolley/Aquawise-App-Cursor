@@ -4,11 +4,15 @@
 
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
+import { RequireRole } from "@/components/RequireRole";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Droplets, TrendingUp, Users, Target } from "lucide-react";
 import type { UsageEntry, Allocation, User as UserType, UserGroup } from "@/lib/data";
-import { getUsageForUser, getAllocationsForUser, getUsersByCompany, getUserById, getGroupsByCompany, calculateUserAllocation, getAllocationsByCompany } from "@/lib/data";
+import { calculateUserAllocation } from "@/lib/data";
+import { getUsersByCompanyFS, getGroupsByCompanyFS } from "@/lib/firestoreClientUsers";
+import { getAllocationsByCompanyFS } from "@/lib/firestoreAllocations";
+import { getUsageForUserFS } from "@/lib/firestoreQueries";
 import { format, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,7 +28,14 @@ import { Progress } from "@/components/ui/progress";
 
 
 // A component to render the aggregate company or group view
-function AggregateDashboard({ title, users, allCompanyUsers, allUsageData, allAllocations, queryRange }) {
+function AggregateDashboard({ title, users, allCompanyUsers, allUsageData, allAllocations, queryRange }: {
+  title: string;
+  users: UserType[];
+  allCompanyUsers: UserType[];
+  allUsageData: Record<string, UsageEntry[]>;
+  allAllocations: Allocation[];
+  queryRange: DateRange;
+}) {
     const { convertUsage, getUnitLabel } = useUnit();
     const allUsageEntries = users.map(u => allUsageData[u.id] || []).flat();
 
@@ -42,13 +53,29 @@ function AggregateDashboard({ title, users, allCompanyUsers, allUsageData, allAl
     const convertedTotalUsage = convertUsage(totalUsage);
     const convertedTotalAllocation = convertUsage(totalAllocation);
 
-    const donutChartData = users.map(user => {
+    const palette = [
+        'hsl(var(--chart-1))',
+        'hsl(var(--chart-2))',
+        'hsl(var(--chart-3))',
+        'hsl(var(--chart-4))',
+        'hsl(var(--chart-5))',
+    ];
+
+    const stringHash = (text: string): number => {
+        let hash = 0;
+        for (let i = 0; i < text.length; i++) {
+            hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+        }
+        return hash;
+    };
+
+    const donutChartData = users.map((user, index) => {
         const userUsage = allUsageData[user.id]?.reduce((sum, entry) => sum + entry.usage, 0) || 0;
-        const userColor = `hsl(var(--chart-${(parseInt(user.id, 16) % 5) + 1}))`;
+        const colorIndex = stringHash(user.id || user.name || String(index)) % palette.length;
         return {
             name: user.name,
             value: userUsage,
-            fill: userColor
+            fill: palette[colorIndex]
         }
     }).filter(d => d.value > 0);
 
@@ -130,7 +157,7 @@ function AggregateDashboard({ title, users, allCompanyUsers, allUsageData, allAl
 }
 
 export default function AdminDashboardPage() {
-  const { currentUser, company } = useAuth();
+  const { currentUser, company, isImpersonating } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -173,6 +200,13 @@ export default function AdminDashboardPage() {
   }, []);
 
 
+  // Redirect super admins (unless impersonating) away from admin dashboard to super-admin view
+  useEffect(() => {
+    if (currentUser && (currentUser.role || '').toLowerCase().includes('super') && !isImpersonating) {
+      router.replace('/super-admin');
+    }
+  }, [currentUser, isImpersonating, router]);
+
   // Fetch all data on load and when range changes
   useEffect(() => {
     const fetchData = async () => {
@@ -183,15 +217,15 @@ export default function AdminDashboardPage() {
         const fromDate = queryRange?.from ? format(queryRange.from, "yyyy-MM-dd") : undefined;
         const toDate = queryRange?.to ? format(queryRange.to, "yyyy-MM-dd") : undefined;
         
-        const users = await getUsersByCompany(currentUser.companyId);
+        const users = await getUsersByCompanyFS(currentUser.companyId);
         setCompanyUsers(users);
 
         if (company?.userGroupsEnabled) {
-            const groups = await getGroupsByCompany(currentUser.companyId);
+            const groups = await getGroupsByCompanyFS(currentUser.companyId);
             setUserGroups(groups);
         }
 
-        const usagePromises = users.map(user => getUsageForUser(user.id, fromDate, toDate));
+        const usagePromises = users.map(user => getUsageForUserFS(currentUser.companyId, user.id, fromDate, toDate));
         const allUsageResults = await Promise.all(usagePromises);
 
         const usageDataByUser: Record<string, UsageEntry[]> = {};
@@ -201,7 +235,7 @@ export default function AdminDashboardPage() {
         setAllUsageData(usageDataByUser);
 
         // Fetch allocations once and pass them down
-        const companyAllocations = await getAllocationsByCompany(currentUser.companyId);
+        const companyAllocations = await getAllocationsByCompanyFS(currentUser.companyId);
         setAllCompanyAllocations(companyAllocations);
         
 
@@ -237,11 +271,12 @@ export default function AdminDashboardPage() {
   // Update selected user object when ID changes
   useEffect(() => {
     if (selectedView === 'all' || selectedView.startsWith('group_')) {
-        setSelectedUser(null);
+      setSelectedUser(null);
     } else {
-        getUserById(selectedView).then(setSelectedUser);
+      const u = companyUsers.find((u) => u.id === selectedView) || null;
+      setSelectedUser(u);
     }
-  }, [selectedView])
+  }, [selectedView, companyUsers])
   
 
   const handleViewSelect = (viewId: string) => {
@@ -295,8 +330,14 @@ export default function AdminDashboardPage() {
     return <div>Select a user or group to begin.</div>;
   }
   
+  // If redirecting super admin, suppress render to prevent flicker
+  if (currentUser && (currentUser.role || '').toLowerCase().includes('super') && !isImpersonating) {
+    return null;
+  }
+
   return (
     <AppLayout>
+      <RequireRole allowed={["admin", "manager", "super_admin", "super"]}>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <div className="flex items-center justify-between space-y-2">
             <div/>
@@ -318,6 +359,7 @@ export default function AdminDashboardPage() {
         </div>
         {renderContent()}
       </div>
+      </RequireRole>
     </AppLayout>
   );
 }

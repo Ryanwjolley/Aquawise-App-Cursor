@@ -16,7 +16,10 @@ import {
 import { AllocationForm } from "@/components/dashboard/AllocationForm";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Allocation, User, UserGroup } from "@/lib/data";
-import { addAllocation, updateAllocation, deleteAllocation, getAllocationsByCompany, getUsersByCompany, getUserById, getGroupsByCompany, addNotification, checkAllUsersForAlerts, getUnitLabel as getUnitLabelFromData, CONVERSION_FACTORS_FROM_GALLONS } from "@/lib/data";
+import { getUsersByCompanyFS, getGroupsByCompanyFS } from "@/lib/firestoreClientUsers";
+import { getAllocationsByCompanyFS } from "@/lib/firestoreAllocations";
+import { addAllocationAction, updateAllocationAction, deleteAllocationAction } from "./actions";
+import { getUnitLabel as getUnitLabelFromData, CONVERSION_FACTORS_FROM_GALLONS } from "@/lib/data";
 import { sendAllocationNotificationEmail } from "@/lib/actions";
 import { PlusCircle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -50,11 +53,11 @@ export default function AllocationPage() {
     if (!currentUser?.companyId) return;
     setLoading(true);
     let requests: [Promise<Allocation[]>, Promise<User[]>, Promise<UserGroup[]>?] = [
-      getAllocationsByCompany(currentUser.companyId),
-      getUsersByCompany(currentUser.companyId),
+      getAllocationsByCompanyFS(currentUser.companyId),
+      getUsersByCompanyFS(currentUser.companyId),
     ];
     if (company?.userGroupsEnabled) {
-        requests.push(getGroupsByCompany(currentUser.companyId));
+        requests.push(getGroupsByCompanyFS(currentUser.companyId));
     }
     
     const [allocs, users, groups] = await Promise.all(requests);
@@ -88,8 +91,8 @@ export default function AllocationPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!allocationToDelete) return;
-    await deleteAllocation(allocationToDelete.id);
+  if (!allocationToDelete || !currentUser) return;
+  await deleteAllocationAction(currentUser.companyId, allocationToDelete.id, currentUser.id);
     toast({
       title: "Allocation Deleted",
       description: "The allocation has been successfully removed.",
@@ -106,9 +109,11 @@ export default function AllocationPage() {
     let savedAllocation: Allocation;
 
     if (editingAllocation) {
-        savedAllocation = await updateAllocation({ ...data, id: editingAllocation.id, companyId: currentUser.companyId });
+        await updateAllocationAction(currentUser.companyId, editingAllocation.id, data as any, currentUser.id);
+        savedAllocation = { ...data, id: editingAllocation.id, companyId: currentUser.companyId } as Allocation;
     } else {
-        savedAllocation = await addAllocation({ ...data, companyId: currentUser.companyId });
+        const created = await addAllocationAction(currentUser.companyId, data, currentUser.id);
+        savedAllocation = { ...data, id: created.id, companyId: currentUser.companyId } as Allocation;
     }
 
     toast({
@@ -117,7 +122,7 @@ export default function AllocationPage() {
     });
 
     // Re-fetch users to ensure we have the latest list for notifications
-    const allUsers = await getUsersByCompany(currentUser.companyId);
+    const allUsers = await getUsersByCompanyFS(currentUser.companyId);
     let recipients: User[] = [];
 
     // Determine recipients
@@ -137,9 +142,9 @@ export default function AllocationPage() {
             await sendAllocationNotificationEmail(savedAllocation, recipients, updateType, company.defaultUnit);
             
             // Add in-app notification
-            const unit = company.defaultUnit;
-            const unitLabel = getUnitLabelFromData(unit);
-            const convertedAmount = savedAllocation.gallons * (CONVERSION_FACTORS_FROM_GALLONS[unit] || 1);
+            const unitKey = company.defaultUnit as keyof typeof CONVERSION_FACTORS_FROM_GALLONS;
+            const unitLabel = getUnitLabelFromData(unitKey);
+            const convertedAmount = savedAllocation.gallons * (CONVERSION_FACTORS_FROM_GALLONS[unitKey] || 1);
             const formattedStart = format(new Date(savedAllocation.startDate), 'P');
             const formattedEnd = format(new Date(savedAllocation.endDate), 'P');
 
@@ -153,16 +158,23 @@ export default function AllocationPage() {
             </ul>
             <p>You can view your usage and allocation details by logging into the AquaWise dashboard.</p>`;
 
-            for (const recipient of recipients) {
-                const dashboardPath = recipient.role.includes('Admin') ? '/admin' : '/';
-                const link = `${dashboardPath}?from=${savedAllocation.startDate}&to=${savedAllocation.endDate}`;
-                addNotification({
-                    userId: recipient.id,
-                    message,
-                    details,
-                    link
-                });
-            }
+            // Persist in-app notifications in Firestore
+            // Build notification payloads and send via server API route to avoid importing server code in client bundle
+            const notificationsPayload = recipients.map(recipient => {
+              const dashboardPath = recipient.role.includes('Admin') ? '/admin' : '/';
+              const link = `${dashboardPath}?from=${savedAllocation.startDate}&to=${savedAllocation.endDate}`;
+              return {
+                userId: recipient.id,
+                message,
+                details,
+                link,
+              };
+            });
+            await fetch('/api/notifications/add', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ companyId: currentUser.companyId, notifications: notificationsPayload }),
+            });
             
             toast({
                 title: "Notifications Sent",
@@ -179,11 +191,7 @@ export default function AllocationPage() {
     }
     
     // --- Re-check for threshold alerts after allocation change ---
-    if (recipients.length > 0) {
-        const startDateForCheck = format(new Date(savedAllocation.startDate), 'yyyy-MM-dd');
-        await checkAllUsersForAlerts(recipients.map(r => r.id), startDateForCheck);
-        console.log(`Re-checked alerts for ${recipients.length} users after allocation change.`);
-    }
+  // Coming soon: re-check alert thresholds server-side
 
     setIsFormOpen(false);
     setEditingAllocation(undefined);

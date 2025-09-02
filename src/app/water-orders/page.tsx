@@ -16,8 +16,10 @@ import {
 import { MoreHorizontal, Calendar, PlusCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import type { WaterOrder, User, Unit } from "@/lib/data";
-import { getWaterOrdersForUser, updateWaterOrderStatus, getUnitLabel, addWaterOrder, checkOrderAvailability } from "@/lib/data";
+import type { WaterOrder, Unit } from "@/lib/data";
+import { getWaterOrdersForUserFS } from "@/lib/firestoreOrders";
+import { formatUnitLabel } from "@/lib/utils";
+import { checkOrderAvailabilityAction, submitWaterOrderAction } from "@/app/admin/water-orders/actions";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -41,7 +43,7 @@ export default function CustomerWaterOrdersPage() {
     const fetchOrders = async () => {
         if (!currentUser?.id) return;
         setLoading(true);
-        const userOrders = await getWaterOrdersForUser(currentUser.id);
+    const userOrders = await getWaterOrdersForUserFS(currentUser.companyId, currentUser.id);
         setOrders(userOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
         setLoading(false);
     }
@@ -58,7 +60,7 @@ export default function CustomerWaterOrdersPage() {
     const handleFormSubmit = async (data: Omit<WaterOrder, 'id' | 'companyId' | 'userId' | 'status' | 'createdAt'>) => {
         if (!currentUser || !currentUser.companyId) return;
 
-        const isAvailable = await checkOrderAvailability(currentUser.companyId, data.startDate, data.endDate, data.totalGallons);
+    const isAvailable = (await checkOrderAvailabilityAction(currentUser.companyId, data.startDate, data.endDate, data.totalGallons)).ok;
 
         if (!isAvailable) {
             toast({
@@ -71,11 +73,7 @@ export default function CustomerWaterOrdersPage() {
             return;
         }
 
-        await addWaterOrder({
-            ...data,
-            userId: currentUser.id,
-            companyId: currentUser.companyId,
-        });
+    await submitWaterOrderAction(currentUser.companyId, { ...data, userId: currentUser.id }, currentUser.id);
 
         toast({
             title: "Water Order Submitted",
@@ -155,7 +153,7 @@ export default function CustomerWaterOrdersPage() {
                                             <TableCell>
                                                 {format(new Date(order.startDate), 'P p')} - {format(new Date(order.endDate), 'P p')}
                                             </TableCell>
-                                            <TableCell>{order.amount} {getUnitLabel(order.unit)}</TableCell>
+                                            <TableCell>{order.amount} {formatUnitLabel(order.unit)}</TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <Badge variant={getBadgeVariant(order.status)} className="capitalize">{order.status}</Badge>

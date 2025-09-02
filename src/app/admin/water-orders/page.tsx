@@ -18,7 +18,9 @@ import { Settings, Calendar, PlusCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { WaterOrder, User, Unit } from "@/lib/data";
-import { getWaterOrdersByCompany, updateWaterOrderStatus, getUsersByCompany, addWaterOrder, checkOrderAvailability, checkAndCompleteExpiredOrders } from "@/lib/data";
+import { getUsersByCompanyFS } from "@/lib/firestoreClientUsers";
+import { getWaterOrdersByCompanyFS } from "@/lib/firestoreOrders";
+import { addWaterOrderAction, updateWaterOrderStatusAction, checkOrderAvailabilityAction } from "./actions";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,14 +57,14 @@ export default function AdminWaterOrdersPage() {
         setLoading(true);
 
         // Auto-complete any expired orders before fetching the list
-        await checkAndCompleteExpiredOrders(currentUser.companyId);
+        // TODO: implement cron job using Cloud Functions when orders are enabled
         
-        const [companyOrders, companyUsers] = await Promise.all([
-            getWaterOrdersByCompany(currentUser.companyId),
-            getUsersByCompany(currentUser.companyId)
+        const [companyUsers, companyOrders] = await Promise.all([
+            getUsersByCompanyFS(currentUser.companyId),
+            getWaterOrdersByCompanyFS(currentUser.companyId)
         ]);
-        setOrders(companyOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
         setUsers(companyUsers);
+        setOrders(companyOrders);
         setLoading(false);
     }
 
@@ -75,14 +77,16 @@ export default function AdminWaterOrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentUser, company]);
 
-    const handleFormSubmit = async (data: Omit<WaterOrder, 'id' | 'companyId' | 'status' | 'createdAt'>) => {
+    const handleFormSubmit = async (data: Omit<WaterOrder, 'id' | 'status' | 'createdAt' | 'companyId'>) => {
         if (!currentUser || !currentUser.companyId) return;
 
         // If an admin is creating on behalf of someone, the userId comes from the form.
         // Otherwise, it's the current user.
         const userIdForOrder = data.userId || currentUser.id;
 
-        const isAvailable = await checkOrderAvailability(currentUser.companyId, data.startDate, data.endDate, data.totalGallons);
+        // TODO: implement availability check against Firestore waterAvailabilities
+        const { ok } = await checkOrderAvailabilityAction(currentUser.companyId, data.startDate, data.endDate, data.totalGallons);
+        const isAvailable = ok;
 
         if (!isAvailable) {
             toast({
@@ -95,11 +99,7 @@ export default function AdminWaterOrdersPage() {
             return;
         }
 
-        await addWaterOrder({
-            ...data,
-            userId: userIdForOrder,
-            companyId: currentUser.companyId,
-        });
+    await addWaterOrderAction(currentUser.companyId, { ...data, userId: userIdForOrder, companyId: currentUser.companyId }, currentUser.id);
 
         toast({
             title: "Water Order Submitted",
@@ -114,7 +114,7 @@ export default function AdminWaterOrdersPage() {
         if (!currentUser) return;
         
         try {
-            await updateWaterOrderStatus(orderId, status, currentUser.id, notes);
+            await updateWaterOrderStatusAction(currentUser.companyId, orderId, status, currentUser.id, notes);
             toast({
                 title: "Order Updated",
                 description: `The water order has been successfully ${status}.`,
@@ -221,7 +221,7 @@ export default function AdminWaterOrdersPage() {
                                             <TableCell>
                                                 {format(new Date(order.startDate), 'P p')} - {format(new Date(order.endDate), 'P p')}
                                             </TableCell>
-                                            <TableCell>{order.amount} {getUnitLabel(order.unit)}</TableCell>
+                                            <TableCell>{order.amount} {getUnitLabel()}</TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <Badge variant={getBadgeVariant(order.status)} className="capitalize">{order.status}</Badge>

@@ -24,7 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { User, Unit } from "@/lib/data";
 import { format, parseISO, differenceInSeconds, differenceInDays } from "date-fns";
-import { CONVERSION_FACTORS_TO_GALLONS } from "@/lib/data";
+import { convertToGallons } from "@/lib/utils";
 
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -117,30 +117,8 @@ export function ManualUsageForm({
         return;
     }
 
-    let totalGallons = 0;
-    const { amount, unit } = data;
-    
-    // Check if it's a simple volume conversion
-    if (unit in CONVERSION_FACTORS_TO_GALLONS.volume) {
-      totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.volume[unit as keyof typeof CONVERSION_FACTORS_TO_GALLONS.volume]!;
-    } 
-    // Check if it's a rate conversion
-    else if (unit in CONVERSION_FACTORS_TO_GALLONS.rate) {
-        const durationInSeconds = differenceInSeconds(endDate, startDate);
-        switch(unit) {
-            case 'cfs':
-                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.cfs * durationInSeconds;
-                break;
-            case 'gpm':
-                const durationInMinutes = durationInSeconds / 60;
-                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate.gpm * durationInMinutes;
-                break;
-            case 'acre-feet-day':
-                const durationInDaysForRate = durationInSeconds / (24 * 60 * 60);
-                totalGallons = amount * CONVERSION_FACTORS_TO_GALLONS.rate['acre-feet-day'] * durationInDaysForRate;
-                break;
-        }
-    }
+  const durationHours = differenceInSeconds(endDate, startDate) / 3600;
+  const totalGallons = convertToGallons(data.amount, data.unit, durationHours);
 
     const entries = [];
     // Add 1 to include the end day fully in the calculation for day-based distribution

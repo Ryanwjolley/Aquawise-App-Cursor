@@ -12,7 +12,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateCompany, getGroupsByCompany, addGroup, updateGroup, deleteGroup, updateUser, User } from "@/lib/data";
+import { User } from "@/lib/data";
+import { updateCompanyAction, addGroupAction, updateGroupAction, deleteGroupAction, updateUserPreferenceAction } from './actions';
+import { getGroupsByCompanyFS } from '@/lib/firestoreClientUsers';
 import type { Unit, UserGroup } from "@/lib/data";
 import {
   Select,
@@ -54,8 +56,9 @@ import Link from "next/link";
 
 
 // --- Zod Schemas ---
+type VolumeUnit = 'gallons' | 'kgal' | 'acre-feet' | 'cubic-feet';
 const displaySettingsSchema = z.object({
-  defaultUnit: z.enum(["gallons", "kgal", "acre-feet", "cubic-feet"]),
+  defaultUnit: z.enum(["gallons", "kgal", "acre-feet", "cubic-feet"]) as z.ZodType<VolumeUnit>,
   userGroupsEnabled: z.boolean().default(false),
   waterOrdersEnabled: z.boolean().default(true),
 });
@@ -109,7 +112,7 @@ export default function SettingsPage() {
   } = useForm<DisplaySettingsFormValues>({
     resolver: zodResolver(displaySettingsSchema),
     defaultValues: {
-      defaultUnit: company?.defaultUnit || 'gallons',
+  defaultUnit: ((company?.defaultUnit as VolumeUnit) || 'gallons'),
       userGroupsEnabled: company?.userGroupsEnabled || false,
       waterOrdersEnabled: company?.waterOrdersEnabled || true,
     }
@@ -139,7 +142,7 @@ export default function SettingsPage() {
   const fetchUserGroups = async () => {
       if (!company) return;
       setLoadingGroups(true);
-      const groups = await getGroupsByCompany(company.id);
+      const groups = await getGroupsByCompanyFS(company.id);
       setUserGroups(groups);
       setLoadingGroups(false);
   };
@@ -147,7 +150,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (company && isAdmin) {
       resetDisplayForm({ 
-          defaultUnit: company.defaultUnit || 'gallons',
+          defaultUnit: (company.defaultUnit as VolumeUnit) || 'gallons',
           userGroupsEnabled: company.userGroupsEnabled || false,
           waterOrdersEnabled: company.waterOrdersEnabled ?? true,
       });
@@ -182,7 +185,7 @@ export default function SettingsPage() {
     if (!company) return;
     
     try {
-        await updateCompany({ ...company, ...data });
+        await updateCompanyAction(company.id, { ...data }, currentUser!.id);
         toast({
             title: "Settings Saved",
             description: "Display settings have been updated.",
@@ -206,7 +209,7 @@ export default function SettingsPage() {
         ...currentUser,
         notificationPreference: data.notificationPreference,
       };
-      await updateUser(updatedUserData);
+      await updateUserPreferenceAction(currentUser.companyId, currentUser.id, updatedUserData, currentUser.id);
       toast({
         title: "Preferences Saved",
         description: "Your notification preferences have been updated.",
@@ -240,7 +243,7 @@ export default function SettingsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!groupToDelete) return;
-    await deleteGroup(groupToDelete.id);
+    await deleteGroupAction(company!.id, groupToDelete.id, currentUser!.id);
     toast({
       title: "Group Deleted",
       description: `${groupToDelete.name} has been removed.`,
@@ -254,13 +257,13 @@ export default function SettingsPage() {
     if (!currentUser?.companyId) return;
     
     if (editingGroup) {
-      await updateGroup({ ...data, id: editingGroup.id, companyId: currentUser.companyId });
+      await updateGroupAction(currentUser.companyId, editingGroup.id, { ...data }, currentUser.id);
       toast({
         title: "Group Updated",
         description: "The group's details have been saved.",
       });
     } else {
-      await addGroup({ ...data, companyId: currentUser.companyId });
+      await addGroupAction(currentUser.companyId, { ...data }, currentUser.id);
       toast({
         title: "Group Added",
         description: "The new group has been created.",
@@ -335,7 +338,7 @@ export default function SettingsPage() {
             
             {isAdmin && (
             <>
-                <form onSubmit={handleDisplaySubmit(onDisplaySettingsSubmit)}>
+                <form onSubmit={handleDisplaySubmit(onDisplaySettingsSubmit as any)}>
                     <Card>
                         <CardHeader>
                             <CardTitle>Company Settings</CardTitle>
