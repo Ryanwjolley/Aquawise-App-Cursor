@@ -16,28 +16,21 @@ npm run dev:both
 Turbopack: http://localhost:3000
 Webpack fallback: http://localhost:9002
 
-## Zenner StealthAMI Integration (Mock Phase)
+## Irrigation Usage Integration (Mock)
 
-The Zenner integration currently operates in mock mode for UI & workflow validation.
+An irrigation usage sync endpoint is provided (mock mode by default) for manual ingestion during development.
 
-Manual endpoints (POST):
- - `/api/integrations/zenner/usage` (mock usage sync)
- - `/api/integrations/zenner/users` (mock user sync)
+Manual endpoint (POST):
+ - `/api/integrations/irrigation/usage` (adds recent mock usage deltas)
 
-Environment variables (real mode planned):
+Environment variables (for future live mode):
 ```
-ZENNER_BASE_URL=https://stealthami.example
-ZENNER_UTILITY=yourUtility
-ZENNER_USER=yourUser
-ZENNER_PASS=yourPassword
-SUPER_ADMIN_EMAIL=alerts@example.com
+IRRIGATION_BASE_URL=https://api.example
+IRRIGATION_API_KEY=yourKey
+IRRIGATION_TENANT=tenantId
 ```
 
-Usage writes are stored in `companies/{companyId}/usageData` with `_cumulative` tracking.
-
-Spike protection: deltas > 3x prior cumulative reading are skipped and an alert email is attempted.
-
-Daily scheduled job placeholder: `zennerDailySync` (Firebase Cloud Function) currently logs only.
+Usage writes are stored in `companies/{companyId}/usageData` with `_cumulative` tracking and basic spike protection (delta > 3x previous cumulative skipped).
 
 ## Testing
 

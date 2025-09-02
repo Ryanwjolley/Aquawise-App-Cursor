@@ -15,11 +15,6 @@ interface Env {
   SENDGRID_FROM_EMAIL?: string;
   SENDGRID_FROM_NAME?: string;
   SENDGRID_REPLY_TO?: string;
-  // Zenner integration
-  ZENNER_BASE_URL?: string;
-  ZENNER_UTILITY?: string;
-  ZENNER_USER?: string;
-  ZENNER_PASS?: string;
   // Irrigation software integration (new)
   IRRIGATION_BASE_URL?: string;
   IRRIGATION_API_KEY?: string;
@@ -57,10 +52,6 @@ export const env: Env = {
   SENDGRID_FROM_EMAIL: process.env.SENDGRID_FROM_EMAIL,
   SENDGRID_FROM_NAME: process.env.SENDGRID_FROM_NAME,
   SENDGRID_REPLY_TO: process.env.SENDGRID_REPLY_TO,
-  ZENNER_BASE_URL: process.env.ZENNER_BASE_URL,
-  ZENNER_UTILITY: process.env.ZENNER_UTILITY,
-  ZENNER_USER: process.env.ZENNER_USER,
-  ZENNER_PASS: process.env.ZENNER_PASS,
   IRRIGATION_BASE_URL: process.env.IRRIGATION_BASE_URL,
   IRRIGATION_API_KEY: process.env.IRRIGATION_API_KEY,
   IRRIGATION_TENANT: process.env.IRRIGATION_TENANT,
